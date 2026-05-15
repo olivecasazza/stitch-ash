@@ -1,0 +1,102 @@
+---
+// /checkout-success?sku=stitch
+// Standalone, framework-free confirmation page.
+// Receives sku via query param. No JS required.
+//
+// This page is intentionally minimal — the winning design draft will likely
+// replace it. But it must work on `main` post-merge in case backend ships first.
+
+const validSkus = new Set(["stitch", "ash-bloom", "ampersand"]);
+const url = Astro.url;
+const rawSku = url.searchParams.get("sku") ?? "";
+const sku = validSkus.has(rawSku) ? rawSku : null;
+
+const productNames: Record<string, string> = {
+  "stitch": "STITCH",
+  "ash-bloom": "ASH BLOOM",
+  "ampersand": "AMPERSAND",
+};
+
+const productName = sku ? productNames[sku] : null;
+const renderUrl = sku ? `/products/${sku}-front.png` : null;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>{productName ? `${productName} — reserved` : "Reservation"} · STITCH AND ASH</title>
+    <link rel="stylesheet" href="/styles/global.css" />
+    <style>
+      .confirm {
+        max-width: 36rem;
+        margin: 6rem auto;
+        padding: 0 1.5rem;
+        text-align: center;
+        color: var(--bone, #EFE6D2);
+      }
+      .confirm h1 {
+        font-size: clamp(2rem, 6vw, 3.5rem);
+        letter-spacing: 0.02em;
+        margin: 0 0 1.5rem;
+      }
+      .confirm .ember {
+        color: var(--ember, #A8221A);
+      }
+      .confirm figure {
+        margin: 2rem 0;
+      }
+      .confirm img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+        margin: 0 auto;
+      }
+      .confirm p {
+        line-height: 1.6;
+        color: var(--ash, #7A7A78);
+      }
+      .confirm p strong {
+        color: var(--bone, #EFE6D2);
+        font-weight: 400;
+      }
+      .confirm a {
+        color: var(--bone, #EFE6D2);
+        text-decoration: underline;
+        text-underline-offset: 0.25em;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="confirm">
+      {sku ? (
+        <>
+          <h1>Reserved.</h1>
+          <p>
+            Your <strong>{productName}</strong> entry is on the ledger.
+            We'll write when there's something to say.
+          </p>
+          {renderUrl && (
+            <figure>
+              <img src={renderUrl} alt={`${productName} preview`} loading="lazy" />
+            </figure>
+          )}
+          <p>
+            <a href="/">Return to STITCH AND ASH</a>
+          </p>
+        </>
+      ) : (
+        <>
+          <h1 class="ember">Nothing to confirm.</h1>
+          <p>
+            No reservation was found at this address.
+            <br />
+            <a href="/">Return to STITCH AND ASH</a>
+          </p>
+        </>
+      )}
+    </main>
+  </body>
+</html>

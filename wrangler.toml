@@ -1,8 +1,22 @@
 name = "stitch-and-ash-web"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-09-23"
 pages_build_output_dir = "dist"
 
-# KV namespace binding — actual id provisioned by NIXLAB-68
+# KV namespace binding for waitlist storage.
+#
+# The id below is a PLACEHOLDER. Operator must:
+#   1. wrangler kv namespace create STITCH_WAITLIST
+#   2. Replace PLACEHOLDER_KV_ID below with the returned id, OR bind in the
+#      Cloudflare Pages dashboard (Settings → Functions → KV bindings).
+#
+# preview_id is optional but recommended for `wrangler pages dev` against a
+# real namespace. Locally, --local mode uses an in-memory KV — no binding id
+# needed.
 [[kv_namespaces]]
 binding = "STITCH_WAITLIST"
 id = "PLACEHOLDER_KV_ID"
+# preview_id = "PLACEHOLDER_PREVIEW_KV_ID"
+
+# Secrets — set via `wrangler pages secret put <NAME>` or Pages dashboard:
+#   WAITLIST_TOKEN        required by /api/waitlist (operator-only inspect)
+#   TURNSTILE_SECRET_KEY  optional; if set, /api/checkout enforces Turnstile
