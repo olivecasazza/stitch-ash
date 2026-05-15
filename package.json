@@ -14,8 +14,9 @@
     "astro": "^5.0.0"
   },
   "devDependencies": {
-    "wrangler": "^3.0.0",
-    "@cloudflare/workers-types": "^4.0.0"
+    "@cloudflare/workers-types": "^4.0.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^3.0.0"
   },
   "engines": {
     "node": ">=20.0.0"

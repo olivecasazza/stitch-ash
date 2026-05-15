@@ -1,24 +1,16 @@
 ---
 // /checkout-success?sku=stitch
 // Standalone, framework-free confirmation page.
-// Receives sku via query param. No JS required.
+//
+// IMPORTANT: This is an Astro static build (`output: 'static'`), so the
+// frontmatter runs at BUILD time, not per-request. We cannot read
+// `Astro.url.searchParams` for the user's sku at SSG. Instead, the page
+// ships a tiny inline script that resolves `?sku=` against a known SKU
+// map on the client and swaps in the product name + image.
 //
 // This page is intentionally minimal — the winning design draft will likely
-// replace it. But it must work on `main` post-merge in case backend ships first.
-
-const validSkus = new Set(["stitch", "ash-bloom", "ampersand"]);
-const url = Astro.url;
-const rawSku = url.searchParams.get("sku") ?? "";
-const sku = validSkus.has(rawSku) ? rawSku : null;
-
-const productNames: Record<string, string> = {
-  "stitch": "STITCH",
-  "ash-bloom": "ASH BLOOM",
-  "ampersand": "AMPERSAND",
-};
-
-const productName = sku ? productNames[sku] : null;
-const renderUrl = sku ? `/products/${sku}-front.png` : null;
+// replace it. But it must work on `main` post-merge in case backend ships
+// first.
 ---
 
 <!doctype html>
@@ -27,7 +19,7 @@ const renderUrl = sku ? `/products/${sku}-front.png` : null;
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />
-    <title>{productName ? `${productName} — reserved` : "Reservation"} · STITCH AND ASH</title>
+    <title>Reservation · STITCH AND ASH</title>
     <link rel="stylesheet" href="/styles/global.css" />
     <style>
       .confirm {
@@ -67,36 +59,63 @@ const renderUrl = sku ? `/products/${sku}-front.png` : null;
         text-decoration: underline;
         text-underline-offset: 0.25em;
       }
+      [hidden] { display: none !important; }
     </style>
   </head>
   <body>
     <main class="confirm">
-      {sku ? (
-        <>
-          <h1>Reserved.</h1>
-          <p>
-            Your <strong>{productName}</strong> entry is on the ledger.
-            We'll write when there's something to say.
-          </p>
-          {renderUrl && (
-            <figure>
-              <img src={renderUrl} alt={`${productName} preview`} loading="lazy" />
-            </figure>
-          )}
-          <p>
-            <a href="/">Return to STITCH AND ASH</a>
-          </p>
-        </>
-      ) : (
-        <>
-          <h1 class="ember">Nothing to confirm.</h1>
-          <p>
-            No reservation was found at this address.
-            <br />
-            <a href="/">Return to STITCH AND ASH</a>
-          </p>
-        </>
-      )}
+      <!-- Reserved view (shown when sku is valid) -->
+      <section id="reserved" hidden>
+        <h1>Reserved.</h1>
+        <p>
+          Your <strong id="product-name"></strong> entry is on the ledger.
+          We'll write when there's something to say.
+        </p>
+        <figure>
+          <img id="product-img" src="" alt="" loading="lazy" />
+        </figure>
+        <p>
+          <a href="/">Return to STITCH AND ASH</a>
+        </p>
+      </section>
+
+      <!-- Empty view (no/invalid sku) — default visible for no-JS users -->
+      <section id="empty">
+        <h1 class="ember">Nothing to confirm.</h1>
+        <p>
+          No reservation was found at this address.
+          <br />
+          <a href="/">Return to STITCH AND ASH</a>
+        </p>
+      </section>
     </main>
+
+    <script is:inline>
+      (function () {
+        var names = {
+          "stitch": "STITCH",
+          "ash-bloom": "ASH BLOOM",
+          "ampersand": "AMPERSAND"
+        };
+        var sku = "";
+        try {
+          sku = new URLSearchParams(window.location.search).get("sku") || "";
+        } catch (_) { /* IE11 etc — leave empty */ }
+        if (sku && Object.prototype.hasOwnProperty.call(names, sku)) {
+          var productName = names[sku];
+          var renderUrl = "/products/" + sku + "-front.png";
+          var nameEl = document.getElementById("product-name");
+          var imgEl = document.getElementById("product-img");
+          if (nameEl) nameEl.textContent = productName;
+          if (imgEl) {
+            imgEl.src = renderUrl;
+            imgEl.alt = productName + " preview";
+          }
+          document.title = productName + " — reserved · STITCH AND ASH";
+          document.getElementById("reserved").hidden = false;
+          document.getElementById("empty").hidden = true;
+        }
+      })();
+    </script>
   </body>
 </html>
