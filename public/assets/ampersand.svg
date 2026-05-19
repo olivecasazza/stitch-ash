@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 150" width="150" height="150">
+  <style>
+    .amp { font-family: 'Georgia', serif; font-weight: bold; font-size: 120px; fill: #222; }
+  </style>
+  <text x="50%" y="115" text-anchor="middle" class="amp">&amp;</text>
+</svg>

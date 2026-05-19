@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" width="400" height="100">
+  <style>
+    .wordmark { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 900; font-size: 72px; fill: #111; letter-spacing: 4px; }
+  </style>
+  <text x="50%" y="70" text-anchor="middle" class="wordmark">STITCH</text>
+</svg>
