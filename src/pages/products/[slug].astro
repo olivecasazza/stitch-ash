@@ -1,0 +1,143 @@
+---
+import '../../styles/global.css';
+
+export function getStaticPaths() {
+  const products = [
+    {
+      slug: 'mark-tee',
+      sku: 'SKU-001',
+      name: 'MARK TEE',
+      price: '$68',
+      image: '/assets/sku1-mark-on-tee-mock.svg',
+      art: '/assets/sku1-mark-chest.svg',
+      summary: 'Heavyweight black tee with a restrained left-chest embroidered sigil.',
+      details: ['240gsm cotton jersey', 'Left-chest embroidery', 'Black-on-black tonal thread', 'Boxy unisex fit'],
+    },
+    {
+      slug: 'vow-hoodie',
+      sku: 'SKU-002',
+      name: 'VOW HOODIE',
+      price: '$148',
+      image: '/assets/sku2-vow-on-hoodie-mock.svg',
+      art: '/assets/sku2-vow-back.svg',
+      summary: 'Dense fleece hoodie carrying the large back vow embroidery in tonal thread.',
+      details: ['480gsm brushed fleece', 'Large back embroidery', 'Ribbed cuffs and hem', 'Oversized hood'],
+    },
+    {
+      slug: 'ember-cap',
+      sku: 'SKU-003',
+      name: 'EMBER CAP',
+      price: '$54',
+      image: '/assets/sku3-ember-on-cap-mock.svg',
+      art: '/assets/sku3-ember-cap.svg',
+      summary: 'Low-profile black cap with copper ember mark stitched at front crown.',
+      details: ['Six-panel cotton twill', 'Copper front embroidery', 'Curved brim', 'Adjustable metal clasp'],
+    },
+  ];
+
+  return products.map((product) => ({ params: { slug: product.slug }, props: { product } }));
+}
+
+const { product } = Astro.props;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={`${product.name}: ${product.summary}`} />
+    <title>{product.name} — STITCH & ASH</title>
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="site-header">
+        <nav class="container nav" aria-label="Primary navigation">
+          <a class="brand" href="/" aria-label="STITCH AND ASH home">
+            <span>STITCH & ASH</span>
+            <span>Thread only</span>
+          </a>
+          <div class="nav-links">
+            <a href="/#drop">Drop</a>
+            <a href="/#craft">Craft</a>
+            <a href="#reserve">Reserve</a>
+          </div>
+          <a class="btn btn-secondary" href="#reserve">Join waitlist</a>
+        </nav>
+      </header>
+
+      <main>
+        <section class="hero">
+          <div class="container hero-grid">
+            <div class="hero-media">
+              <div class="card">
+                <img src={product.image} alt={`${product.name} embroidered apparel mockup`} />
+              </div>
+            </div>
+            <div class="hero-copy">
+              <span class="kicker">{product.sku}</span>
+              <h1 class="display">{product.name}</h1>
+              <p class="body-lg">{product.summary}</p>
+              <div class="product-actions">
+                <a class="btn btn-primary" href="#reserve">Reserve {product.price}</a>
+                <a class="btn" href="/">Back to capsule</a>
+              </div>
+              <div class="hero-proof">
+                <div class="proof-pill"><strong>No</strong><span class="muted">print</span></div>
+                <div class="proof-pill"><strong>No</strong><span class="muted">foam</span></div>
+                <div class="proof-pill"><strong>Only</strong><span class="muted">thread</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="container split">
+            <div class="panel">
+              <span class="kicker">Embroidery artwork</span>
+              <h2 class="heading-lg">Digitized mark preview</h2>
+              <img src={product.art} alt={`${product.name} embroidery artwork`} style="margin-top: 2rem; width: min(100%, 420px);" />
+            </div>
+            <div class="panel">
+              <span class="kicker">Product spec</span>
+              <h2 class="heading-lg">Built for the pilot run.</h2>
+              <ul class="spec-list">
+                {product.details.map((detail) => (
+                  <li><strong>Detail</strong><span class="muted">{detail}</span></li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="reserve">
+          <div class="container">
+            <div class="panel">
+              <span class="kicker">Reservation</span>
+              <h2 class="heading-xl">Hold {product.name} before checkout opens.</h2>
+              <p class="body-lg">
+                Preview reservations capture demand while final commerce integration is prepared. No payment is collected here.
+              </p>
+              <form class="waitlist-form" action="/thanks" method="get">
+                <input type="hidden" name="piece" value={product.sku} />
+                <div class="form-row">
+                  <input class="field" type="email" name="email" placeholder="email@example.com" aria-label="Email address" required />
+                  <button class="btn btn-primary" type="submit">Reserve {product.price}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <div class="container footer-grid">
+          <a class="brand" href="/"><span>STITCH & ASH</span><span>Preview storefront</span></a>
+          <p>© 2026 STITCH & ASH. Exclusively embroidered black apparel.</p>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
