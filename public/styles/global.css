@@ -11,6 +11,7 @@
   --ember-red: #A8221A;
   --cold-ash: #888888;
   --black: #0A0A0A;
+  --ink: #141111;
 }
 
 *, *::before, *::after {
@@ -30,4 +31,154 @@ main {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
+}
+
+a {
+  color: var(--bone-white);
+  text-decoration-color: var(--ember-red);
+}
+
+.bug-report-trigger {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 20;
+  border: 1px solid color-mix(in srgb, var(--bone-white) 40%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 92%, transparent);
+  color: var(--bone-white);
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: 0.08em;
+  padding: 0.75rem 1rem;
+  text-transform: uppercase;
+  box-shadow: 0 0 0 1px rgba(168, 34, 26, 0.25), 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+html[data-admin-preview="true"] .bug-report-trigger {
+  border-color: var(--ember-red);
+  color: var(--bone-white);
+}
+
+.bug-report-dialog {
+  border: 1px solid color-mix(in srgb, var(--bone-white) 24%, transparent);
+  border-radius: 1rem;
+  background: #120f0f;
+  color: var(--bone-white);
+  margin: auto;
+  max-width: 38rem;
+  padding: 0;
+  width: calc(100vw - 2rem);
+}
+
+.bug-report-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(3px);
+}
+
+.bug-report-form {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.bug-report-header,
+.bug-report-actions {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.eyebrow {
+  color: var(--ember-red);
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.bug-report-copy {
+  color: var(--cold-ash);
+  line-height: 1.5;
+}
+
+.bug-report-form label {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--bone-white);
+  font-size: 0.9rem;
+}
+
+.bug-report-form textarea,
+.bug-report-form input,
+.bug-report-form select {
+  border: 1px solid color-mix(in srgb, var(--bone-white) 20%, transparent);
+  border-radius: 0.65rem;
+  background: #080707;
+  color: var(--bone-white);
+  font: inherit;
+  padding: 0.75rem;
+}
+
+.checkbox-row {
+  align-items: center;
+  display: flex !important;
+  gap: 0.65rem !important;
+}
+
+.checkbox-row input {
+  width: auto;
+}
+
+.admin-only {
+  display: none !important;
+}
+
+html[data-admin-preview="true"] .admin-only {
+  display: grid !important;
+}
+
+html[data-admin-preview="true"] .checkbox-row.admin-only {
+  display: flex !important;
+}
+
+html[data-admin-preview="true"] [data-user-copy] {
+  display: none;
+}
+
+.icon-button,
+.button {
+  border: 1px solid var(--ember-red);
+  border-radius: 999px;
+  background: var(--ember-red);
+  color: var(--bone-white);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.65rem 1rem;
+}
+
+.icon-button {
+  align-items: center;
+  display: inline-flex;
+  font-size: 1.4rem;
+  height: 2.25rem;
+  justify-content: center;
+  padding: 0;
+  width: 2.25rem;
+}
+
+.button.secondary {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--bone-white) 28%, transparent);
+}
+
+.button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.bug-report-status {
+  color: var(--cold-ash);
+  flex: 1;
+  font-size: 0.9rem;
 }
