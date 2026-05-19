@@ -2,7 +2,12 @@
 
 Preview site for STITCH AND ASH — goth/metal embroidered apparel.
 
-Hosted at [preview.stitch-ash.com](https://preview.stitch-ash.com) via Cloudflare Pages.
+Hosted via Cloudflare Pages:
+
+- Production: [stitch-ash.com](https://stitch-ash.com)
+- Staging/preview: [preview.stitch-ash.com](https://preview.stitch-ash.com)
+
+The underlying Pages project is `stitch-ash-web`; do not deploy the production build to the similarly named stale project `stitch-and-ash-web`.
 
 ## Stack
 
