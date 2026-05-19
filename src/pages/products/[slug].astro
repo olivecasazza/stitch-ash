@@ -39,6 +39,9 @@ export function getStaticPaths() {
 }
 
 const { product } = Astro.props;
+const shopifyStoreDomain = import.meta.env.PUBLIC_SHOPIFY_STORE_DOMAIN;
+const shopifyBaseUrl = shopifyStoreDomain ? `https://${shopifyStoreDomain.replace(/^https?:\/\//, '')}` : null;
+const shopifyProductUrl = shopifyBaseUrl ? `${shopifyBaseUrl}/products/${product.sku.toLowerCase()}` : null;
 ---
 
 <html lang="en">
@@ -62,9 +65,9 @@ const { product } = Astro.props;
           <div class="nav-links">
             <a href="/#drop">Drop</a>
             <a href="/#craft">Craft</a>
-            <a href="#reserve">Reserve</a>
+            {shopifyBaseUrl ? <a href={shopifyBaseUrl}>Shop</a> : <a href="#reserve">Reserve</a>}
           </div>
-          <a class="btn btn-secondary" href="#reserve">Join waitlist</a>
+          <a class="btn btn-secondary" href={shopifyBaseUrl ? shopifyBaseUrl : "#reserve"}>{shopifyBaseUrl ? 'Go to Shopify' : 'Join waitlist'}</a>
         </nav>
       </header>
 
@@ -81,7 +84,7 @@ const { product } = Astro.props;
               <h1 class="display">{product.name}</h1>
               <p class="body-lg">{product.summary}</p>
               <div class="product-actions">
-                <a class="btn btn-primary" href="#reserve">Reserve {product.price}</a>
+                <a class="btn btn-primary" href={shopifyProductUrl ?? "#reserve"}>{shopifyProductUrl ? `Buy ${product.price} on Shopify` : `Reserve ${product.price}`}</a>
                 <a class="btn" href="/">Back to capsule</a>
               </div>
               <div class="hero-proof">
@@ -118,15 +121,21 @@ const { product } = Astro.props;
               <span class="kicker">Reservation</span>
               <h2 class="heading-xl">Hold {product.name} before checkout opens.</h2>
               <p class="body-lg">
-                Preview reservations capture demand while final commerce integration is prepared. No payment is collected here.
+                {shopifyProductUrl
+                  ? 'Checkout is handled by Shopify so payment, fulfillment, inventory, and order tracking stay in the operations account.'
+                  : 'Preview reservations capture demand while final commerce integration is prepared. No payment is collected here.'}
               </p>
-              <form class="waitlist-form" action="/thanks" method="get">
-                <input type="hidden" name="piece" value={product.sku} />
-                <div class="form-row">
-                  <input class="field" type="email" name="email" placeholder="email@example.com" aria-label="Email address" required />
-                  <button class="btn btn-primary" type="submit">Reserve {product.price}</button>
-                </div>
-              </form>
+              {shopifyProductUrl ? (
+                <a class="btn btn-primary" href={shopifyProductUrl}>Buy {product.price} on Shopify</a>
+              ) : (
+                <form class="waitlist-form" action="/thanks" method="get">
+                  <input type="hidden" name="piece" value={product.sku} />
+                  <div class="form-row">
+                    <input class="field" type="email" name="email" placeholder="email@example.com" aria-label="Email address" required />
+                    <button class="btn btn-primary" type="submit">Reserve {product.price}</button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         </section>

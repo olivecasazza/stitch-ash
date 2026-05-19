@@ -1,6 +1,9 @@
 ---
 import '../styles/global.css';
 
+const shopifyStoreDomain = import.meta.env.PUBLIC_SHOPIFY_STORE_DOMAIN;
+const shopifyBaseUrl = shopifyStoreDomain ? `https://${shopifyStoreDomain.replace(/^https?:\/\//, '')}` : null;
+
 const products = [
   {
     sku: 'SKU-001',
@@ -54,11 +57,11 @@ const products = [
             <span>Thread only</span>
           </a>
           <div class="nav-links" aria-label="Store sections">
-            <a href="#drop">Drop</a>
-            <a href="#craft">Craft</a>
-            <a href="#reserve">Reserve</a>
+            <a href="/#drop">Drop</a>
+            <a href="/#craft">Craft</a>
+            {shopifyBaseUrl ? <a href={shopifyBaseUrl}>Shop</a> : <a href="/#reserve">Reserve</a>}
           </div>
-          <a class="btn btn-secondary" href="#reserve">Join waitlist</a>
+          <a class="btn btn-secondary" href={shopifyBaseUrl ? shopifyBaseUrl : "/#reserve"}>{shopifyBaseUrl ? 'Go to Shopify' : 'Join waitlist'}</a>
         </nav>
       </header>
 
@@ -119,7 +122,7 @@ const products = [
                       {product.badges.map((badge) => <span class="badge">{badge}</span>)}
                     </div>
                     <div class="product-actions">
-                      <a class="btn btn-primary" href={`${product.route}#reserve`}>Reserve</a>
+                      <a class="btn btn-primary" href={shopifyBaseUrl ? `${shopifyBaseUrl}/products/${product.sku.toLowerCase()}` : `${product.route}#reserve`}>{shopifyBaseUrl ? 'Buy on Shopify' : 'Reserve'}</a>
                       <a class="btn" href={product.route}>Details</a>
                     </div>
                   </div>
@@ -166,8 +169,9 @@ const products = [
               <span class="kicker">Preview reservation</span>
               <h2 class="heading-xl">Hold your place before checkout opens.</h2>
               <p class="body-lg">
-                This preview uses reservation language until production checkout is connected. The form captures launch
-                interest and preferred pilot piece without implying live payment processing.
+                {shopifyBaseUrl
+                  ? 'Checkout is handled by Shopify so orders, payments, and inventory stay in the Shopify operations account.'
+                  : 'This preview uses reservation language until production checkout is connected. The form captures launch interest and preferred pilot piece without implying live payment processing.'}
               </p>
               <form class="waitlist-form" action="/thanks" method="get">
                 <div class="form-row">

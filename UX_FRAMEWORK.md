@@ -153,5 +153,5 @@ Tone:
 ## 5. SWE Implementation Notes
 - Expose design tokens as CSS custom properties: color, spacing, radius, type scale, shadow, transition.
 - Build reusable components before page assembly: Header, ProductCard, Button, Badge, SizeSelector, CartDrawer, CheckoutStep, OrderStatusTimeline.
-- Keep commerce integration abstracted behind product/cart/checkout services so Shopify, Stripe, Plaid, or future providers can be swapped.
+- Keep commerce integration abstracted behind product/cart/checkout services so Shopify can be swapped in natively. We are choosing Shopify to handle our operational tooling (order tracking, purchase/banking features, inventory management). All transactions and backend state will route through a Shopify account.
 - Initial preview can use static products if the purchase path is clearly wired to the selected commerce provider or a realistic checkout sandbox.
