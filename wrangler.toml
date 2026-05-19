@@ -2,12 +2,5 @@ name = "stitch-and-ash-web"
 compatibility_date = "2024-12-01"
 pages_build_output_dir = "dist"
 
-[[kv_namespaces]]
-binding = "STITCH_WAITLIST"
-id = "PLACEHOLDER_KV_ID"
-
-# Human-admin bug reports from non-admin users. Admin submissions go to
-# Paperclip's software-development board instead.
-[[kv_namespaces]]
-binding = "STITCH_BUG_REPORTS"
-id = "PLACEHOLDER_BUG_REPORTS_KV_ID"
+# Cloudflare Pages Function bindings are managed in the Pages project settings.
+# Do not put placeholder KV ids here; Wrangler validates them during deploy.
