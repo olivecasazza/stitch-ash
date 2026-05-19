@@ -1,36 +1,99 @@
 name: Deploy Site
 
 on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub environment to deploy
+        required: true
+        type: choice
+        options:
+          - preview
+          - production
+      ref:
+        description: Git ref to deploy; defaults to the workflow ref
+        required: false
+        type: string
   push:
     branches:
+      - preview
       - main
       - master
-  pull_request:
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: deploy-${{ inputs.environment || (github.ref_name == 'preview' && 'preview' || 'production') }}
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  select-environment:
+    name: Select deployment environment
     runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.select.outputs.environment }}
+      ref: ${{ steps.select.outputs.ref }}
     steps:
-      - uses: actions/checkout@v4
-      
+      - id: select
+        name: Resolve target environment and ref
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            environment="${{ inputs.environment }}"
+            ref="${{ inputs.ref }}"
+            if [[ -z "$ref" ]]; then
+              ref="${{ github.ref_name }}"
+            fi
+          elif [[ "${{ github.ref_name }}" == "preview" ]]; then
+            environment="preview"
+            ref="preview"
+          elif [[ "${{ github.ref_name }}" == "main" || "${{ github.ref_name }}" == "master" ]]; then
+            environment="production"
+            ref="${{ github.ref_name }}"
+          else
+            echo "Unsupported deployment branch: ${{ github.ref_name }}" >&2
+            exit 1
+          fi
+
+          echo "environment=$environment" >> "$GITHUB_OUTPUT"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy ${{ needs.select-environment.outputs.environment }}
+    needs: select-environment
+    runs-on: ubuntu-latest
+    environment: ${{ needs.select-environment.outputs.environment }}
+    steps:
+      - name: Check out selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.select-environment.outputs.ref }}
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
-          
-      - name: Install Dependencies
+
+      - name: Install dependencies
         run: npm ci
-        
+
       - name: Build
         run: npm run build
-        
+        env:
+          NODE_ENV: production
+          PUBLIC_DEPLOY_ENVIRONMENT: ${{ needs.select-environment.outputs.environment }}
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: 'stitch-ash'
-          directory: 'dist'
+          directory: dist
           githubToken: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ github.head_ref || github.ref_name }}
+          branch: ${{ needs.select-environment.outputs.environment }}
