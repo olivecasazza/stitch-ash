@@ -1,150 +1,133 @@
 ---
-const isAdminPreview = Astro.url.searchParams.get("admin") === "1";
----
+// STITCH AND ASH — homepage (swe draft)
+// Engineering bias: zero JS on initial load, SVG wordmark (no font CDN),
+// View Transitions for product nav (Astro built-in).
+import { ViewTransitions } from "astro:transitions";
 
+const products = [
+  {
+    slug: "stitch",
+    name: "STITCH",
+    desc: "Gothic wordmark tee. Bone on black.",
+    price: 42,
+    detail: "Left-chest embroidery, 280g cotton.",
+  },
+  {
+    slug: "ash-bloom",
+    name: "ASH BLOOM",
+    desc: "Dead-rose hoodie. Back-piece embroidery.",
+    price: 74,
+    detail: "Heavyweight fleece, ember thread.",
+  },
+  {
+    slug: "ampersand",
+    name: "AMPERSAND",
+    desc: "Thread-loop glyph cap.",
+    price: 28,
+    detail: "Unstructured 6-panel, bone canvas.",
+  },
+];
+---
 <!doctype html>
-<html lang="en" data-admin-preview={isAdminPreview ? "true" : "false"}>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="STITCH AND ASH — embroidered apparel. Gothic precision." />
+    <meta name="description" content="STITCH AND ASH — embroidered apparel. Gothic precision, restraint, craft." />
+    <meta name="theme-color" content="#07060A" />
     <title>STITCH AND ASH</title>
+    <link rel="preload" as="style" href="/styles/global.css" />
     <link rel="stylesheet" href="/styles/global.css" />
+    <ViewTransitions />
   </head>
   <body>
+    <header class="site-header">
+      <a href="/" aria-label="STITCH AND ASH home">
+        <svg class="mark" viewBox="0 0 220 32" role="img" aria-label="STITCH AND ASH">
+          <text x="0" y="24" font-family='"UnifrakturMaguntia", "Old English Text MT", "Cambria", serif'
+                font-size="26" letter-spacing="1.5" font-weight="400">STITCH &amp; ASH</text>
+        </svg>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/products/stitch">Shop</a>
+        <a href="#statement">Brand</a>
+        <a href="#signup">Waitlist</a>
+      </nav>
+    </header>
+
     <main>
-      <h1>STITCH AND ASH</h1>
-      <p>Coming soon.</p>
-      <p><a href="/products/stitch/">Preview the STITCH wordmark tee</a></p>
-      <p><a href="/ops-platform/">Operations platform recommendation</a></p>
+      <!-- HERO -->
+      <section class="hero wrap">
+        <h1>
+          <svg class="mark mark--hero" viewBox="0 0 600 120" role="img" aria-label="STITCH AND ASH">
+            <text x="0" y="92" font-family='"UnifrakturMaguntia", "Old English Text MT", "Cambria", serif'
+                  font-size="104" letter-spacing="2" font-weight="400">STITCH &amp; ASH</text>
+          </svg>
+        </h1>
+        <p class="tag">
+          Embroidered apparel. <strong>STITCH</strong> is the craft.
+          <strong>ASH</strong> is what it costs.
+        </p>
+      </section>
+
+      <!-- PRODUCTS -->
+      <section class="wrap" aria-labelledby="prod-h">
+        <p class="eyebrow" id="prod-h" style="margin-block-start: clamp(3rem, 6vw, 5rem)">Preview &mdash; pilot run</p>
+        <div class="products">
+          {products.map((p) => (
+            <a class="card" href={`/products/${p.slug}`}>
+              <div class="card-image" aria-hidden="true">{p.name.toLowerCase()}</div>
+              <h3>{p.name}</h3>
+              <p class="measure" style="margin:0;color:var(--ash);font-size:0.92rem">{p.desc}</p>
+              <div class="meta">
+                <span>{p.detail}</span>
+                <span class="price">${p.price}</span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <!-- BRAND STATEMENT -->
+      <section id="statement" class="statement">
+        <div class="wrap measure stack">
+          <p class="eyebrow">Brand</p>
+          <p>
+            Two words held in tension. STITCH is precision &mdash;
+            the slow needle, the locked thread, the part that survives wash
+            after wash. ASH is what burns clean: restraint, weight, the
+            black ground that lets the mark sit.
+          </p>
+          <p>
+            We make embroidered apparel in small runs. Bone-white thread on
+            black blanks. Ember-red where it cuts. Nothing extra.
+          </p>
+        </div>
+      </section>
+
+      <!-- WAITLIST -->
+      <section id="signup" class="signup wrap">
+        <p class="eyebrow">Pilot waitlist</p>
+        <form method="post" action="/api/checkout" class="stack">
+          <div>
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@elsewhere.com" />
+          </div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <input type="hidden" name="intent" value="waitlist" />
+            <button type="submit">Join the waitlist</button>
+          </div>
+          <p class="note">
+            During the pilot, orders are free &mdash; you&rsquo;ll receive a render of
+            the piece. Real fulfilment lands in the next phase.
+          </p>
+        </form>
+      </section>
     </main>
 
-    <button class="bug-report-trigger" type="button" data-bug-trigger>
-      Report bug
-    </button>
-
-    <dialog class="bug-report-dialog" data-bug-dialog>
-      <form class="bug-report-form" method="dialog" data-bug-form>
-        <div class="bug-report-header">
-          <div>
-            <p class="eyebrow">Site feedback</p>
-            <h2>Report a bug</h2>
-          </div>
-          <button class="icon-button" type="button" aria-label="Close bug report" data-bug-close>×</button>
-        </div>
-
-        <p class="bug-report-copy" data-user-copy>
-          Tell us what broke. This goes to the human Stitch & Ash admin queue, not the engineering backlog.
-        </p>
-        <p class="bug-report-copy admin-only" data-admin-copy>
-          Admin mode is active. Submitting creates a Paperclip issue for the software development team.
-        </p>
-
-        <label>
-          What happened?
-          <textarea name="description" rows="5" required placeholder="Expected checkout to open, but the button did nothing..."></textarea>
-        </label>
-
-        <label>
-          Contact email (optional)
-          <input name="email" type="email" autocomplete="email" placeholder="you@example.com" />
-        </label>
-
-        <label class="admin-only">
-          Engineering severity
-          <select name="severity">
-            <option value="low">Low — polish / copy / layout</option>
-            <option value="medium" selected>Medium — blocks a path but workaround exists</option>
-            <option value="high">High — checkout, money, fulfillment, or admin path broken</option>
-            <option value="urgent">Urgent — production outage or data/security risk</option>
-          </select>
-        </label>
-
-        <label class="admin-only checkbox-row">
-          <input name="includeDiagnostics" type="checkbox" checked />
-          Attach route, viewport, user agent, and admin diagnostics
-        </label>
-
-        <input type="hidden" name="route" data-bug-route />
-        <input type="hidden" name="adminMode" data-bug-admin-mode />
-        <input type="hidden" name="diagnostics" data-bug-diagnostics />
-
-        <div class="bug-report-actions">
-          <output class="bug-report-status" data-bug-status></output>
-          <button class="button secondary" type="button" data-bug-close>Cancel</button>
-          <button class="button" type="submit">Submit report</button>
-        </div>
-      </form>
-    </dialog>
-
-    <script>
-      const adminFlag = new URLSearchParams(window.location.search).get("admin") === "1";
-      const adminStorageKey = "stitchAshAdminMode";
-      if (adminFlag) localStorage.setItem(adminStorageKey, "true");
-      const adminMode = localStorage.getItem(adminStorageKey) === "true";
-      document.documentElement.dataset.adminPreview = adminMode ? "true" : "false";
-
-      const dialog = document.querySelector("[data-bug-dialog]");
-      const form = document.querySelector("[data-bug-form]");
-      const status = document.querySelector("[data-bug-status]");
-      const routeInput = document.querySelector("[data-bug-route]");
-      const adminModeInput = document.querySelector("[data-bug-admin-mode]");
-      const diagnosticsInput = document.querySelector("[data-bug-diagnostics]");
-
-      const diagnostics = () => ({
-        href: window.location.href,
-        path: window.location.pathname,
-        viewport: `${window.innerWidth}x${window.innerHeight}`,
-        userAgent: navigator.userAgent,
-        referrer: document.referrer || null,
-        adminMode,
-        timestamp: new Date().toISOString(),
-      });
-
-      document.querySelectorAll("[data-bug-trigger]").forEach((button) => {
-        button.addEventListener("click", () => {
-          routeInput.value = window.location.pathname;
-          adminModeInput.value = adminMode ? "true" : "false";
-          diagnosticsInput.value = JSON.stringify(diagnostics());
-          status.textContent = "";
-          dialog.showModal();
-        });
-      });
-
-      document.querySelectorAll("[data-bug-close]").forEach((button) => {
-        button.addEventListener("click", () => dialog.close());
-      });
-
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        status.textContent = "Sending...";
-        const submitButton = form.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-
-        try {
-          const payload = Object.fromEntries(new FormData(form).entries());
-          payload.adminMode = adminMode;
-          payload.diagnostics = diagnostics();
-
-          const response = await fetch("/api/bug-report", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || "Unable to submit report");
-
-          status.textContent = adminMode
-            ? `Created Paperclip issue ${result.identifier || "for software development"}.`
-            : "Sent to the Stitch & Ash admin queue.";
-          form.reset();
-          setTimeout(() => dialog.close(), 1200);
-        } catch (error) {
-          status.textContent = error instanceof Error ? error.message : "Unable to submit report";
-        } finally {
-          submitButton.disabled = false;
-        }
-      });
-    </script>
+    <footer class="site-foot">
+      <span>&copy; STITCH &amp; ASH &mdash; pilot</span>
+      <span>Bone &middot; Ember &middot; Ash</span>
+    </footer>
   </body>
 </html>
