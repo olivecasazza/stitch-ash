@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="100%" height="100%">
+  <defs>
+    <linearGradient id="hoodie-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a1a"/>
+      <stop offset="50%" stop-color="#111111"/>
+      <stop offset="100%" stop-color="#0a0a0a"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="10" stdDeviation="15" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <rect width="800" height="1000" fill="#f4f4f5"/>
+  
+  <!-- Hoodie Silhouette -->
+  <g filter="url(#shadow)">
+    <!-- Hood -->
+    <path d="M 280 250 Q 400 50 520 250 Q 550 300 520 350 L 280 350 Q 250 300 280 250 Z" fill="url(#hoodie-grad)"/>
+    <!-- Sleeves -->
+    <path d="M 280 300 L 150 700 Q 140 750 180 750 L 250 400 Z" fill="url(#hoodie-grad)"/>
+    <path d="M 520 300 L 650 700 Q 660 750 620 750 L 550 400 Z" fill="url(#hoodie-grad)"/>
+    <!-- Body -->
+    <path d="M 280 300 Q 400 350 520 300 L 550 850 Q 400 900 250 850 Z" fill="url(#hoodie-grad)"/>
+    <!-- Ribbing -->
+    <rect x="255" y="850" width="290" height="40" rx="5" fill="#151515"/>
+  </g>
+
+  <!-- Embroidery: Bone Ribcage and Ampersand -->
+  <g stroke="#e2dcd0" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">
+    <!-- Center Sternum / Ampersand fusion -->
+    <path d="M 400 400 Q 430 430 380 480 Q 330 530 400 580 Q 470 550 430 480 L 370 580" stroke-width="6"/>
+    <!-- Ribs spreading outward -->
+    <!-- Left -->
+    <path d="M 380 430 Q 320 420 280 470" stroke-dasharray="2, 6"/>
+    <path d="M 370 480 Q 310 490 290 540" stroke-dasharray="2, 6"/>
+    <path d="M 380 540 Q 320 560 310 610" stroke-dasharray="2, 6"/>
+    <!-- Right -->
+    <path d="M 420 430 Q 480 420 520 470" stroke-dasharray="2, 6"/>
+    <path d="M 430 480 Q 490 490 510 540" stroke-dasharray="2, 6"/>
+    <path d="M 420 540 Q 480 560 490 610" stroke-dasharray="2, 6"/>
+  </g>
+
+  <!-- Product Tag -->
+  <g transform="translate(40, 40)">
+    <rect width="200" height="80" rx="8" fill="white" opacity="0.9"/>
+    <text x="20" y="35" font-family="monospace" font-size="14" font-weight="bold" fill="#000">OSSIFY HOODIE</text>
+    <text x="20" y="55" font-family="monospace" font-size="12" fill="#666">BONE THREAD ON ASH</text>
+  </g>
+</svg>

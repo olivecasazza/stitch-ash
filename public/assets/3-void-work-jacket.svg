@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="100%" height="100%">
+  <defs>
+    <linearGradient id="jacket-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#151515"/>
+      <stop offset="100%" stop-color="#050505"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="10" stdDeviation="15" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <rect width="800" height="1000" fill="#27272a"/>
+
+  <!-- Jacket Silhouette -->
+  <g filter="url(#shadow)">
+    <!-- Collar -->
+    <path d="M 320 180 L 480 180 L 520 250 L 400 300 L 280 250 Z" fill="#111"/>
+    
+    <!-- Body -->
+    <path d="M 280 250 L 520 250 L 550 800 L 250 800 Z" fill="url(#jacket-grad)"/>
+    
+    <!-- Front Zipper Placket -->
+    <rect x="395" y="300" width="10" height="500" fill="#000"/>
+    
+    <!-- Hardware -->
+    <circle cx="400" cy="320" r="5" fill="#333"/>
+    <circle cx="400" cy="780" r="5" fill="#333"/>
+
+    <!-- Angular Pockets -->
+    <polygon points="280,500 370,500 350,650 280,630" fill="none" stroke="#222" stroke-width="4"/>
+    <polygon points="520,500 430,500 450,650 520,630" fill="none" stroke="#222" stroke-width="4"/>
+    
+    <!-- Sleeves -->
+    <path d="M 280 250 L 100 650 L 150 680 L 290 400 Z" fill="url(#jacket-grad)"/>
+    <path d="M 520 250 L 700 650 L 650 680 L 510 400 Z" fill="url(#jacket-grad)"/>
+  </g>
+
+  <!-- Left Chest Monogram -->
+  <g transform="translate(320, 380)">
+    <circle cx="0" cy="0" r="20" fill="none" stroke="#e2dcd0" stroke-width="2" stroke-dasharray="2,2" opacity="0.5"/>
+    <path d="M -10 -5 Q 0 -15 10 0 Q 0 15 -10 5" fill="none" stroke="#e2dcd0" stroke-width="2"/>
+    <line x1="-12" y1="12" x2="12" y2="-12" stroke="#e2dcd0" stroke-width="2"/>
+  </g>
+
+  <!-- Large structural embroidery on right lower panel extending over pocket -->
+  <g stroke="#3f3f46" stroke-width="2" fill="none" transform="translate(480, 580)">
+    <path d="M -50 -100 L 50 -30 L 20 80 L -80 40 Z" stroke-dasharray="5,5"/>
+    <path d="M 0 -80 L 0 50" stroke-dasharray="2,8"/>
+    <path d="M -60 0 L 30 0" stroke-dasharray="2,8"/>
+    <circle cx="0" cy="0" r="40" stroke-dasharray="4,12"/>
+    
+    <!-- Focal pop of Ember -->
+    <circle cx="20" cy="-30" r="3" fill="#e04e22" stroke="none"/>
+    <circle cx="-10" cy="40" r="2" fill="#b22b10" stroke="none"/>
+  </g>
+
+  <!-- Product Tag -->
+  <g transform="translate(40, 40)">
+    <rect width="200" height="80" rx="8" fill="white" opacity="0.9"/>
+    <text x="20" y="35" font-family="monospace" font-size="14" font-weight="bold" fill="#000">SCAFFOLD JACKET</text>
+    <text x="20" y="55" font-family="monospace" font-size="12" fill="#666">TONAL ASH + EMBER HIT</text>
+  </g>
+</svg>

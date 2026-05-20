@@ -1,0 +1,33 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getProduct, products } from '../../data/products';
+
+export function getStaticPaths() {
+  return products.map((product) => ({ params: { slug: product.slug } }));
+}
+
+const product = getProduct(Astro.params.slug ?? '');
+if (!product) {
+  return Astro.redirect('/');
+}
+---
+<BaseLayout title={`${product.name} — STITCH AND ASH`} description={product.description}>
+  <main class="page-shell product-page">
+    <a class="back-link kicker" href="/">← Back to drop</a>
+    <section class="detail-grid">
+      <div class="image-panel product-image-frame">
+        <img src={product.image} alt={product.alt} />
+      </div>
+      <article class="detail-copy">
+        <p class="kicker">{product.type}</p>
+        <h1 class="section-title">{product.name}</h1>
+        <p class="copy">{product.description}</p>
+        <p class="price">{product.price}</p>
+        <ul>
+          {product.details.map((detail) => <li>{detail}</li>)}
+        </ul>
+        <button type="button">Join launch list</button>
+      </article>
+    </section>
+  </main>
+</BaseLayout>

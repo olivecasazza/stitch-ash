@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- STITCH AND ASH — SKU-2 'Vow' on Independent Trading SS4500 heavyweight hoodie (charcoal pitch).
+     Thumbnail / placement spec preview only. Not for production. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 700" width="600" height="700">
+  <rect width="600" height="700" fill="#1A1A1A"/>
+  <text x="300" y="30" text-anchor="middle" fill="#7A7468" font-family="Impact, sans-serif" font-size="14" letter-spacing="4">SKU-2 · VOW · FULL BACK · INDEPENDENT SS4500 HOODIE (CHARCOAL PITCH)</text>
+
+  <!-- hoodie back silhouette -->
+  <g transform="translate(80,55)">
+    <!-- hood -->
+    <path d="M 160 20 Q 220 0 280 20 L 285 75 Q 220 50 155 75 Z" fill="#0A0A0A" stroke="#2A2A2A" stroke-width="1.5"/>
+    <!-- body -->
+    <path d="M 130 80 L 310 80 L 370 110 L 430 180 L 380 220 L 350 175 L 350 615 L 90 615 L 90 175 L 60 220 L 10 180 L 70 110 Z"
+          fill="#0A0A0A" stroke="#2A2A2A" stroke-width="1.5"/>
+    <!-- back yoke line -->
+    <line x1="90" y1="110" x2="350" y2="110" stroke="#2A2A2A" stroke-width="1"/>
+
+    <!-- design placement zone, centered on upper back ~3" below yoke -->
+    <g transform="translate(220,290)">
+      <!-- mark (top) -->
+      <g transform="translate(0,-50)">
+        <g fill="none" stroke="#E6E6E6" stroke-width="2.2" stroke-dasharray="9 5">
+          <circle cx="0" cy="0" r="44" fill="none"/>
+        </g>
+        <g fill="#B8332A">
+          <path d="M -56.5 -57.5 L -55.3 -58.7 L 57.7 54.3 L 56.7 55.3 Z"/>
+          <circle cx="-56" cy="-56" r="2.9" fill="none" stroke="#B8332A" stroke-width="1.0"/>
+        </g>
+        <g fill="#7A7468">
+          <circle cx="-14" cy="17" r="1.2"/><circle cx="12" cy="-8" r="1.2"/>
+          <circle cx="20" cy="22" r="1.2"/><circle cx="-27" cy="-15" r="1.2"/>
+          <circle cx="28" cy="-28" r="1.2"/><circle cx="-8" cy="32" r="1.2"/>
+        </g>
+      </g>
+      <!-- wordmark below -->
+      <g text-anchor="middle">
+        <text y="75" fill="#E6E6E6" font-family="Impact, 'Arial Black', sans-serif" font-weight="900" font-size="38" letter-spacing="6">STITCH</text>
+        <text y="115" fill="#E6E6E6" font-family="Impact, 'Arial Black', sans-serif" font-weight="900" font-size="38" letter-spacing="6">AND ASH</text>
+        <line x1="-70" y1="138" x2="70" y2="138" stroke="#7A7468" stroke-width="0.7"/>
+        <text y="155" fill="#7A7468" font-family="Impact, sans-serif" font-size="9" letter-spacing="3">STITCHED IN THE DARK.</text>
+      </g>
+    </g>
+  </g>
+  <text x="300" y="670" text-anchor="middle" fill="#7A7468" font-family="Impact, sans-serif" font-size="10">~10,700 stitches · 3 colors · suggested retail $108</text>
+</svg>
