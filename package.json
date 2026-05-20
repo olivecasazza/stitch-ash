@@ -1,17 +1,23 @@
 {
-  "name": "stitch-and-ash-preview",
-  "version": "0.1.0",
-  "private": true,
+  "name": "stitch-and-ash-web",
   "type": "module",
+  "version": "0.1.0",
   "scripts": {
-    "dev": "astro dev --host 0.0.0.0",
+    "dev": "astro dev",
+    "start": "astro dev",
     "build": "astro build",
-    "preview": "astro preview --host 0.0.0.0"
+    "preview": "astro preview",
+    "astro": "astro",
+    "typecheck": "astro check"
   },
   "dependencies": {
-    "@astrojs/check": "latest",
-    "astro": "latest",
-    "typescript": "latest"
+    "astro": "^5.0.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "wrangler": "^3.0.0",
+    "@cloudflare/workers-types": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
 }
