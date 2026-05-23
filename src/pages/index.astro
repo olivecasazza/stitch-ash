@@ -4,33 +4,11 @@
 // View Transitions for product nav (Astro built-in).
 import BaseLayout from "../layouts/BaseLayout.astro";
 import CartDrawer from "../components/CartDrawer.astro";
+import ProductCard from "../components/ProductCard.astro";
+import { PRODUCTS } from "../data/products.ts";
 
 // Waitlist confirmation: /api/checkout returns a 303 to /?waitlist=ok on success.
 const waitlistParam = Astro.url.searchParams.get("waitlist");
-
-const products = [
-  {
-    slug: "stitch",
-    name: "STITCH",
-    desc: "Gothic wordmark tee. Bone on black.",
-    price: 42,
-    detail: "Left-chest embroidery, 280g cotton.",
-  },
-  {
-    slug: "ash-bloom",
-    name: "ASH BLOOM",
-    desc: "Dead-rose hoodie. Back-piece embroidery.",
-    price: 74,
-    detail: "Heavyweight fleece, ember thread.",
-  },
-  {
-    slug: "ampersand",
-    name: "AMPERSAND",
-    desc: "Thread-loop glyph cap.",
-    price: 28,
-    detail: "Unstructured 6-panel, bone canvas.",
-  },
-];
 ---
 <BaseLayout title="STITCH AND ASH">
   <main>
@@ -63,18 +41,16 @@ const products = [
 
     <!-- PRODUCTS -->
     <section class="wrap" aria-labelledby="prod-h">
-      <p class="eyebrow" id="prod-h" style="margin-block-start: clamp(3rem, 6vw, 5rem)">Preview &mdash; pilot run</p>
+      <p class="eyebrow" id="prod-h" style="margin-block-start: clamp(3rem, 6vw, 5rem)">The first capsule &mdash; embroidered black on black</p>
       <div class="products">
-        {products.map((p) => (
-          <a class="card" href={`/products/${p.slug}`}>
-            <div class="card-image" aria-hidden="true">{p.name.toLowerCase()}</div>
-            <h3>{p.name}</h3>
-            <p class="measure" style="margin:0;color:var(--ash-silver);font-size:0.92rem">{p.desc}</p>
-            <div class="meta">
-              <span>{p.detail}</span>
-              <span class="price">${p.price}</span>
-            </div>
-          </a>
+        {PRODUCTS.map((p) => (
+          <ProductCard
+            href={`/products/${p.handle}`}
+            name={p.name}
+            price={p.price}
+            note={p.embroideryCopy}
+            badge={p.badge}
+          />
         ))}
       </div>
     </section>
@@ -90,8 +66,9 @@ const products = [
           black ground that lets the mark sit.
         </p>
         <p>
-          We make embroidered apparel in small runs. Bone-white thread on
-          black blanks. Ember-red where it cuts. Nothing extra.
+          We make embroidered apparel in small runs. Black thread on black
+          ground. Every piece carries two embroidered elements: the design,
+          and the mark. Nothing extra.
         </p>
       </div>
     </section>
