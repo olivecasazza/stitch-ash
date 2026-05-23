@@ -4,6 +4,9 @@
 // View Transitions for product nav (Astro built-in).
 import { ViewTransitions } from "astro:transitions";
 
+// Waitlist confirmation: /api/checkout returns a 303 to /?waitlist=ok on success.
+const waitlistParam = Astro.url.searchParams.get("waitlist");
+
 const products = [
   {
     slug: "stitch",
@@ -108,20 +111,30 @@ const products = [
       <!-- WAITLIST -->
       <section id="signup" class="signup wrap">
         <p class="eyebrow">Pilot waitlist</p>
-        <form method="post" action="/api/checkout" class="stack">
-          <div>
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@elsewhere.com" />
-          </div>
-          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-            <input type="hidden" name="intent" value="waitlist" />
-            <button type="submit">Join the waitlist</button>
-          </div>
-          <p class="note">
-            During the pilot, orders are free &mdash; you&rsquo;ll receive a render of
-            the piece. Real fulfilment lands in the next phase.
+        {waitlistParam === "ok" ? (
+          <p class="note" role="status" aria-live="polite" style="color:var(--bone)">
+            You&rsquo;re on the list. We&rsquo;ll reach out when the pilot opens.
           </p>
-        </form>
+        ) : (
+          /* POST /api/checkout with intent=waitlist — handled by functions/api/checkout.js.
+             On success the function redirects to /?waitlist=ok (303).
+             Future PDP add-to-cart will POST JSON { items: [{variantId, quantity}] }
+             to the same endpoint to get a Shopify checkoutUrl. */
+          <form method="post" action="/api/checkout" class="stack">
+            <div>
+              <label for="email">Email</label>
+              <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@elsewhere.com" />
+            </div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+              <input type="hidden" name="intent" value="waitlist" />
+              <button type="submit">Join the waitlist</button>
+            </div>
+            <p class="note">
+              During the pilot, orders are free &mdash; you&rsquo;ll receive a render of
+              the piece. Real fulfilment lands in the next phase.
+            </p>
+          </form>
+        )}
       </section>
     </main>
 

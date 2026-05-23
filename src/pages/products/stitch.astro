@@ -1,6 +1,9 @@
 ---
 // STITCH AND ASH — STITCH product page (swe draft)
 import { ClientRouter } from "astro:transitions";
+
+// Waitlist confirmation: /api/checkout returns 303 to /products/stitch?waitlist=ok on success.
+const waitlistParam = Astro.url.searchParams.get("waitlist");
 ---
 <!doctype html>
 <html lang="en">
@@ -68,19 +71,29 @@ import { ClientRouter } from "astro:transitions";
             <div><dt style="display:inline;font-weight:600;color:var(--bone)">Care</dt> <dd style="display:inline;margin:0">Inside-out, cold, hang-dry.</dd></div>
           </dl>
 
-          <form method="post" action="/api/checkout" class="stack">
-            <input type="hidden" name="sku" value="stitch" />
-            <input type="hidden" name="intent" value="waitlist" />
-            <div>
-              <label for="email">Reserve a unit</label>
-              <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@elsewhere.com" />
-            </div>
-            <button type="submit">Join the STITCH waitlist</button>
-            <p class="note">
-              No charge during pilot. We email a render of your unit and notify
-              when production opens.
+          {waitlistParam === "ok" ? (
+            <p class="note" role="status" aria-live="polite" style="color:var(--bone)">
+              You&rsquo;re on the STITCH list. We&rsquo;ll reach out when the pilot opens.
             </p>
-          </form>
+          ) : (
+            /* POST /api/checkout with intent=waitlist — handled by functions/api/checkout.js.
+               On success the function redirects to /products/stitch?waitlist=ok (303).
+               When Shopify variant IDs are available, a future PDP update will POST
+               JSON { items: [{variantId, quantity}] } to the same endpoint instead. */
+            <form method="post" action="/api/checkout" class="stack">
+              <input type="hidden" name="sku" value="stitch" />
+              <input type="hidden" name="intent" value="waitlist" />
+              <div>
+                <label for="email">Reserve a unit</label>
+                <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@elsewhere.com" />
+              </div>
+              <button type="submit">Join the STITCH waitlist</button>
+              <p class="note">
+                No charge during pilot. We email a render of your unit and notify
+                when production opens.
+              </p>
+            </form>
+          )}
         </div>
       </article>
     </main>

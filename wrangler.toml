@@ -2,5 +2,36 @@ name = "stitch-ash-web"
 compatibility_date = "2024-12-01"
 pages_build_output_dir = "dist"
 
-# Cloudflare Pages Function bindings are managed in the Pages project settings.
-# Do not put placeholder KV ids here; Wrangler validates them during deploy.
+# ---------------------------------------------------------------------------
+# Cloudflare Pages Function bindings
+# ---------------------------------------------------------------------------
+# Secrets — set via: Cloudflare Pages dashboard > stitch-ash-web > Settings >
+# Environment variables > Add variable (mark as Secret).
+#
+#   SHOPIFY_STOREFRONT_DOMAIN
+#     Value: stitch-and-ash.myshopify.com
+#     How to obtain: this is the fixed .myshopify.com subdomain for the store.
+#     No Shopify login needed — it is derived from the store slug "stitch-and-ash".
+#
+#   SHOPIFY_STOREFRONT_ACCESS_TOKEN
+#     Value: public Storefront API token (32-char hex string)
+#     How to obtain:
+#       Shopify Admin > Apps > Develop apps > Create an app > API credentials
+#       > Configure Storefront API scopes: unauthenticated_read_product_listings,
+#         unauthenticated_read_product_inventory, unauthenticated_write_checkouts,
+#         unauthenticated_write_customers
+#       > Install app > Storefront API access token
+#     This token is PUBLIC (safe to expose to browsers); do NOT confuse it
+#     with the Admin API token (SHOPIFY_ADMIN_TOKEN) used in the nixlab IaC.
+#
+# KV namespace — set via: Cloudflare Pages dashboard > Settings > Functions >
+# KV namespace bindings > Add binding.
+#
+#   STITCH_BUG_REPORTS (existing namespace, also used by bug-report function)
+#     Waitlist entries are stored with a "waitlist:" key prefix.
+#     If this binding is absent the waitlist path still returns success (soft fail).
+#     To create a new namespace: Cloudflare dashboard > Workers & Pages > KV >
+#     Create namespace, then bind it here.
+#
+# Do not add placeholder kv_namespaces entries here — Wrangler validates KV
+# namespace IDs at deploy time and will error on dummy values.
