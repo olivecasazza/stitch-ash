@@ -31,20 +31,17 @@ nix develop -c pnpm build
 
 ## Deploy
 
-Automatic via GitHub Actions on push to `main` or any `design/draft-*` branch.
+Pushes to `main` deploy to [preview.stitch-ash.com](https://preview.stitch-ash.com) via Cloudflare Pages.
+
+PRs deploy automatically to `<branch>.stitch-ash-web.pages.dev` for review (Cloudflare Pages native preview deployments — requires "Automatic branch deployments" enabled in the Pages project settings).
 
 Requires repo secrets:
 - `CLOUDFLARE_API_TOKEN` — CF API token with Pages:Edit permission
 - `CLOUDFLARE_ACCOUNT_ID` — CF account ID
 
-## Design Branches
+## Contributing
 
-Three branches for the design competition:
-- `design/draft-artist` — artist agent draft
-- `design/draft-swe` — swe agent draft
-- `design/draft-development` — development agent draft
-
-Design agents should edit `src/pages/index.astro`, `src/pages/products/stitch.astro`, and `public/styles/global.css`.
+All changes go through pull requests with conventional commit titles. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full flow: semver labels, auto-merge rules, preview URL format, and branch protection setup.
 
 ## License
 
