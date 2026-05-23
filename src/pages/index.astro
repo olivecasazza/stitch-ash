@@ -1,8 +1,9 @@
 ---
-// STITCH AND ASH — homepage (swe draft)
+// STITCH AND ASH — homepage
 // Engineering bias: zero JS on initial load, SVG wordmark (no font CDN),
 // View Transitions for product nav (Astro built-in).
-import { ViewTransitions } from "astro:transitions";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import CartDrawer from "../components/CartDrawer.astro";
 
 // Waitlist confirmation: /api/checkout returns a 303 to /?waitlist=ok on success.
 const waitlistParam = Astro.url.searchParams.get("waitlist");
@@ -31,116 +32,95 @@ const products = [
   },
 ];
 ---
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="STITCH AND ASH — embroidered apparel. Gothic precision, restraint, craft." />
-    <meta name="theme-color" content="#07060A" />
-    <title>STITCH AND ASH</title>
-    <link rel="preload" as="style" href="/styles/global.css" />
-    <link rel="stylesheet" href="/styles/global.css" />
-    <ViewTransitions />
-  </head>
-  <body>
-    <header class="site-header">
-      <a href="/" aria-label="STITCH AND ASH home">
-        <svg class="mark" viewBox="0 0 220 32" role="img" aria-label="STITCH AND ASH">
-          <text x="0" y="24" font-family='"UnifrakturMaguntia", "Old English Text MT", "Cambria", serif'
-                font-size="26" letter-spacing="1.5" font-weight="400">STITCH &amp; ASH</text>
+<BaseLayout title="STITCH AND ASH">
+  <main>
+    <!-- HERO -->
+    <section class="hero wrap">
+      <h1>
+        <svg
+          class="mark mark--hero"
+          viewBox="0 0 600 120"
+          preserveAspectRatio="xMidYMid meet"
+          style="width: 100%; max-width: 600px;"
+          role="img"
+          aria-label="STITCH AND ASH"
+        >
+          <text
+            x="0"
+            y="92"
+            font-family='"UnifrakturMaguntia", "Old English Text MT", "Cambria", serif'
+            font-size="104"
+            letter-spacing="2"
+            font-weight="400"
+          >STITCH &amp; ASH</text>
         </svg>
-      </a>
-      <nav aria-label="Primary">
-        <a href="/products/stitch">Shop</a>
-        <a href="#statement">Brand</a>
-        <a href="#signup">Waitlist</a>
-      </nav>
-    </header>
+      </h1>
+      <p class="tag">
+        Embroidered apparel. <strong>STITCH</strong> is the craft.
+        <strong>ASH</strong> is what it costs.
+      </p>
+    </section>
 
-    <main>
-      <!-- HERO -->
-      <section class="hero wrap">
-        <h1>
-          <svg class="mark mark--hero" viewBox="0 0 600 120" preserveAspectRatio="xMidYMid meet" style="width: 100%; max-width: 600px;" role="img" aria-label="STITCH AND ASH">
-            <text x="0" y="92" font-family='"UnifrakturMaguntia", "Old English Text MT", "Cambria", serif'
-                  font-size="104" letter-spacing="2" font-weight="400">STITCH &amp; ASH</text>
-          </svg>
-        </h1>
-        <p class="tag">
-          Embroidered apparel. <strong>STITCH</strong> is the craft.
-          <strong>ASH</strong> is what it costs.
+    <!-- PRODUCTS -->
+    <section class="wrap" aria-labelledby="prod-h">
+      <p class="eyebrow" id="prod-h" style="margin-block-start: clamp(3rem, 6vw, 5rem)">Preview &mdash; pilot run</p>
+      <div class="products">
+        {products.map((p) => (
+          <a class="card" href={`/products/${p.slug}`}>
+            <div class="card-image" aria-hidden="true">{p.name.toLowerCase()}</div>
+            <h3>{p.name}</h3>
+            <p class="measure" style="margin:0;color:var(--ash-silver);font-size:0.92rem">{p.desc}</p>
+            <div class="meta">
+              <span>{p.detail}</span>
+              <span class="price">${p.price}</span>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <!-- BRAND STATEMENT -->
+    <section id="statement" class="statement">
+      <div class="wrap measure stack">
+        <p class="eyebrow">Brand</p>
+        <p>
+          Two words held in tension. STITCH is precision &mdash;
+          the slow needle, the locked thread, the part that survives wash
+          after wash. ASH is what burns clean: restraint, weight, the
+          black ground that lets the mark sit.
         </p>
-      </section>
+        <p>
+          We make embroidered apparel in small runs. Bone-white thread on
+          black blanks. Ember-red where it cuts. Nothing extra.
+        </p>
+      </div>
+    </section>
 
-      <!-- PRODUCTS -->
-      <section class="wrap" aria-labelledby="prod-h">
-        <p class="eyebrow" id="prod-h" style="margin-block-start: clamp(3rem, 6vw, 5rem)">Preview &mdash; pilot run</p>
-        <div class="products">
-          {products.map((p) => (
-            <a class="card" href={`/products/${p.slug}`}>
-              <div class="card-image" aria-hidden="true">{p.name.toLowerCase()}</div>
-              <h3>{p.name}</h3>
-              <p class="measure" style="margin:0;color:var(--ash);font-size:0.92rem">{p.desc}</p>
-              <div class="meta">
-                <span>{p.detail}</span>
-                <span class="price">${p.price}</span>
-              </div>
-            </a>
-          ))}
-        </div>
-      </section>
-
-      <!-- BRAND STATEMENT -->
-      <section id="statement" class="statement">
-        <div class="wrap measure stack">
-          <p class="eyebrow">Brand</p>
-          <p>
-            Two words held in tension. STITCH is precision &mdash;
-            the slow needle, the locked thread, the part that survives wash
-            after wash. ASH is what burns clean: restraint, weight, the
-            black ground that lets the mark sit.
+    <!-- WAITLIST — standalone section; not moved into Footer -->
+    <section id="signup" class="signup wrap">
+      <p class="eyebrow">Pilot waitlist</p>
+      {waitlistParam === "ok" ? (
+        <p class="note" role="status" aria-live="polite" style="color:var(--bone)">
+          You&rsquo;re on the list. We&rsquo;ll reach out when the pilot opens.
+        </p>
+      ) : (
+        <form method="post" action="/api/checkout" class="stack">
+          <div>
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@elsewhere.com" />
+          </div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <input type="hidden" name="intent" value="waitlist" />
+            <button type="submit">Join the waitlist</button>
+          </div>
+          <p class="note">
+            During the pilot, orders are free &mdash; you&rsquo;ll receive a render of
+            the piece. Real fulfilment lands in the next phase.
           </p>
-          <p>
-            We make embroidered apparel in small runs. Bone-white thread on
-            black blanks. Ember-red where it cuts. Nothing extra.
-          </p>
-        </div>
-      </section>
+        </form>
+      )}
+    </section>
+  </main>
 
-      <!-- WAITLIST -->
-      <section id="signup" class="signup wrap">
-        <p class="eyebrow">Pilot waitlist</p>
-        {waitlistParam === "ok" ? (
-          <p class="note" role="status" aria-live="polite" style="color:var(--bone)">
-            You&rsquo;re on the list. We&rsquo;ll reach out when the pilot opens.
-          </p>
-        ) : (
-          /* POST /api/checkout with intent=waitlist — handled by functions/api/checkout.js.
-             On success the function redirects to /?waitlist=ok (303).
-             Future PDP add-to-cart will POST JSON { items: [{variantId, quantity}] }
-             to the same endpoint to get a Shopify checkoutUrl. */
-          <form method="post" action="/api/checkout" class="stack">
-            <div>
-              <label for="email">Email</label>
-              <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@elsewhere.com" />
-            </div>
-            <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-              <input type="hidden" name="intent" value="waitlist" />
-              <button type="submit">Join the waitlist</button>
-            </div>
-            <p class="note">
-              During the pilot, orders are free &mdash; you&rsquo;ll receive a render of
-              the piece. Real fulfilment lands in the next phase.
-            </p>
-          </form>
-        )}
-      </section>
-    </main>
-
-    <footer class="site-foot">
-      <span>&copy; STITCH &amp; ASH &mdash; pilot</span>
-      <span>Bone &middot; Ember &middot; Ash</span>
-    </footer>
-  </body>
-</html>
+  <CartDrawer />
+</BaseLayout>

@@ -1,106 +1,78 @@
 ---
-// STITCH AND ASH — STITCH product page (swe draft)
-import { ClientRouter } from "astro:transitions";
+// STITCH AND ASH — STITCH product page
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import CartDrawer from "../../components/CartDrawer.astro";
 
 // Waitlist confirmation: /api/checkout returns 303 to /products/stitch?waitlist=ok on success.
 const waitlistParam = Astro.url.searchParams.get("waitlist");
 ---
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="STITCH — gothic wordmark tee. Bone embroidery on black, 280g cotton. $42." />
-    <meta name="theme-color" content="#07060A" />
-    <title>STITCH &mdash; STITCH AND ASH</title>
-    <link rel="stylesheet" href="/styles/global.css" />
-    <ClientRouter />
-  </head>
-  <body>
-    <header class="site-header">
-      <a href="/" aria-label="STITCH AND ASH home">
-        <svg class="mark" viewBox="0 0 220 32" role="img" aria-label="STITCH AND ASH">
-          <text x="0" y="24" font-family='"UnifrakturMaguntia", "Old English Text MT", "Cambria", serif'
-                font-size="26" letter-spacing="1.5" font-weight="400">STITCH &amp; ASH</text>
+<BaseLayout
+  title="STITCH — STITCH AND ASH"
+  description="STITCH — gothic wordmark tee. Bone embroidery on black, 280g cotton. $42."
+>
+  <main class="wrap">
+    <p class="eyebrow" style="margin-block-start: clamp(1.5rem, 3vw, 2.5rem)">
+      <a href="/" style="color:inherit;text-decoration:none">&larr; Back</a>
+    </p>
+
+    <article class="product">
+      <div class="gallery" aria-label="Product image placeholder">
+        <svg viewBox="0 0 400 500" width="100%" height="100%" role="img" aria-label="STITCH tee — gothic wordmark, left chest">
+          <rect width="400" height="500" fill="#07060A"/>
+          <!-- tee silhouette -->
+          <path d="M120 110 L80 150 L60 230 L100 240 L100 430 L300 430 L300 240 L340 230 L320 150 L280 110 L240 95 Q200 130 160 95 Z"
+                fill="#0E0D11" stroke="#7A7A78" stroke-width="1.2"/>
+          <!-- left-chest embroidery -->
+          <text x="138" y="200" font-family='"UnifrakturMaguntia","Old English Text MT","Cambria",serif'
+                font-size="22" fill="#EFE6D2" letter-spacing="1">STITCH &amp; ASH</text>
+          <text x="140" y="216" font-family='"UnifrakturMaguntia","Old English Text MT","Cambria",serif'
+                font-size="11" fill="#A8221A" letter-spacing="2">PILOT &mdash; 001</text>
         </svg>
-      </a>
-      <nav aria-label="Primary">
-        <a href="/">Home</a>
-        <a href="/#signup">Waitlist</a>
-      </nav>
-    </header>
+      </div>
 
-    <main class="wrap">
-      <p class="eyebrow" style="margin-block-start: clamp(1.5rem, 3vw, 2.5rem)">
-        <a href="/" style="color:inherit;text-decoration:none">&larr; Back</a>
-      </p>
+      <div class="stack" style="--measure: 36ch">
+        <h1 style="view-transition-name: card-stitch">STITCH</h1>
+        <p class="price-line">$42 &middot; pilot waitlist</p>
+        <p class="measure" style="color:var(--bone)">
+          The wordmark, locked in bone thread on a 280g black cotton tee.
+          Left-chest embroidery, run length capped at 50.
+        </p>
 
-      <article class="product">
-        <div class="gallery" aria-label="Product image placeholder">
-          <svg viewBox="0 0 400 500" width="100%" height="100%" role="img" aria-label="STITCH tee — gothic wordmark, left chest">
-            <rect width="400" height="500" fill="#07060A"/>
-            <!-- tee silhouette -->
-            <path d="M120 110 L80 150 L60 230 L100 240 L100 430 L300 430 L300 240 L340 230 L320 150 L280 110 L240 95 Q200 130 160 95 Z"
-                  fill="#0E0D11" stroke="#7A7A78" stroke-width="1.2"/>
-            <!-- left-chest embroidery -->
-            <text x="138" y="200" font-family='"UnifrakturMaguntia","Old English Text MT","Cambria",serif'
-                  font-size="22" fill="#EFE6D2" letter-spacing="1">STITCH &amp; ASH</text>
-            <text x="140" y="216" font-family='"UnifrakturMaguntia","Old English Text MT","Cambria",serif'
-                  font-size="11" fill="#A8221A" letter-spacing="2">PILOT &mdash; 001</text>
-          </svg>
-        </div>
+        <p class="detail">
+          Embroidery: 14k stitches, satin block on the &ldquo;S,&rdquo; chain on
+          descenders. Backing: cut-away stabiliser, no front interfacing &mdash;
+          the hand stays soft.
+        </p>
 
-        <div class="stack" style="--measure: 36ch">
-          <h1 style="view-transition-name: card-stitch">STITCH</h1>
-          <p class="price-line">$42 &middot; pilot waitlist</p>
-          <p class="measure" style="color:var(--bone)">
-            The wordmark, locked in bone thread on a 280g black cotton tee.
-            Left-chest embroidery, run length capped at 50.
+        <dl class="stack" style="font-size:0.9rem; color:var(--ash-silver)">
+          <div><dt style="display:inline;font-weight:600;color:var(--bone)">Body</dt> <dd style="display:inline;margin:0">280g combed cotton, black</dd></div>
+          <div><dt style="display:inline;font-weight:600;color:var(--bone)">Thread</dt> <dd style="display:inline;margin:0">Madeira Polyneon &mdash; Bone 1801, Ember 1147</dd></div>
+          <div><dt style="display:inline;font-weight:600;color:var(--bone)">Fit</dt> <dd style="display:inline;margin:0">Boxy, true-to-size. Size up for length.</dd></div>
+          <div><dt style="display:inline;font-weight:600;color:var(--bone)">Care</dt> <dd style="display:inline;margin:0">Inside-out, cold, hang-dry.</dd></div>
+        </dl>
+
+        {waitlistParam === "ok" ? (
+          <p class="note" role="status" aria-live="polite" style="color:var(--bone)">
+            You&rsquo;re on the STITCH list. We&rsquo;ll reach out when the pilot opens.
           </p>
-
-          <p class="detail">
-            Embroidery: 14k stitches, satin block on the &ldquo;S,&rdquo; chain on
-            descenders. Backing: cut-away stabiliser, no front interfacing &mdash;
-            the hand stays soft.
-          </p>
-
-          <dl class="stack" style="font-size:0.9rem; color:var(--ash)">
-            <div><dt style="display:inline;font-weight:600;color:var(--bone)">Body</dt> <dd style="display:inline;margin:0">280g combed cotton, black</dd></div>
-            <div><dt style="display:inline;font-weight:600;color:var(--bone)">Thread</dt> <dd style="display:inline;margin:0">Madeira Polyneon &mdash; Bone 1801, Ember 1147</dd></div>
-            <div><dt style="display:inline;font-weight:600;color:var(--bone)">Fit</dt> <dd style="display:inline;margin:0">Boxy, true-to-size. Size up for length.</dd></div>
-            <div><dt style="display:inline;font-weight:600;color:var(--bone)">Care</dt> <dd style="display:inline;margin:0">Inside-out, cold, hang-dry.</dd></div>
-          </dl>
-
-          {waitlistParam === "ok" ? (
-            <p class="note" role="status" aria-live="polite" style="color:var(--bone)">
-              You&rsquo;re on the STITCH list. We&rsquo;ll reach out when the pilot opens.
+        ) : (
+          <form method="post" action="/api/checkout" class="stack">
+            <input type="hidden" name="sku" value="stitch" />
+            <input type="hidden" name="intent" value="waitlist" />
+            <div>
+              <label for="email">Reserve a unit</label>
+              <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@elsewhere.com" />
+            </div>
+            <button type="submit">Join the STITCH waitlist</button>
+            <p class="note">
+              No charge during pilot. We email a render of your unit and notify
+              when production opens.
             </p>
-          ) : (
-            /* POST /api/checkout with intent=waitlist — handled by functions/api/checkout.js.
-               On success the function redirects to /products/stitch?waitlist=ok (303).
-               When Shopify variant IDs are available, a future PDP update will POST
-               JSON { items: [{variantId, quantity}] } to the same endpoint instead. */
-            <form method="post" action="/api/checkout" class="stack">
-              <input type="hidden" name="sku" value="stitch" />
-              <input type="hidden" name="intent" value="waitlist" />
-              <div>
-                <label for="email">Reserve a unit</label>
-                <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@elsewhere.com" />
-              </div>
-              <button type="submit">Join the STITCH waitlist</button>
-              <p class="note">
-                No charge during pilot. We email a render of your unit and notify
-                when production opens.
-              </p>
-            </form>
-          )}
-        </div>
-      </article>
-    </main>
+          </form>
+        )}
+      </div>
+    </article>
+  </main>
 
-    <footer class="site-foot">
-      <span>&copy; STITCH &amp; ASH &mdash; pilot</span>
-      <span><a href="/" style="color:inherit">Home</a></span>
-    </footer>
-  </body>
-</html>
+  <CartDrawer />
+</BaseLayout>
