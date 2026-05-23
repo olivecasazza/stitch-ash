@@ -1,0 +1,93 @@
+name: Preview Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  wait-and-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: read
+      statuses: read
+    steps:
+      - name: Wait for Cloudflare Pages preview deployment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner     = context.repo.owner;
+            const repo      = context.repo.repo;
+            const sha       = context.payload.pull_request.head.sha;
+            const maxWait   = 5 * 60 * 1000; // 5 minutes
+            const interval  = 10 * 1000;      // 10 seconds
+            const deadline  = Date.now() + maxWait;
+
+            core.info(`Polling for CF Pages deployment on SHA ${sha}…`);
+
+            let previewUrl = null;
+
+            while (Date.now() < deadline) {
+              // Check commit statuses (CF Pages posts here when Pages GitHub integration is active)
+              const { data: statuses } = await github.rest.repos.listCommitStatusesForRef({
+                owner, repo, ref: sha, per_page: 100,
+              });
+              const cfStatus = statuses.find(s =>
+                s.context && s.context.toLowerCase().includes('cloudflare pages')
+              );
+
+              if (cfStatus) {
+                if (cfStatus.state === 'success') {
+                  previewUrl = cfStatus.target_url;
+                  core.info(`CF Pages reported success. Preview URL: ${previewUrl}`);
+                  break;
+                } else if (cfStatus.state === 'failure' || cfStatus.state === 'error') {
+                  core.setFailed(`Cloudflare Pages deployment failed (state: ${cfStatus.state}).`);
+                  process.exit(1);
+                }
+                // state === 'pending' — keep polling
+              }
+
+              // Also check GitHub Deployments API
+              const { data: deployments } = await github.rest.repos.listDeployments({
+                owner, repo, sha, per_page: 20,
+              });
+              for (const dep of deployments) {
+                const { data: depStatuses } = await github.rest.repos.listDeploymentStatuses({
+                  owner, repo, deployment_id: dep.id, per_page: 5,
+                });
+                const latest = depStatuses[0];
+                if (latest && latest.state === 'success' && latest.environment_url) {
+                  previewUrl = latest.environment_url;
+                  core.info(`Deployment success via Deployments API. URL: ${previewUrl}`);
+                  break;
+                }
+                if (latest && (latest.state === 'failure' || latest.state === 'error')) {
+                  core.setFailed(`Cloudflare Pages deployment failed (state: ${latest.state}).`);
+                  process.exit(1);
+                }
+              }
+
+              if (previewUrl) break;
+
+              core.info(`No deployment result yet — retrying in 10s…`);
+              await new Promise(r => setTimeout(r, interval));
+            }
+
+            if (!previewUrl) {
+              core.setFailed(
+                'Timed out waiting for Cloudflare Pages preview deployment (5 min). ' +
+                'Verify that the CF Pages project has GitHub integration with preview deployments enabled.'
+              );
+              process.exit(1);
+            }
+
+            core.exportVariable('PREVIEW_URL', previewUrl);
+            core.setOutput('preview_url', previewUrl);
+
+      - name: Smoke-test preview URL
+        shell: bash
+        run: |
+          echo "Smoke-testing: $PREVIEW_URL"
+          curl --fail --location --max-time 30 --silent --show-error "$PREVIEW_URL" -o /dev/null
+          echo "Preview responded with 2xx — gate passed."
