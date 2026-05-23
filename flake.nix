@@ -13,8 +13,8 @@
       in {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            nodejs_20
-            nodePackages.pnpm
+            nodejs_22
+            pnpm
             # wrangler is installed via pnpm (see package.json devDependencies)
             # to avoid nixpkgs version drift with CF releases
           ];
