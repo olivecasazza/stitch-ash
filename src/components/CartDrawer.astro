@@ -1,0 +1,314 @@
+---
+// CartDrawer — slide-out panel via native <dialog>.
+// Exposes window.CartDrawer.open() / .close() via inline script.
+// localStorage used for cart state. No framework.
+---
+<dialog class="cart-drawer" id="cart-drawer" aria-label="Shopping cart">
+  <div class="cart-drawer__inner">
+    <div class="cart-drawer__header">
+      <h2 class="cart-drawer__title">Cart</h2>
+      <button
+        class="cart-drawer__close"
+        aria-label="Close cart"
+        onclick="window.CartDrawer?.close()"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="cart-drawer__body" id="cart-drawer-body">
+      <!-- Items rendered by inline script from localStorage -->
+      <p class="cart-drawer__empty">Your cart is empty.</p>
+    </div>
+
+    <div class="cart-drawer__footer">
+      <div class="cart-drawer__subtotal">
+        <span>Subtotal</span>
+        <span id="cart-drawer-subtotal">$0.00</span>
+      </div>
+      <p class="cart-drawer__tax-note">Shipping and taxes calculated at checkout.</p>
+      <a href="/cart" class="btn btn--primary cart-drawer__checkout">Checkout</a>
+      <button
+        class="btn btn--tertiary cart-drawer__continue"
+        onclick="window.CartDrawer?.close()"
+      >
+        Continue shopping
+      </button>
+    </div>
+  </div>
+</dialog>
+
+<style>
+  .cart-drawer {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-end: 0;
+    inset-inline-start: auto;
+    width: min(100vw, 28rem);
+    height: 100dvh;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-inline-start: var(--rule);
+    background: var(--charcoal);
+    color: var(--bone);
+    transform: translateX(100%);
+    transition: transform var(--transition-slow), overlay var(--transition-slow) allow-discrete, display var(--transition-slow) allow-discrete;
+  }
+
+  /* Open state — dialog[open] is set by showModal() */
+  .cart-drawer[open] {
+    transform: translateX(0);
+  }
+
+  /* Backdrop */
+  .cart-drawer::backdrop {
+    background: rgb(0 0 0 / 0.55);
+    backdrop-filter: blur(2px);
+  }
+
+  .cart-drawer__inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .cart-drawer__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-3) var(--space-3);
+    border-bottom: var(--rule);
+    flex-shrink: 0;
+  }
+
+  .cart-drawer__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+
+  .cart-drawer__close {
+    background: none;
+    border: none;
+    color: var(--ash-silver);
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--transition-base);
+  }
+  .cart-drawer__close:hover,
+  .cart-drawer__close:focus-visible {
+    color: var(--bone);
+    outline: 2px solid var(--thread-gold);
+    outline-offset: 2px;
+  }
+
+  .cart-drawer__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-3);
+  }
+
+  .cart-drawer__empty {
+    color: var(--ash-silver);
+    font-size: var(--text-sm);
+    text-align: center;
+    margin-block-start: var(--space-4);
+  }
+
+  .cart-drawer__footer {
+    padding: var(--space-3);
+    border-top: var(--rule);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    flex-shrink: 0;
+  }
+
+  .cart-drawer__subtotal {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--text-base);
+    font-weight: 600;
+  }
+
+  .cart-drawer__tax-note {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--ash-silver);
+  }
+
+  .cart-drawer__checkout {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .cart-drawer__continue {
+    width: 100%;
+    justify-content: center;
+    font-size: var(--text-sm);
+  }
+
+  /* Cart item template — used by inline script */
+  .cart-item {
+    display: grid;
+    grid-template-columns: 4rem 1fr auto;
+    gap: 0.75rem;
+    padding-block: var(--space-2);
+    border-bottom: var(--rule);
+  }
+  .cart-item__thumb {
+    aspect-ratio: 4 / 5;
+    background: color-mix(in srgb, var(--bone) 5%, transparent);
+    border: var(--rule);
+    overflow: hidden;
+  }
+  .cart-item__thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .cart-item__info { display: flex; flex-direction: column; gap: 0.2rem; }
+  .cart-item__name { font-size: var(--text-sm); font-weight: 600; }
+  .cart-item__size { font-size: var(--text-sm); color: var(--ash-silver); }
+  .cart-item__price { font-size: var(--text-sm); color: var(--bone); white-space: nowrap; }
+  .cart-item__actions { display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; }
+  .cart-item__qty { display: flex; align-items: center; gap: 0.3rem; font-size: var(--text-sm); }
+  .cart-item__qty button {
+    background: none; border: 1px solid var(--ash-silver); color: var(--bone);
+    width: 1.4rem; height: 1.4rem; display: inline-flex; align-items: center;
+    justify-content: center; cursor: pointer; font: inherit; font-size: 0.8rem;
+    transition: border-color var(--transition-base);
+  }
+  .cart-item__qty button:hover { border-color: var(--bone); }
+  .cart-item__remove { font-size: 0.72rem; color: var(--ash-silver); background: none; border: none; cursor: pointer; text-transform: uppercase; letter-spacing: 0.08em; }
+  .cart-item__remove:hover { color: var(--bone); }
+</style>
+
+<script>
+  // Minimal cart state via localStorage. No framework.
+  type CartItem = {
+    id: string;
+    name: string;
+    size: string;
+    price: number;
+    qty: number;
+    imageSrc?: string;
+  };
+
+  const STORAGE_KEY = "saa-cart";
+
+  function loadCart(): CartItem[] {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as CartItem[];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveCart(items: CartItem[]) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  }
+
+  function formatPrice(cents: number): string {
+    return `$${(cents / 100).toFixed(2)}`;
+  }
+
+  function renderCart() {
+    const drawer = document.getElementById("cart-drawer");
+    const body = document.getElementById("cart-drawer-body");
+    const subtotalEl = document.getElementById("cart-drawer-subtotal");
+    if (!drawer || !body || !subtotalEl) return;
+
+    const items = loadCart();
+    if (items.length === 0) {
+      body.innerHTML = '<p class="cart-drawer__empty">Your cart is empty.</p>';
+      subtotalEl.textContent = "$0.00";
+      return;
+    }
+
+    const subtotalCents = items.reduce((sum, i) => sum + i.price * i.qty, 0);
+    subtotalEl.textContent = formatPrice(subtotalCents);
+
+    body.innerHTML = items
+      .map(
+        (item) => `
+      <div class="cart-item" data-id="${item.id}">
+        <div class="cart-item__thumb">
+          ${item.imageSrc ? `<img src="${item.imageSrc}" alt="${item.name}" loading="lazy" />` : ""}
+        </div>
+        <div class="cart-item__info">
+          <span class="cart-item__name">${item.name}</span>
+          <span class="cart-item__size">${item.size}</span>
+          <span class="cart-item__price">${formatPrice(item.price)}</span>
+        </div>
+        <div class="cart-item__actions">
+          <div class="cart-item__qty">
+            <button aria-label="Decrease quantity" data-action="dec" data-id="${item.id}">&#8722;</button>
+            <span>${item.qty}</span>
+            <button aria-label="Increase quantity" data-action="inc" data-id="${item.id}">&#43;</button>
+          </div>
+          <button class="cart-item__remove" data-action="remove" data-id="${item.id}">Remove</button>
+        </div>
+      </div>
+    `
+      )
+      .join("");
+
+    // Wire quantity controls
+    body.querySelectorAll<HTMLButtonElement>("[data-action]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset["id"];
+        const action = btn.dataset["action"];
+        const cart = loadCart();
+        const idx = cart.findIndex((i) => i.id === id);
+        if (idx === -1) return;
+        if (action === "inc") {
+          cart[idx]!.qty += 1;
+        } else if (action === "dec") {
+          cart[idx]!.qty = Math.max(1, (cart[idx]?.qty ?? 1) - 1);
+        } else if (action === "remove") {
+          cart.splice(idx, 1);
+        }
+        saveCart(cart);
+        renderCart();
+      });
+    });
+  }
+
+  const dialog = document.getElementById("cart-drawer") as HTMLDialogElement | null;
+
+  window.CartDrawer = {
+    open() {
+      renderCart();
+      dialog?.showModal();
+    },
+    close() {
+      dialog?.close();
+    },
+    addItem(item: CartItem) {
+      const cart = loadCart();
+      const existing = cart.find((i) => i.id === item.id);
+      if (existing) {
+        existing.qty += item.qty;
+      } else {
+        cart.push(item);
+      }
+      saveCart(cart);
+    },
+  };
+
+  // Close on backdrop click
+  dialog?.addEventListener("click", (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+</script>

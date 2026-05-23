@@ -1,26 +1,9 @@
-/* STITCH AND ASH — global styles (swe draft)
+/* STITCH AND ASH — global styles
    Engineering bias: < 50KB total page weight, WCAG AA, zero initial JS.
    Single stylesheet, system fonts for body, SVG wordmark for the
    gothic identity (no external font CDN).
 */
-
-:root {
-  /* Palette — locked per brand brief */
-  --bone:        #EFE6D2;
-  --ember:       #A8221A;     /* on bone for accents/borders */
-  --ember-text:  #C8362B;     /* slightly hotter for body-text contrast on black (AA at 14pt) */
-  --ash:         #7A7A78;
-  --black:       #07060A;     /* not pure black — slightly warm */
-
-  /* Type — system stack only; the wordmark is SVG */
-  --font-body:   ui-sans-serif, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Helvetica, Arial, sans-serif;
-  --font-serif:  ui-serif, "Iowan Old Style", "Apple Garamond", Baskerville, "Times New Roman", serif;
-
-  /* Rhythm */
-  --measure: 62ch;
-  --gutter:  clamp(1rem, 2.5vw, 2rem);
-  --rule:    1px solid color-mix(in srgb, var(--ash) 50%, transparent);
-}
+@import "./tokens.css";
 
 * { box-sizing: border-box; }
 
@@ -28,7 +11,7 @@ html { color-scheme: dark; }
 
 body {
   margin: 0;
-  background: var(--black);
+  background: var(--ink-black);
   color: var(--bone);
   font: 400 16px/1.55 var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -58,16 +41,16 @@ body {
   text-transform: uppercase;
 }
 .site-header nav a {
-  color: var(--ash);
+  color: var(--ash-silver);
   text-decoration: none;
   border-bottom: 1px solid transparent;
   padding-block-end: 2px;
-  transition: color .18s ease, border-color .18s ease;
+  transition: color var(--transition-base), border-color var(--transition-base);
 }
 .site-header nav a:hover,
 .site-header nav a:focus-visible {
   color: var(--bone);
-  border-bottom-color: var(--ember);
+  border-bottom-color: var(--thread-gold);
   outline: none;
 }
 
@@ -94,7 +77,7 @@ body {
 .hero .tag {
   margin-top: clamp(1.5rem, 3vw, 2rem);
   max-width: 38ch;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-style: italic;
   font-size: clamp(1rem, 1.6vw, 1.25rem);
   color: var(--bone);
@@ -106,9 +89,9 @@ body {
   font-size: 0.78rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--ash);
+  color: var(--ash-silver);
   display: inline-block;
-  border-block-end: 1px solid var(--ember);
+  border-block-end: 1px solid var(--error-ember);
   padding-block-end: 4px;
 }
 
@@ -128,26 +111,26 @@ body {
   border: var(--rule);
   padding: 1rem;
   background: color-mix(in srgb, var(--bone) 3%, transparent);
-  transition: border-color .2s ease, transform .2s ease;
+  transition: border-color var(--transition-base), transform var(--transition-base);
 }
 .card:hover, .card:focus-visible {
-  border-color: var(--ember);
+  border-color: var(--error-ember);
   outline: none;
   transform: translateY(-2px);
 }
 .card-image {
   aspect-ratio: 4 / 5;
-  background: var(--black);
-  border: 1px dashed color-mix(in srgb, var(--ash) 40%, transparent);
+  background: var(--ink-black);
+  border: 1px dashed color-mix(in srgb, var(--ash-silver) 40%, transparent);
   display: grid;
   place-items: center;
-  color: var(--ash);
-  font-family: var(--font-serif);
+  color: var(--ash-silver);
+  font-family: var(--font-display);
   font-style: italic;
 }
 .card h3 {
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-weight: 500;
   font-size: 1.25rem;
   letter-spacing: 0.02em;
@@ -156,7 +139,7 @@ body {
   display: flex;
   justify-content: space-between;
   font-size: 0.86rem;
-  color: var(--ash);
+  color: var(--ash-silver);
 }
 .card .price { color: var(--bone); }
 
@@ -164,12 +147,12 @@ body {
 .statement {
   padding-block: clamp(4rem, 8vw, 7rem);
   border-block: var(--rule);
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: clamp(1.15rem, 2.2vw, 1.55rem);
   line-height: 1.45;
 }
 .statement p { max-width: 32ch; }
-.statement p + p { margin-top: 1.5rem; color: var(--ash); }
+.statement p + p { margin-top: 1.5rem; color: var(--ash-silver); }
 
 /* Footer email-capture */
 .signup {
@@ -182,40 +165,40 @@ body {
   flex-wrap: wrap;
   max-width: 26rem;
 }
-.signup label { display: block; font-size: 0.86rem; color: var(--ash); margin-block-end: 0.4rem; }
+.signup label { display: block; font-size: 0.86rem; color: var(--ash-silver); margin-block-end: 0.4rem; }
 .signup input[type="email"] {
   flex: 1 1 14rem;
   min-width: 0;
   background: transparent;
-  border: 1px solid var(--ash);
+  border: 1px solid var(--ash-silver);
   color: var(--bone);
   font: inherit;
   padding: 0.65rem 0.75rem;
 }
 .signup input[type="email"]:focus-visible {
-  outline: 2px solid var(--ember);
+  outline: 2px solid var(--thread-gold);
   outline-offset: -1px;
-  border-color: var(--ember);
+  border-color: var(--thread-gold);
 }
 .signup button {
-  background: var(--ember);
+  background: var(--error-ember);
   color: var(--bone);
-  border: 1px solid var(--ember);
+  border: 1px solid var(--error-ember);
   font: inherit;
   font-weight: 600;
   letter-spacing: 0.05em;
   padding: 0.65rem 1.2rem;
   cursor: pointer;
-  transition: background .15s ease;
+  transition: background var(--transition-base);
 }
 .signup button:hover, .signup button:focus-visible {
-  background: color-mix(in srgb, var(--ember) 80%, var(--black));
+  background: color-mix(in srgb, var(--error-ember) 80%, var(--ink-black));
   outline: none;
 }
 .signup .note {
   margin-block-start: 0.75rem;
   font-size: 0.8rem;
-  color: var(--ash);
+  color: var(--ash-silver);
 }
 
 /* Site footer */
@@ -225,7 +208,7 @@ body {
   flex-wrap: wrap;
   gap: 1rem;
   justify-content: space-between;
-  color: var(--ash);
+  color: var(--ash-silver);
   font-size: 0.78rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -247,12 +230,12 @@ body {
   border: var(--rule);
   display: grid;
   place-items: center;
-  color: var(--ash);
-  font-family: var(--font-serif);
+  color: var(--ash-silver);
+  font-family: var(--font-display);
   font-style: italic;
 }
 .product h1 {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-weight: 500;
   font-size: clamp(2rem, 4vw, 3rem);
   margin: 0;
@@ -265,8 +248,8 @@ body {
 }
 .product .detail {
   font-size: 0.94rem;
-  color: var(--ash);
-  border-inline-start: 2px solid var(--ember);
+  color: var(--ash-silver);
+  border-inline-start: 2px solid var(--error-ember);
   padding-inline-start: 0.85rem;
 }
 
@@ -289,6 +272,6 @@ body {
 
 /* Focus baseline — always visible for keyboard users */
 :focus-visible {
-  outline: 2px solid var(--ember);
+  outline: 2px solid var(--thread-gold);
   outline-offset: 2px;
 }
