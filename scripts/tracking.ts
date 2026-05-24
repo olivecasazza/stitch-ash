@@ -1,6 +1,5 @@
 #!/usr/bin/env tsx
 import * as path from "node:path";
-import { createShopifyAdminClient } from "../src/catalog/shopify-admin.ts";
 import { loadShippingPolicies } from "../src/catalog/shipping.ts";
 import { findOrderFulfillmentTarget, renderTrackingPlan, validateTrackingInput } from "../src/catalog/fulfillment-tracking.ts";
 
@@ -41,8 +40,7 @@ async function main() {
     throw new Error("Tracking validation failed:\n" + errors.map(error => `  - ${error}`).join("\n"));
   }
 
-  const client = createShopifyAdminClient();
-  const target = await findOrderFulfillmentTarget(client, orderName);
+  const target = await findOrderFulfillmentTarget(orderName);
   for (const line of renderTrackingPlan(input, target)) console.log(line);
 }
 

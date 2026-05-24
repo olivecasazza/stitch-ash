@@ -1,5 +1,4 @@
 import type { ShippingPolicy } from "./shipping.ts";
-import { createShopifyAdminClient } from "./shopify-admin.ts";
 
 export interface TrackingInput {
   orderName: string;
@@ -52,15 +51,31 @@ const ORDER_BY_NAME_QUERY = `#graphql
   }
 `;
 
-export async function findOrderFulfillmentTarget(
-  client: ReturnType<typeof createShopifyAdminClient>,
-  orderName: string,
-): Promise<OrderFulfillmentTarget | null> {
-  const normalized = orderName.startsWith("#") ? orderName : `#${orderName}`;
-  const response = await client.request(ORDER_BY_NAME_QUERY, { variables: { query: `name:${normalized}` } });
-  if (response.errors) throw new Error(`Shopify order query failed: ${JSON.stringify(response.errors)}`);
+export async function findOrderFulfillmentTarget(orderName: string): Promise<OrderFulfillmentTarget | null> {
+  const token = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
+  const storeDomain = process.env.SHOPIFY_ADMIN_STORE_DOMAIN;
+  if (!token) throw new Error("Missing required environment variable SHOPIFY_ADMIN_ACCESS_TOKEN");
+  if (!storeDomain) throw new Error("Missing required environment variable SHOPIFY_ADMIN_STORE_DOMAIN");
 
-  const order = response.data?.orders?.nodes?.[0];
+  const normalized = orderName.startsWith("#") ? orderName : `#${orderName}`;
+  const response = await fetch(`https://${storeDomain}/admin/api/2026-04/graphql.json`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": token,
+    },
+    body: JSON.stringify({
+      query: ORDER_BY_NAME_QUERY,
+      variables: { query: `name:${normalized}` },
+    }),
+  });
+
+  const body = await response.json() as any;
+  if (!response.ok || body.errors) {
+    throw new Error(`Shopify order query failed: ${JSON.stringify(body.errors ?? body)}`);
+  }
+
+  const order = body.data?.orders?.nodes?.[0];
   if (!order) return null;
 
   return {
