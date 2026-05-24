@@ -1,11 +1,13 @@
 #!/usr/bin/env tsx
 import * as path from "node:path";
 import { loadCatalogDirectory } from "../src/catalog/load.ts";
+import { loadShippingPolicies, planShippingPolicies } from "../src/catalog/shipping.ts";
 import { applyProduct, createShopifyAdminClient, diffProduct, getProductByHandle } from "../src/catalog/shopify-admin.ts";
 
 const command = process.argv[2] ?? "validate";
 const root = process.cwd();
 const catalogDir = path.join(root, "catalog", "products");
+const shippingDir = path.join(root, "catalog", "shipping");
 
 function printUsage(): never {
   console.error(`Usage: pnpm catalog <validate|plan|apply>`);
@@ -16,7 +18,9 @@ async function main() {
   if (!["validate", "plan", "apply"].includes(command)) printUsage();
 
   const products = await loadCatalogDirectory(catalogDir);
+  const shippingPolicies = await loadShippingPolicies(shippingDir);
   console.log(`catalog: loaded ${products.length} products`);
+  console.log(`catalog: loaded ${shippingPolicies.length} shipping policies`);
 
   if (command === "validate") {
     console.log("catalog: validation passed");
@@ -43,8 +47,12 @@ async function main() {
     for (const action of diff.actions) console.log(`  - ${action}`);
   }
 
+  for (const action of planShippingPolicies(shippingPolicies)) {
+    console.log(action);
+  }
+
   if (command === "plan") {
-    console.log(`catalog: plan complete; ${changeCount} pending actions`);
+    console.log(`catalog: plan complete; ${changeCount} pending product actions`);
     return;
   }
 

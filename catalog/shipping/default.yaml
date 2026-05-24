@@ -1,0 +1,36 @@
+id: stitch-ash.shipping.default
+policyName: STITCH AND ASH pilot shipping
+originCountryCode: US
+currencyCode: USD
+processingTime:
+  madeToOrderMinDays: 14
+  madeToOrderMaxDays: 35
+tracking:
+  required: true
+  notifyCustomer: true
+  supportedCarriers:
+    - USPS
+    - UPS
+    - FedEx
+    - DHL Express
+fulfillment:
+  mode: manual
+  locationPolicy: primary_shopify_location
+  autoFulfillPaidOrders: false
+rules:
+  - id: made-to-order-domestic
+    title: Made-to-order domestic shipping
+    destination: US
+    serviceName: Tracked domestic shipping
+    price: "0.00"
+    estimatedTransitDays:
+      min: 3
+      max: 7
+  - id: made-to-order-international
+    title: Made-to-order international shipping
+    destination: REST_OF_WORLD
+    serviceName: Tracked international shipping
+    price: "25.00"
+    estimatedTransitDays:
+      min: 7
+      max: 21

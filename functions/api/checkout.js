@@ -21,7 +21,7 @@
  * npm packages at function runtime. GraphQL is sent via globalThis.fetch instead.
  */
 
-const STOREFRONT_API_VERSION = "2025-04";
+const STOREFRONT_API_VERSION = "2026-04";
 
 // ---------------------------------------------------------------------------
 // Helpers
