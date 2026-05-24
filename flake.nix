@@ -195,6 +195,22 @@
               '';
             }}/bin/shopify-tracking-apply";
           };
+          build-hydrogen = {
+            type = "app";
+            program = "${pkgs.writeShellApplication {
+              name = "build-hydrogen";
+              runtimeInputs = nodePackages;
+              text = ''
+                set -euo pipefail
+                ROOT_DIR=$(git rev-parse --show-toplevel)
+                cd "$ROOT_DIR/hydrogen"
+                nix run github:nixos/nixpkgs/nixos-unstable#pnpm -- install --no-frozen-lockfile
+                nix run github:nixos/nixpkgs/nixos-unstable#pnpm -- exec react-router typegen
+                nix run github:nixos/nixpkgs/nixos-unstable#pnpm -- run typecheck
+                nix run github:nixos/nixpkgs/nixos-unstable#pnpm -- run build
+              '';
+            }}/bin/build-hydrogen";
+          };
           build-pages = {
             type = "app";
             program = "${buildPages}/bin/build-pages";

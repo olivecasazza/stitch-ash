@@ -1,3 +1,7 @@
+packages:
+  - .
+  - hydrogen
+
 allowBuilds:
   esbuild: true
   sharp: true
