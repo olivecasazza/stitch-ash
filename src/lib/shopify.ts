@@ -12,7 +12,7 @@
 
 import { createStorefrontApiClient } from "@shopify/storefront-api-client";
 
-const STOREFRONT_API_VERSION = "2025-01";
+const STOREFRONT_API_VERSION = "2025-04";
 
 // ---------------------------------------------------------------------------
 // Types

@@ -32,7 +32,7 @@ export function createShopifyAdminClient() {
   const accessToken = requiredEnv("SHOPIFY_ADMIN_ACCESS_TOKEN");
   return createAdminApiClient({
     storeDomain,
-    apiVersion: "2025-01",
+    apiVersion: "2025-04",
     accessToken,
   });
 }
