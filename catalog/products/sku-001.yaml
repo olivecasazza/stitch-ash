@@ -1,0 +1,45 @@
+id: stitch-ash.sku-001
+title: Embroidered Hoodie
+handle: sku-001
+productType: Hoodies
+vendor: STITCH AND ASH
+status: DRAFT
+tags:
+  - embroidered
+  - black-on-black
+  - made-to-order
+bodyHtml: |
+  <p>Heavy cotton. Baggy silhouette. Built for people who care about how things are made.</p>
+  <p>The hoodie is cut oversized — an intentional silhouette, not a sizing accident. Fabric is a dense cotton-fleece blend: smooth on the outside, brushed fleece interior. Thick enough to hold structure. Soft enough to wear straight through.</p>
+  <p>Double-stitched seams throughout. The kind of construction detail that only matters when everything else fails — these won't.</p>
+  <p>Black-on-black embroidered design across the chest. The brand mark sits at the left sleeve, small and precise. The embroidery reads dark in shade, catches texture in direct light. That's the point.</p>
+  <p>Made to order. Allow 2–3 weeks for production.</p>
+options:
+  - name: Size
+    values: ["S", "M", "L", "XL", "XXL"]
+variants:
+  - sku: sku-001-S
+    price: "185.00"
+    option1: S
+    inventoryManagement: SHOPIFY
+    inventoryPolicy: DENY
+  - sku: sku-001-M
+    price: "185.00"
+    option1: M
+    inventoryManagement: SHOPIFY
+    inventoryPolicy: DENY
+  - sku: sku-001-L
+    price: "185.00"
+    option1: L
+    inventoryManagement: SHOPIFY
+    inventoryPolicy: DENY
+  - sku: sku-001-XL
+    price: "185.00"
+    option1: XL
+    inventoryManagement: SHOPIFY
+    inventoryPolicy: DENY
+  - sku: sku-001-XXL
+    price: "185.00"
+    option1: XXL
+    inventoryManagement: SHOPIFY
+    inventoryPolicy: DENY

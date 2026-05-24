@@ -1,0 +1,22 @@
+id: stitch-ash.sku-003
+title: Embroidered Sticker
+handle: sku-003
+productType: Stickers
+vendor: STITCH AND ASH
+status: DRAFT
+tags:
+  - embroidered
+  - black-on-black
+  - made-to-order
+bodyHtml: |
+  <p>Embroidered patch. Adhesive backing. Black-on-black — the brand mark sits centered, precise, permanent.</p>
+  <p>Single design. The embroidery reads flat until light catches the thread angle. Stick it anywhere the finish matters.</p>
+options:
+  - name: Title
+    values: ["Default Title"]
+variants:
+  - sku: sku-003
+    price: "15.00"
+    option1: "Default Title"
+    inventoryManagement: SHOPIFY
+    inventoryPolicy: DENY

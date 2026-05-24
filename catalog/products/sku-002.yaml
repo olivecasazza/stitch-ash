@@ -1,0 +1,23 @@
+id: stitch-ash.sku-002
+title: Embroidered Lanyard
+handle: sku-002
+productType: Accessories
+vendor: STITCH AND ASH
+status: DRAFT
+tags:
+  - embroidered
+  - black-on-black
+  - made-to-order
+bodyHtml: |
+  <p>Heavy woven black fabric. Double-stitched edges. The brand mark repeats along the full length in black-on-black embroidery — visible in texture, invisible in noise.</p>
+  <p>The same construction logic as the hoodie, applied to carry. Built to last, not to be noticed.</p>
+  <p>One size.</p>
+options:
+  - name: Title
+    values: ["Default Title"]
+variants:
+  - sku: sku-002
+    price: "35.00"
+    option1: "Default Title"
+    inventoryManagement: SHOPIFY
+    inventoryPolicy: DENY

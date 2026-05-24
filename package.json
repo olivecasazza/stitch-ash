@@ -8,15 +8,23 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "typecheck": "astro check"
+    "typecheck": "astro check",
+    "catalog:validate": "tsx scripts/catalog.ts validate",
+    "catalog:plan": "tsx scripts/catalog.ts plan",
+    "catalog:apply": "tsx scripts/catalog.ts apply"
   },
   "dependencies": {
+    "@shopify/admin-api-client": "^1.1.2",
     "@shopify/storefront-api-client": "^1.0.10",
-    "astro": "^5.0.0"
+    "astro": "^5.0.0",
+    "yaml": "^2.9.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
     "@cloudflare/workers-types": "^4.0.0",
+    "@types/node": "^25.9.1",
+    "tsx": "^4.22.3",
     "typescript": "^6.0.3",
     "wrangler": "^3.0.0"
   },
