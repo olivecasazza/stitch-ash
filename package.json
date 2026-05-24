@@ -12,7 +12,8 @@
     "catalog:validate": "tsx scripts/catalog.ts validate",
     "catalog:plan": "tsx scripts/catalog.ts plan",
     "catalog:apply": "tsx scripts/catalog.ts apply",
-    "tracking:plan": "tsx scripts/tracking.ts"
+    "tracking:plan": "tsx scripts/tracking.ts plan",
+    "tracking:apply": "tsx scripts/tracking.ts apply"
   },
   "dependencies": {
     "@shopify/admin-api-client": "^1.1.2",

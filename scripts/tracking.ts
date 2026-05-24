@@ -1,7 +1,9 @@
 #!/usr/bin/env tsx
 import * as path from "node:path";
 import { loadShippingPolicies } from "../src/catalog/shipping.ts";
-import { findOrderFulfillmentTarget, renderTrackingPlan, validateTrackingInput } from "../src/catalog/fulfillment-tracking.ts";
+import { applyFulfillmentTracking, findOrderFulfillmentTarget, renderTrackingPlan, validateTrackingInput } from "../src/catalog/fulfillment-tracking.ts";
+
+const command = process.argv[2] ?? "plan";
 
 function arg(name: string): string | undefined {
   const prefix = `--${name}=`;
@@ -14,11 +16,15 @@ function hasFlag(name: string): boolean {
 }
 
 function usage(): never {
-  console.error("Usage: pnpm tracking:plan --order=#1001 --carrier=USPS --tracking=9400... [--url=https://...] [--notify] [--dry-run]");
+  console.error("Usage: pnpm tracking:plan --order=#1001 --carrier=USPS --tracking=9400... [--url=https://...] [--notify]");
+  console.error("       pnpm tracking:apply --order=#1001 --carrier=USPS --tracking=9400... [--url=https://...] [--notify]");
   process.exit(2);
 }
 
 async function main() {
+  if (!["plan", "apply"].includes(command)) usage();
+
+
   const orderName = arg("order");
   const carrier = arg("carrier");
   const trackingNumber = arg("tracking");
@@ -32,7 +38,6 @@ async function main() {
     trackingNumber,
     trackingUrl: arg("url"),
     notifyCustomer: hasFlag("notify"),
-    dryRun: true,
   };
 
   const errors = validateTrackingInput(input, policies);
@@ -42,6 +47,12 @@ async function main() {
 
   const target = await findOrderFulfillmentTarget(orderName);
   for (const line of renderTrackingPlan(input, target)) console.log(line);
+
+  if (command === "plan") return;
+  if (!target) throw new Error(`Refusing to apply tracking: no matching Shopify order ${orderName}`);
+
+  const fulfillmentId = await applyFulfillmentTracking(target, input);
+  console.log(`tracking: applied fulfillment ${fulfillmentId}`);
 }
 
 main().catch((error) => {

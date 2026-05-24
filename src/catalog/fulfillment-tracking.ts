@@ -6,7 +6,6 @@ export interface TrackingInput {
   trackingNumber: string;
   trackingUrl?: string;
   notifyCustomer: boolean;
-  dryRun: boolean;
 }
 
 export interface OrderFulfillmentTarget {
@@ -39,7 +38,7 @@ const ORDER_BY_NAME_QUERY = `#graphql
         id
         name
         displayFulfillmentStatus
-        fulfillmentOrders(first: 10) {
+        fulfillmentOrders(first: 10, query: "status:OPEN") {
           nodes {
             id
             status
@@ -97,7 +96,70 @@ export function renderTrackingPlan(input: TrackingInput, target: OrderFulfillmen
   }
 
   lines.push(`tracking: matched Shopify order ${target.orderName} (${target.orderId}) status=${target.displayFulfillmentStatus}`);
-  lines.push(`tracking: fulfillment orders=${target.fulfillmentOrderIds.length}`);
-  lines.push("tracking: mutation intentionally not enabled yet; this command is a policy-gated dry-run foundation");
+  lines.push(`tracking: found ${target.fulfillmentOrderIds.length} open fulfillment orders`);
+  if (target.fulfillmentOrderIds.length === 0) {
+    lines.push("tracking: WARNING: no open fulfillment orders found. Order may already be fulfilled.");
+  }
   return lines;
+}
+
+const FULFILLMENT_CREATE_MUTATION = `#graphql
+  mutation fulfillmentCreate($fulfillment: FulfillmentV2Input!) {
+    fulfillmentCreate(fulfillment: $fulfillment) {
+      fulfillment {
+        id
+        status
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
+export async function applyFulfillmentTracking(target: OrderFulfillmentTarget, input: TrackingInput): Promise<string> {
+  if (target.fulfillmentOrderIds.length === 0) {
+    throw new Error(`Order ${target.orderName} has no open fulfillment orders to fulfill.`);
+  }
+
+  const token = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
+  const storeDomain = process.env.SHOPIFY_ADMIN_STORE_DOMAIN;
+
+  const fulfillmentInput = {
+    lineItemsByFulfillmentOrder: target.fulfillmentOrderIds.map(id => ({ fulfillmentOrderId: id })),
+    notifyCustomer: input.notifyCustomer,
+    trackingInfo: {
+      company: input.carrier,
+      number: input.trackingNumber,
+      url: input.trackingUrl || null,
+    }
+  };
+
+  const response = await fetch(`https://${storeDomain}/admin/api/2026-04/graphql.json`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": token!,
+    },
+    body: JSON.stringify({
+      query: FULFILLMENT_CREATE_MUTATION,
+      variables: { fulfillment: fulfillmentInput },
+    }),
+  });
+
+  const body = await response.json() as any;
+  if (!response.ok || body.errors) {
+    throw new Error(`Shopify fulfillment mutation failed: ${JSON.stringify(body.errors ?? body)}`);
+  }
+
+  const userErrors = body.data?.fulfillmentCreate?.userErrors ?? [];
+  if (userErrors.length > 0) {
+    throw new Error(`Fulfillment failed: ${userErrors.map((e: any) => e.message).join("; ")}`);
+  }
+
+  const fulfillmentId = body.data?.fulfillmentCreate?.fulfillment?.id;
+  if (!fulfillmentId) throw new Error("Fulfillment created but no ID returned.");
+
+  return fulfillmentId;
 }
