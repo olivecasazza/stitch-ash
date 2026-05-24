@@ -123,6 +123,42 @@
             type = "app";
             program = "${catalogRunner "apply"}/bin/shopify-catalog-apply";
           };
+          tracking-plan = {
+            type = "app";
+            program = "${pkgs.writeShellApplication {
+              name = "shopify-tracking-plan";
+              runtimeInputs = nodePackages ++ shopifyTools;
+              text = ''
+                set -euo pipefail
+                ROOT_DIR=$(git rev-parse --show-toplevel)
+                NIXLAB_DIR="''${NIXLAB_DIR:-$ROOT_DIR/../nixlab}"
+                SHOPIFY_SECRET_FILE="''${SHOPIFY_SECRET_FILE:-$NIXLAB_DIR/secrets/shopify.yaml}"
+
+                if [ ! -f "$SHOPIFY_SECRET_FILE" ]; then
+                  echo "ERROR: Shopify SOPS secret not found at $SHOPIFY_SECRET_FILE" >&2
+                  exit 1
+                fi
+
+                SHOPIFY_CLIENT_ID=$(sops -d "$SHOPIFY_SECRET_FILE" | yq -r '.SHOPIFY_CLIENT_ID // ""')
+                SHOPIFY_CLIENT_SECRET=$(sops -d "$SHOPIFY_SECRET_FILE" | yq -r '.SHOPIFY_CLIENT_SECRET // ""')
+                SHOPIFY_STORE_DOMAIN="''${SHOPIFY_STORE_DOMAIN:-stitch-and-ash.myshopify.com}"
+
+                TOKEN_RESPONSE=$(curl --fail-with-body --silent --show-error \
+                  --request POST \
+                  --header 'Content-Type: application/json' \
+                  --data "$(jq -nc --arg client_id "$SHOPIFY_CLIENT_ID" --arg client_secret "$SHOPIFY_CLIENT_SECRET" '{client_id: $client_id, client_secret: $client_secret, grant_type: "client_credentials"}')" \
+                  "https://$SHOPIFY_STORE_DOMAIN/admin/oauth/access_token")
+
+                SHOPIFY_ADMIN_ACCESS_TOKEN=$(printf '%s' "$TOKEN_RESPONSE" | jq -r '.access_token // empty')
+                export SHOPIFY_ADMIN_ACCESS_TOKEN
+                export SHOPIFY_ADMIN_STORE_DOMAIN="$SHOPIFY_STORE_DOMAIN"
+
+                cd "$ROOT_DIR"
+                pnpm install --frozen-lockfile
+                pnpm tracking:plan "$@"
+              '';
+            }}/bin/shopify-tracking-plan";
+          };
           build-pages = {
             type = "app";
             program = "${buildPages}/bin/build-pages";
