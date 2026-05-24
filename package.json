@@ -11,7 +11,8 @@
     "typecheck": "astro check",
     "catalog:validate": "tsx scripts/catalog.ts validate",
     "catalog:plan": "tsx scripts/catalog.ts plan",
-    "catalog:apply": "tsx scripts/catalog.ts apply"
+    "catalog:apply": "tsx scripts/catalog.ts apply",
+    "tracking:plan": "tsx scripts/tracking.ts"
   },
   "dependencies": {
     "@shopify/admin-api-client": "^1.1.2",
