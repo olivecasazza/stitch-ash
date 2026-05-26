@@ -54,6 +54,10 @@ export default defineNuxtConfig({
                 name: 'Inter',
                 provider: 'google',
             },
+            {
+                name: 'UnifrakturMaguntia',
+                provider: 'google',
+            },
         ],
     },
 

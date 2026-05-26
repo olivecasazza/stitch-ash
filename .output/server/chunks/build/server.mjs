@@ -37951,35 +37951,35 @@ const _routes = [
     name: "blog-handle-article___en-us",
     path: "/blog/:handle()/:article()",
     meta: __nuxt_page_meta$3 || {},
-    component: () => import('./_article_-kNtZUx6M.mjs')
+    component: () => import('./_article_-Dkp9bP9J.mjs')
   },
   {
     name: "blog-handle___en-us",
     path: "/blog/:handle()",
     meta: __nuxt_page_meta$2 || {},
-    component: () => import('./index-DLxASLci.mjs')
+    component: () => import('./index-CA_z9FJz.mjs')
   },
   {
     name: "collection-handle___en-us",
     path: "/collection/:handle()",
     meta: __nuxt_page_meta$1 || {},
-    component: () => import('./_handle_-Bed-KbJV.mjs')
+    component: () => import('./_handle_-DIfp9K1F.mjs')
   },
   {
     name: "product-handle___en-us",
     path: "/product/:handle()",
     meta: __nuxt_page_meta || {},
-    component: () => import('./_handle_-CfrrmFsf.mjs')
+    component: () => import('./_handle_-B95eds8B.mjs')
   },
   {
     name: "ops-platform___en-us",
     path: "/ops-platform",
-    component: () => import('./ops-platform-eYle6mch.mjs')
+    component: () => import('./ops-platform-B-Ih8IsK.mjs')
   },
   {
     name: "index___en-us",
     path: "/",
-    component: () => import('./index-DcvOuOEA.mjs')
+    component: () => import('./index-CfDCuEk4.mjs')
   }
 ];
 var shared_cjs_prodExports = /* @__PURE__ */ requireShared_cjs_prod();
@@ -40599,7 +40599,7 @@ vueExports.defineComponent({
   }
 });
 const clientOnlySymbol = /* @__PURE__ */ Symbol.for("nuxt:client-only");
-vueExports.defineComponent({
+const __nuxt_component_1$1 = vueExports.defineComponent({
   name: "ClientOnly",
   inheritAttrs: false,
   props: ["fallback", "placeholder", "placeholderTag", "fallbackTag"],
@@ -58726,7 +58726,7 @@ _sfc_main$4.setup = (props, ctx) => {
 };
 const __nuxt_component_0 = Object.assign(_sfc_main$4, { __name: "UApp" });
 const layouts = {
-  default: vueExports.defineAsyncComponent(() => import('./default-wKSZALYh.mjs').then((m) => m.default || m))
+  default: vueExports.defineAsyncComponent(() => import('./default-B2-Mn-Z9.mjs').then((m) => m.default || m))
 };
 const routeRulesMatcher = _routeRulesMatcher;
 const LayoutLoader = vueExports.defineComponent({
@@ -69576,5 +69576,5 @@ let entry;
 }
 const entry_default = ((ssrContext) => entry(ssrContext));
 
-export { reactiveComputed as $, AUTOFOCUS_ON_MOUNT as A, formFieldInjectionKey as B, formInputsInjectionKey as C, formLoadingInjectionKey as D, EVENT_OPTIONS as E, FieldGroupReset as F, formOptionsInjectionKey as G, formStateInjectionKey as H, IMAGE_FRAGMENT as I, get as J, getActiveElement as K, getSlotChildrenText as L, getTabbableCandidates as M, getTabbableEdges as N, injectConfigProviderContext as O, PRICE_FRAGMENT as P, inputIdInjectionKey as Q, isNullish as R, localizationParamsSchema as S, Teleport_default as T, metafieldFilterSchema as U, VisuallyHidden_default as V, omit as W, onKeyStroke as X, pickLinkProps as Y, priceRangeFilterSchema as Z, __nuxt_component_0$1 as _, AUTOFOCUS_ON_UNMOUNT as a, reactivePick as a0, serverRenderer_cjs_prodExports as a1, taxonomyMetafieldFilterSchema as a2, tryOnBeforeUnmount as a3, tv as a4, unrefElement as a5, useAppConfig as a6, useAsyncData as a7, useCart as a8, useCollection as a9, useComponentIcons as aa, useComponentProps as ab, useEmitAsProps as ac, useEventBus as ad, useEventListener as ae, useFieldGroup as af, useFormField as ag, useForwardExpose as ah, useForwardProps as ai, useI18n as aj, useLocale as ak, useLocalePath as al, useLocalization as am, usePortal as an, usePrimitiveElement as ao, useRoute$1 as ap, useRouter as aq, useSeoMeta as ar, useStorefront as as, useVModel as at, variantOptionFilterSchema as au, vue as av, vueExports as aw, PRODUCT_CONNECTION_FRAGMENT as b, PRODUCT_FILTERS_FRAGMENT as c, Presence_default as d, entry_default as default, Primitive as e, __nuxt_component_2$1 as f, __nuxt_component_3 as g, _sfc_main$c as h, _sfc_main$d as i, _sfc_main$a as j, _sfc_main$f as k, _sfc_main$9 as l, _sfc_main$b as m, avatarGroupInjectionKey as n, categoryFilterSchema as o, connectionParamsSchema as p, createContext as q, createError as r, createEventHook as s, createGlobalState as t, createSharedComposable as u, flattenConnection as v, focus as w, focusFirst as x, formBusInjectionKey as y, formErrorsInjectionKey as z };
+export { priceRangeFilterSchema as $, AUTOFOCUS_ON_MOUNT as A, formErrorsInjectionKey as B, formFieldInjectionKey as C, formInputsInjectionKey as D, EVENT_OPTIONS as E, FieldGroupReset as F, formLoadingInjectionKey as G, formOptionsInjectionKey as H, IMAGE_FRAGMENT as I, formStateInjectionKey as J, get as K, getActiveElement as L, getSlotChildrenText as M, getTabbableCandidates as N, getTabbableEdges as O, PRICE_FRAGMENT as P, injectConfigProviderContext as Q, inputIdInjectionKey as R, isNullish as S, Teleport_default as T, localizationParamsSchema as U, VisuallyHidden_default as V, metafieldFilterSchema as W, omit as X, onKeyStroke as Y, pickLinkProps as Z, __nuxt_component_0$1 as _, AUTOFOCUS_ON_UNMOUNT as a, reactiveComputed as a0, reactivePick as a1, serverRenderer_cjs_prodExports as a2, taxonomyMetafieldFilterSchema as a3, tryOnBeforeUnmount as a4, tv as a5, unrefElement as a6, useAppConfig as a7, useAsyncData as a8, useCart as a9, useCollection as aa, useComponentIcons as ab, useComponentProps as ac, useEmitAsProps as ad, useEventBus as ae, useEventListener as af, useFieldGroup as ag, useFormField as ah, useForwardExpose as ai, useForwardProps as aj, useI18n as ak, useLocale as al, useLocalePath as am, useLocalization as an, usePortal as ao, usePrimitiveElement as ap, useRoute$1 as aq, useRouter as ar, useSeoMeta as as, useStorefront as at, useVModel as au, variantOptionFilterSchema as av, vue as aw, vueExports as ax, PRODUCT_CONNECTION_FRAGMENT as b, PRODUCT_FILTERS_FRAGMENT as c, Presence_default as d, entry_default as default, Primitive as e, __nuxt_component_1$1 as f, __nuxt_component_2$1 as g, __nuxt_component_3 as h, _sfc_main$c as i, _sfc_main$d as j, _sfc_main$a as k, _sfc_main$f as l, _sfc_main$9 as m, _sfc_main$b as n, avatarGroupInjectionKey as o, categoryFilterSchema as p, connectionParamsSchema as q, createContext as r, createError as s, createEventHook as t, createGlobalState as u, createSharedComposable as v, flattenConnection as w, focus as x, focusFirst as y, formBusInjectionKey as z };
 //# sourceMappingURL=server.mjs.map

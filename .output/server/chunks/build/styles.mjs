@@ -5,9 +5,9 @@ const styles = {
   "components/DetailsAccordion.vue": () => import('./DetailsAccordion-styles.CZ1_mSy0.mjs').then(interopDefault),
   "components/ProductCard.vue": () => import('./ProductCard-styles.CiYc96Bq.mjs').then(interopDefault),
   "components/Badge.vue": () => import('./Badge-styles.CcSVeVjx.mjs').then(interopDefault),
-  "layouts/default.vue": () => import('./default-styles.ChQIe3zk.mjs').then(interopDefault),
-  "components/Header.vue": () => import('./Header-styles.DbDTos2n.mjs').then(interopDefault),
-  "components/Footer.vue": () => import('./Footer-styles.uXCBWmar.mjs').then(interopDefault)
+  "layouts/default.vue": () => import('./default-styles.DIvMwtat.mjs').then(interopDefault),
+  "components/Header.vue": () => import('./Header-styles.OCMYa5LP.mjs').then(interopDefault),
+  "components/Footer.vue": () => import('./Footer-styles.CBeRFJOV.mjs').then(interopDefault)
 };
 
 export { styles as default };

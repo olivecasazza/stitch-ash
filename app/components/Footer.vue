@@ -12,21 +12,71 @@
         >STITCH &amp; ASH</text>
       </svg>
     </NuxtLink>
-    <span>&copy; STITCH &amp; ASH &mdash; pilot</span>
-    <span>Bone &middot; Ember &middot; Ash</span>
+    <div class="footer-meta">
+      <span>&copy; STITCH &amp; ASH &mdash; pilot</span>
+      <span class="trilogy">Bone &middot; Ember &middot; Ash</span>
+    </div>
   </footer>
 </template>
 
 <style scoped>
+.site-foot {
+  padding: clamp(2rem, 5vw, 4rem) var(--gutter);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  border-top: var(--rule);
+  color: var(--ash-silver);
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+@media (min-width: 768px) {
+  .site-foot {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+}
+
 .foot-mark {
   display: inline-block;
   line-height: 0;
-  opacity: 0.6;
-  transition: opacity var(--transition-base);
+  opacity: 0.65;
+  transition: opacity var(--transition-base), transform var(--transition-base);
 }
+
 .foot-mark:hover,
 .foot-mark:focus-visible {
   opacity: 1;
   outline: none;
+  transform: translateY(-0.5px);
+}
+
+.footer-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .footer-meta {
+    flex-direction: row;
+    gap: 2rem;
+  }
+}
+
+.footer-meta span {
+  font-weight: 400;
+  color: color-mix(in srgb, var(--ash-silver) 65%, transparent);
+}
+
+.trilogy {
+  color: color-mix(in srgb, var(--thread-gold) 60%, transparent) !important;
 }
 </style>
