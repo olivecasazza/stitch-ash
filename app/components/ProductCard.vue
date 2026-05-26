@@ -60,7 +60,7 @@ const finalImageAlt = computed(() => props.imageAlt || props.name)
   text-decoration: none;
   color: inherit;
   border: var(--rule);
-  background: color-mix(in srgb, var(--bone) 3%, transparent);
+  background: var(--charcoal);
   transition:
     border-color var(--transition-base),
     transform var(--transition-base);

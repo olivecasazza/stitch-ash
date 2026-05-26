@@ -12,29 +12,6 @@ watch(() => route.path, () => open.value = false)
         :description="$t('cart.description')"
         :ui="{ description: 'sr-only', body: 'flex flex-col gap-y-6' }"
     >
-        <div class="relative">
-            <UButton
-                icon="i-lucide-shopping-cart"
-                variant="ghost"
-                color="neutral"
-                :label="$t('cart.open')"
-                :ui="{
-                    label: 'sr-only',
-                    base: 'px-1.5 lg:px-2',
-                }"
-            />
-
-            <ClientOnly>
-                <UBadge
-                    v-if="quantity"
-                    class="absolute font-bold rounded-full -top-1.5 -right-2 px-1.5 font-mono lg:text-xs lg:-right-3 lg:-top-2"
-                    size="xs"
-                >
-                    {{ quantity }}
-                </UBadge>
-            </ClientOnly>
-        </div>
-
         <template #body>
             <TransitionGroup
                 enter-to-class="opacity-100"

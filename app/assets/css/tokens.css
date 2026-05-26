@@ -5,8 +5,8 @@
 
 :root {
   /* ─── Color ─────────────────────────────────────────────────────────────── */
-  --ink-black:    #0B0B0B;
-  --charcoal:     #1A1A1A;
+  --ink-black:    #000000; /* Pitch black background */
+  --charcoal:     #0B0B0B; /* Extremely dark charcoal for subtle card/section contrast */
   --bone:         #F7F3EC;
   --crisp-white:  #FFFFFF;
   --ash-silver:   #C0C0C0;
