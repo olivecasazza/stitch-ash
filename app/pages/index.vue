@@ -60,15 +60,13 @@ useSeoMeta({
       <div class="wrap measure stack">
         <p class="eyebrow">Brand</p>
         <p>
-          Two words held in tension. STITCH is precision &mdash;
-          the slow needle, the locked thread, the part that survives wash
-          after wash. ASH is what burns clean: restraint, weight, the
-          black ground that lets the mark sit.
+          We make black hoodies.
         </p>
         <p>
-          We make embroidered apparel in small runs. Black thread on black
-          ground. Every piece carries two embroidered elements: the design,
-          and the mark. Nothing extra.
+          No cheap blanks, no synthetic shortcuts, and no compromises. We build them from heavy black cotton fleece, held together with double-stitched seams that survive the wash year after year. They are substantial, structured, and engineered for actual daily comfort.
+        </p>
+        <p>
+          Every piece is finished with premium black-on-black embroidery. Heavy black thread locked into a black ground. Two embroidered elements: the design, and the mark. Nothing extra.
         </p>
       </div>
     </section>
