@@ -6,7 +6,7 @@ const waitlistParam = computed(() => route.query.waitlist)
 
 useSeoMeta({
   title: 'STITCH AND ASH — Embroidered Apparel',
-  description: 'Embroidered apparel. STITCH is the craft. ASH is what it costs. Premium gothic streetwear.'
+  description: 'Minimal, embroidered, and black on black. Heavyweight cotton fleece hoodies, double-stitched to last.'
 })
 </script>
 
@@ -34,8 +34,7 @@ useSeoMeta({
         </svg>
       </h1>
       <p class="tag">
-        Embroidered apparel. <strong>STITCH</strong> is the craft.
-        <strong>ASH</strong> is what it costs.
+        Minimal, embroidered, and black on black. Heavyweight cotton fleece, double-stitched.
       </p>
     </section>
 
