@@ -52,7 +52,7 @@ const _sfc_main = /* @__PURE__ */ vueExports.defineComponent({
           badge: p.badge
         }, null, _parent));
       });
-      _push(`<!--]--></div></section><section id="statement" class="statement"><div class="wrap measure stack"><p class="eyebrow">Brand</p><p> We make black hoodies. </p><p> No cheap blanks, no synthetic shortcuts, and no compromises. We build them from heavy black cotton fleece, held together with double-stitched seams that survive the wash year after year. They are substantial, structured, and engineered for actual daily comfort. </p><p> Every piece is finished with premium black-on-black embroidery. Heavy black thread locked into a black ground. Two embroidered elements: the design, and the mark. Nothing extra. </p></div></section><section id="signup" class="signup wrap"><p class="eyebrow">Pilot waitlist</p>`);
+      _push(`<!--]--></div></section><section id="statement" class="statement"><div class="wrap measure stack"><p class="eyebrow">Brand</p><p> We make black hoodies. </p><p> They are comfortable, heavy, and have double stitching that won&#39;t fall apart. </p><p> No cheap blanks. Just heavy black cotton and black thread embroidery. That is it. </p></div></section><section id="signup" class="signup wrap"><p class="eyebrow">Pilot waitlist</p>`);
       if (vueExports.unref(waitlistParam) === "ok") {
         _push(`<p class="note" role="status" aria-live="polite" style="${serverRenderer_cjs_prodExports.ssrRenderStyle({ "color": "var(--bone)" })}"> You’re on the list. We’ll reach out when the pilot opens. </p>`);
       } else {
@@ -70,4 +70,4 @@ _sfc_main.setup = (props, ctx) => {
 };
 
 export { _sfc_main as default };
-//# sourceMappingURL=index-BKEne4aU.mjs.map
+//# sourceMappingURL=index-BDfwmLV-.mjs.map

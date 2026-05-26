@@ -63,10 +63,10 @@ useSeoMeta({
           We make black hoodies.
         </p>
         <p>
-          No cheap blanks, no synthetic shortcuts, and no compromises. We build them from heavy black cotton fleece, held together with double-stitched seams that survive the wash year after year. They are substantial, structured, and engineered for actual daily comfort.
+          They are comfortable, heavy, and have double stitching that won't fall apart.
         </p>
         <p>
-          Every piece is finished with premium black-on-black embroidery. Heavy black thread locked into a black ground. Two embroidered elements: the design, and the mark. Nothing extra.
+          No cheap blanks. Just heavy black cotton and black thread embroidery. That is it.
         </p>
       </div>
     </section>
