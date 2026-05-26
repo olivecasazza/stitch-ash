@@ -9,13 +9,18 @@ type NuxtAppInjections =
   InjectionType<typeof import("../../node_modules/.pnpm/nuxt@4.4.6_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0__@babel+plugin-syntax-typ_cb22502f3274d1a8b8350c0c74a807f7/node_modules/nuxt/dist/app/plugins/revive-payload.client.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/nuxt@4.4.6_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0__@babel+plugin-syntax-typ_cb22502f3274d1a8b8350c0c74a807f7/node_modules/nuxt/dist/head/runtime/plugins/unhead.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/nuxt@4.4.6_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0__@babel+plugin-syntax-typ_cb22502f3274d1a8b8350c0c74a807f7/node_modules/nuxt/dist/pages/runtime/plugins/router.js")> &
+  InjectionType<typeof import("../../node_modules/.pnpm/nuxt@4.4.6_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0__@babel+plugin-syntax-typ_cb22502f3274d1a8b8350c0c74a807f7/node_modules/nuxt/dist/app/plugins/browser-devtools-timing.client.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/nuxt@4.4.6_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0__@babel+plugin-syntax-typ_cb22502f3274d1a8b8350c0c74a807f7/node_modules/nuxt/dist/app/plugins/payload.client.js")> &
+  InjectionType<typeof import("../../node_modules/.pnpm/nuxt@4.4.6_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0__@babel+plugin-syntax-typ_cb22502f3274d1a8b8350c0c74a807f7/node_modules/nuxt/dist/app/plugins/dev-server-logs.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/nuxt@4.4.6_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0__@babel+plugin-syntax-typ_cb22502f3274d1a8b8350c0c74a807f7/node_modules/nuxt/dist/app/plugins/navigation-repaint.client.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/nuxt@4.4.6_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0__@babel+plugin-syntax-typ_cb22502f3274d1a8b8350c0c74a807f7/node_modules/nuxt/dist/app/plugins/check-outdated-build.client.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/nuxt@4.4.6_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0__@babel+plugin-syntax-typ_cb22502f3274d1a8b8350c0c74a807f7/node_modules/nuxt/dist/app/plugins/revive-payload.server.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/nuxt@4.4.6_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0__@babel+plugin-syntax-typ_cb22502f3274d1a8b8350c0c74a807f7/node_modules/nuxt/dist/app/plugins/chunk-reload.client.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/@nuxt+icon@2.2.2_magicast@0.5.3_vite@7.3.3_@types+node@25.9.1_jiti@2.7.0_lightningcss@1_bc2c35e05ce276023773bf2f3829428f/node_modules/@nuxt/icon/dist/runtime/plugin.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/nuxt@4.4.6_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0__@babel+plugin-syntax-typ_cb22502f3274d1a8b8350c0c74a807f7/node_modules/nuxt/dist/pages/runtime/plugins/prefetch.client.js")> &
+  InjectionType<typeof import("../../node_modules/.pnpm/nuxt@4.4.6_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0__@babel+plugin-syntax-typ_cb22502f3274d1a8b8350c0c74a807f7/node_modules/nuxt/dist/pages/runtime/plugins/check-if-page-unused.js")> &
+  InjectionType<typeof import("../../node_modules/.pnpm/@nuxt+devtools@3.2.4_vite@7.3.3_@types+node@25.9.1_jiti@2.7.0_lightningcss@1.32.0_terse_0bdfdf218c118aab99b40e15f17ad6a4/node_modules/@nuxt/devtools/dist/runtime/plugins/devtools.server.js")> &
+  InjectionType<typeof import("../../node_modules/.pnpm/@nuxt+devtools@3.2.4_vite@7.3.3_@types+node@25.9.1_jiti@2.7.0_lightningcss@1.32.0_terse_0bdfdf218c118aab99b40e15f17ad6a4/node_modules/@nuxt/devtools/dist/runtime/plugins/devtools.client.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/@nuxt+ui@4.8.0_@internationalized+date@3.12.1_@internationalized+number@3.6.6_@tiptap+e_d719e0a183cea98ed15f9fdb5506ba26/node_modules/@nuxt/ui/dist/runtime/plugins/colors.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/@nuxtjs+i18n@10.4.0_@vue+compiler-dom@3.5.34_db0@0.3.4_eslint@10.4.0_jiti@2.7.0__ioredi_0ac4f61bdc806aab7d42ff13177fc620/node_modules/@nuxtjs/i18n/dist/runtime/plugins/switch-locale-path-ssr.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/@nuxtjs+i18n@10.4.0_@vue+compiler-dom@3.5.34_db0@0.3.4_eslint@10.4.0_jiti@2.7.0__ioredi_0ac4f61bdc806aab7d42ff13177fc620/node_modules/@nuxtjs/i18n/dist/runtime/plugins/route-locale-detect.js")> &
@@ -23,6 +28,8 @@ type NuxtAppInjections =
   InjectionType<typeof import("../../node_modules/.pnpm/@nuxtjs+i18n@10.4.0_@vue+compiler-dom@3.5.34_db0@0.3.4_eslint@10.4.0_jiti@2.7.0__ioredi_0ac4f61bdc806aab7d42ff13177fc620/node_modules/@nuxtjs/i18n/dist/runtime/plugins/dev.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/@nuxtjs+i18n@10.4.0_@vue+compiler-dom@3.5.34_db0@0.3.4_eslint@10.4.0_jiti@2.7.0__ioredi_0ac4f61bdc806aab7d42ff13177fc620/node_modules/@nuxtjs/i18n/dist/runtime/plugins/i18n.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/@nuxtjs+shopify@0.5.4_@parcel+watcher@2.5.6_@shopify+hydrogen@2026.1.1_@react-router+de_7925308caab84dc88d7138824bc3d3be/node_modules/@nuxtjs/shopify/dist/runtime/plugins/cache/storefront.js")> &
+  InjectionType<typeof import("../../node_modules/.pnpm/nuxt@4.4.6_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0__@babel+plugin-syntax-typ_cb22502f3274d1a8b8350c0c74a807f7/node_modules/nuxt/dist/app/plugins/warn.dev.server.js")> &
+  InjectionType<typeof import("../../node_modules/.pnpm/nuxt@4.4.6_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0__@babel+plugin-syntax-typ_cb22502f3274d1a8b8350c0c74a807f7/node_modules/nuxt/dist/app/plugins/check-if-layout-used.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/nuxt@4.4.6_@babel+plugin-syntax-jsx@7.28.6_@babel+core@7.29.0__@babel+plugin-syntax-typ_cb22502f3274d1a8b8350c0c74a807f7/node_modules/nuxt/dist/pages/runtime/plugins/prerender.server.js")> &
   InjectionType<typeof import("../../node_modules/.pnpm/@nuxtjs+i18n@10.4.0_@vue+compiler-dom@3.5.34_db0@0.3.4_eslint@10.4.0_jiti@2.7.0__ioredi_0ac4f61bdc806aab7d42ff13177fc620/node_modules/@nuxtjs/i18n/dist/runtime/plugins/ssg-detect.js")>
 
@@ -30,7 +37,7 @@ declare module '#app' {
   interface NuxtApp extends NuxtAppInjections { }
 
   interface NuxtAppLiterals {
-    pluginName: 'nuxt:revive-payload:client' | 'nuxt:head' | 'nuxt:router' | 'nuxt:payload' | 'nuxt:revive-payload:server' | 'nuxt:chunk-reload' | '@nuxt/icon' | 'nuxt:global-components' | 'nuxt:prefetch' | 'i18n:plugin:switch-locale-path-ssr' | 'i18n:plugin:route-locale-detect' | 'i18n:plugin:preload' | 'i18n:dev' | 'i18n:plugin' | 'i18n:plugin:ssg-detect'
+    pluginName: 'vue-devtools-client' | 'nuxt:revive-payload:client' | 'nuxt:head' | 'nuxt:router' | 'nuxt:browser-devtools-timing' | 'nuxt:payload' | 'nuxt:revive-payload:server' | 'nuxt:chunk-reload' | '@nuxt/icon' | 'nuxt:global-components' | 'nuxt:prefetch' | 'nuxt:checkIfPageUnused' | 'i18n:plugin:switch-locale-path-ssr' | 'i18n:plugin:route-locale-detect' | 'i18n:plugin:preload' | 'i18n:dev' | 'i18n:plugin' | 'nuxt:checkIfLayoutUsed' | 'i18n:plugin:ssg-detect'
   }
 }
 

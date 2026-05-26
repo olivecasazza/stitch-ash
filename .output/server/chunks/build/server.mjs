@@ -37979,7 +37979,7 @@ const _routes = [
   {
     name: "index___en-us",
     path: "/",
-    component: () => import('./index-CGwvC8x6.mjs')
+    component: () => import('./index-BQ2kK991.mjs')
   }
 ];
 var shared_cjs_prodExports = /* @__PURE__ */ requireShared_cjs_prod();
@@ -58726,7 +58726,7 @@ _sfc_main$4.setup = (props, ctx) => {
 };
 const __nuxt_component_0 = Object.assign(_sfc_main$4, { __name: "UApp" });
 const layouts = {
-  default: vueExports.defineAsyncComponent(() => import('./default-4dF7YHJx.mjs').then((m) => m.default || m))
+  default: vueExports.defineAsyncComponent(() => import('./default-BXeqYRS0.mjs').then((m) => m.default || m))
 };
 const routeRulesMatcher = _routeRulesMatcher;
 const LayoutLoader = vueExports.defineComponent({

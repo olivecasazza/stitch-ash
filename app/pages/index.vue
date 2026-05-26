@@ -17,9 +17,9 @@ useSeoMeta({
       <h1>
         <svg
           class="mark mark--hero"
-          viewBox="0 0 600 120"
+          viewBox="0 0 780 120"
           preserveAspectRatio="xMidYMid meet"
-          style="width: 100%; max-width: 600px;"
+          style="width: 100%; max-width: 780px;"
           role="img"
           aria-label="STITCH AND ASH"
         >

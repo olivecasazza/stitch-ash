@@ -15,6 +15,9 @@ declare module "nitropack/types" {
     '/_proxy/storefront': {
       'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../node_modules/.pnpm/@nuxtjs+shopify@0.5.4_@parcel+watcher@2.5.6_@shopify+hydrogen@2026.1.1_@react-router+de_7925308caab84dc88d7138824bc3d3be/node_modules/@nuxtjs/shopify/dist/runtime/server/api/proxy/storefront').default>>>>
     }
+    '/_sandbox/proxy/storefront': {
+      'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../node_modules/.pnpm/@nuxtjs+shopify@0.5.4_@parcel+watcher@2.5.6_@shopify+hydrogen@2026.1.1_@react-router+de_7925308caab84dc88d7138824bc3d3be/node_modules/@nuxtjs/shopify/dist/runtime/server/utils/sandbox/proxy').default>>>>
+    }
     '/api/_nuxt_icon/:collection': {
       'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../node_modules/.pnpm/@nuxt+icon@2.2.2_magicast@0.5.3_vite@7.3.3_@types+node@25.9.1_jiti@2.7.0_lightningcss@1_bc2c35e05ce276023773bf2f3829428f/node_modules/@nuxt/icon/dist/runtime/server/api').default>>>>
     }

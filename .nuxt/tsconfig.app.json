@@ -168,7 +168,7 @@
         "./imports"
       ],
       "#app-manifest": [
-        "./manifest/meta/342d8f94-4398-4ee6-8d16-b44b650ffd95"
+        "./manifest/meta/dev.json"
       ],
       "#components": [
         "./components"
@@ -283,7 +283,7 @@
     "../node_modules/.pnpm/@nuxt+fonts@0.14.0_db0@0.3.4_ioredis@5.10.1_magicast@0.5.3_vite@7.3.3_@types+node@25.9._00d10edf6bc11fed85834dec6cf5dc8a/node_modules/dist/runtime/server",
     "../node_modules/.pnpm/@nuxt+fonts@0.14.0_db0@0.3.4_ioredis@5.10.1_magicast@0.5.3_vite@7.3.3_@types+node@25.9._00d10edf6bc11fed85834dec6cf5dc8a/node_modules/*.*",
     "../node_modules/.pnpm/@nuxt+fonts@0.14.0_db0@0.3.4_ioredis@5.10.1_magicast@0.5.3_vite@7.3.3_@types+node@25.9._00d10edf6bc11fed85834dec6cf5dc8a/node_modules/dist/*.*",
-    "../.output",
+    "dev",
     "../server"
   ],
   "vueCompilerOptions": {

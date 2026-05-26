@@ -5,7 +5,7 @@ const { quantity, open } = useCart()
 <template>
   <header class="site-header">
     <NuxtLink to="/" aria-label="STITCH AND ASH home">
-      <svg class="mark" viewBox="0 0 220 32" role="img" aria-label="STITCH AND ASH">
+      <svg class="mark" viewBox="0 0 260 32" role="img" aria-label="STITCH AND ASH">
         <text
           x="0"
           y="24"
