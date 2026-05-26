@@ -60,7 +60,7 @@ useSeoMeta({
       <div class="wrap measure stack">
         <p class="eyebrow">Brand</p>
         <p>
-          We make black hoodies.
+          We make black hoodies. Minimal, embroidered, and black on black.
         </p>
         <p>
           They are comfortable, heavy, and have double stitching that won't fall apart.

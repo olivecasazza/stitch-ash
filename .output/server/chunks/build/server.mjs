@@ -37979,7 +37979,7 @@ const _routes = [
   {
     name: "index___en-us",
     path: "/",
-    component: () => import('./index-BDfwmLV-.mjs')
+    component: () => import('./index-D22ND893.mjs')
   }
 ];
 var shared_cjs_prodExports = /* @__PURE__ */ requireShared_cjs_prod();
