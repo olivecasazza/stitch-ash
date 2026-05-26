@@ -3,7 +3,7 @@ title: Embroidered Sticker
 handle: sku-003
 productType: Stickers
 vendor: STITCH AND ASH
-status: DRAFT
+status: ACTIVE
 tags:
   - embroidered
   - black-on-black
@@ -19,4 +19,4 @@ variants:
     price: "15.00"
     option1: "Default Title"
     inventoryManagement: SHOPIFY
-    inventoryPolicy: DENY
+    inventoryPolicy: CONTINUE

@@ -12,6 +12,10 @@
     "catalog:validate": "tsx scripts/catalog.ts validate",
     "catalog:plan": "tsx scripts/catalog.ts plan",
     "catalog:apply": "tsx scripts/catalog.ts apply",
+    "shopify:env": "tsx scripts/shopify-env.ts env-template",
+    "shopify:doctor": "tsx scripts/shopify-env.ts doctor",
+    "shopify:scopes": "tsx scripts/shopify-env.ts scopes",
+    "shopify:mcp": "tsx scripts/shopify-env.ts mcp-command",
     "tracking:plan": "tsx scripts/tracking.ts plan",
     "tracking:apply": "tsx scripts/tracking.ts apply"
   },

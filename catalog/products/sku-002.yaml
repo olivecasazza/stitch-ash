@@ -3,7 +3,7 @@ title: Embroidered Lanyard
 handle: sku-002
 productType: Accessories
 vendor: STITCH AND ASH
-status: DRAFT
+status: ACTIVE
 tags:
   - embroidered
   - black-on-black
@@ -20,4 +20,4 @@ variants:
     price: "35.00"
     option1: "Default Title"
     inventoryManagement: SHOPIFY
-    inventoryPolicy: DENY
+    inventoryPolicy: CONTINUE

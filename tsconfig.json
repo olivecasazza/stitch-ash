@@ -7,5 +7,6 @@
     "strictNullChecks": true,
     "target": "ES2022",
     "types": ["astro/client", "node"]
-  }
+  },
+  "exclude": ["hydrogen"]
 }

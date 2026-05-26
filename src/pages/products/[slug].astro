@@ -457,8 +457,8 @@ const sizeValues = staticProduct.sizes.map((s) => s.label);
         });
 
         if (!res.ok) return;
-        // checkoutUrl available for future redirect; for now cart drawer is primary flow.
-        // const { checkoutUrl } = await res.json();
+        const { checkoutUrl } = await res.json();
+        if (checkoutUrl) window.location.href = checkoutUrl;
       } catch {
         // Silent failure — cart drawer is already open with the item.
       }

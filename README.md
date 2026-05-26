@@ -23,6 +23,18 @@ pnpm install
 pnpm dev
 ```
 
+## Shopify bot operations
+
+This repo includes a bot-safe Shopify workflow: Git-owned catalog YAML, explicit plan/apply commands, redacted env diagnostics, and an in-repo Hermes skill.
+
+```sh
+pnpm shopify:doctor
+pnpm catalog:validate
+pnpm catalog:plan
+```
+
+See [docs/shopify-bot-bootstrap.md](docs/shopify-bot-bootstrap.md) and `.hermes/skills/shopify-bot-ops/SKILL.md`.
+
 ## Build
 
 ```sh

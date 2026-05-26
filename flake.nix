@@ -85,6 +85,17 @@
               pnpm catalog:${mode}
             '';
           };
+        shopifyEnv = pkgs.writeShellApplication {
+          name = "shopify-env";
+          runtimeInputs = nodePackages ++ shopifyTools;
+          text = ''
+            set -euo pipefail
+            ROOT_DIR=$(git rev-parse --show-toplevel)
+            cd "$ROOT_DIR"
+            pnpm install --frozen-lockfile
+            pnpm shopify:doctor "$@"
+          '';
+        };
         buildPages = pkgs.writeShellApplication {
           name = "build-pages";
           runtimeInputs = nodePackages;
@@ -122,6 +133,10 @@
           catalog-apply = {
             type = "app";
             program = "${catalogRunner "apply"}/bin/shopify-catalog-apply";
+          };
+          shopify-doctor = {
+            type = "app";
+            program = "${shopifyEnv}/bin/shopify-env";
           };
           tracking-plan = {
             type = "app";
@@ -222,6 +237,7 @@
         checks = {
           catalog-validate = pkgs.runCommand "catalog-validate" { nativeBuildInputs = [ pkgs.nodejs_22 ]; } ''
             cp -r ${self} repo
+            chmod -R +w repo
             cd repo
             ${pkgs.pnpm}/bin/pnpm install --frozen-lockfile --ignore-scripts
             ${pkgs.pnpm}/bin/pnpm catalog:validate

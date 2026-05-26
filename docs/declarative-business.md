@@ -15,6 +15,8 @@ and the Shopify business objects that are safe to reconcile automatically.
 - `nix run .#catalog-apply` — apply safe product-level changes and identity
   metafields to Shopify.
 - `nix run .#build-pages` — build the preview storefront through the Nix toolchain.
+- `pnpm shopify:doctor` / `nix run .#shopify-doctor` — verify bot-safe Shopify repo structure and redacted env readiness.
+- `.hermes/skills/shopify-bot-ops/SKILL.md` — in-repo Hermes skill that bots should load before Shopify work.
 
 ## Bot contract
 

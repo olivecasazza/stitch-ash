@@ -3,7 +3,7 @@ title: Embroidered Hoodie
 handle: sku-001
 productType: Hoodies
 vendor: STITCH AND ASH
-status: DRAFT
+status: ACTIVE
 tags:
   - embroidered
   - black-on-black
@@ -22,24 +22,24 @@ variants:
     price: "185.00"
     option1: S
     inventoryManagement: SHOPIFY
-    inventoryPolicy: DENY
+    inventoryPolicy: CONTINUE
   - sku: sku-001-M
     price: "185.00"
     option1: M
     inventoryManagement: SHOPIFY
-    inventoryPolicy: DENY
+    inventoryPolicy: CONTINUE
   - sku: sku-001-L
     price: "185.00"
     option1: L
     inventoryManagement: SHOPIFY
-    inventoryPolicy: DENY
+    inventoryPolicy: CONTINUE
   - sku: sku-001-XL
     price: "185.00"
     option1: XL
     inventoryManagement: SHOPIFY
-    inventoryPolicy: DENY
+    inventoryPolicy: CONTINUE
   - sku: sku-001-XXL
     price: "185.00"
     option1: XXL
     inventoryManagement: SHOPIFY
-    inventoryPolicy: DENY
+    inventoryPolicy: CONTINUE

@@ -18,6 +18,7 @@ export interface ShopifyProductSummary {
     sku: string | null;
     price: string;
     title: string;
+    inventoryPolicy: string;
   }>;
 }
 
@@ -54,6 +55,7 @@ const PRODUCT_BY_HANDLE_QUERY = `#graphql
           sku
           price
           title
+          inventoryPolicy
         }
       }
     }
@@ -80,6 +82,7 @@ export async function getProductByHandle(client: ReturnType<typeof createShopify
       sku: variant.sku,
       price: variant.price,
       title: variant.title,
+      inventoryPolicy: variant.inventoryPolicy,
     })),
   };
 }
@@ -118,6 +121,7 @@ export function diffProduct(product: CatalogProduct, remote: ShopifyProductSumma
       continue;
     }
     if (Number(current.price).toFixed(2) !== variant.price) actions.push(`update variant ${variant.sku} price ${current.price} -> ${variant.price}`);
+    if (current.inventoryPolicy !== variant.inventoryPolicy) actions.push(`update variant ${variant.sku} inventoryPolicy ${current.inventoryPolicy} -> ${variant.inventoryPolicy}`);
   }
 
   for (const current of remote.variants) {
@@ -176,6 +180,40 @@ function assertNoUserErrors(operation: string, payload: any) {
   }
 }
 
+const PRODUCT_VARIANTS_BULK_UPDATE_MUTATION = `#graphql
+  mutation ProductVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+    productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+      product { id }
+      productVariants { id sku inventoryPolicy }
+      userErrors { field message }
+    }
+  }
+`;
+
+async function updateVariantPolicies(client: ReturnType<typeof createShopifyAdminClient>, product: CatalogProduct, remote: ShopifyProductSummary | null, productId: string) {
+  if (!remote) return;
+
+  const remoteBySku = new Map(remote.variants.filter(v => v.sku).map(v => [v.sku as string, v]));
+  const variants = product.variants
+    .map(variant => {
+      const current = remoteBySku.get(variant.sku);
+      if (!current || current.inventoryPolicy === variant.inventoryPolicy) return null;
+      return {
+        id: current.id,
+        inventoryPolicy: variant.inventoryPolicy,
+      };
+    })
+    .filter(Boolean);
+
+  if (variants.length === 0) return;
+
+  const response = await client.request(PRODUCT_VARIANTS_BULK_UPDATE_MUTATION, {
+    variables: { productId, variants },
+  });
+  if (response.errors) throw new Error(`Shopify productVariantsBulkUpdate failed: ${JSON.stringify(response.errors)}`);
+  assertNoUserErrors("productVariantsBulkUpdate", response.data?.productVariantsBulkUpdate);
+}
+
 export async function applyProduct(client: ReturnType<typeof createShopifyAdminClient>, product: CatalogProduct, remote: ShopifyProductSummary | null) {
   const mutation = remote ? PRODUCT_UPDATE_MUTATION : PRODUCT_CREATE_MUTATION;
   const variables = { input: productInput(product, remote?.id) };
@@ -185,6 +223,8 @@ export async function applyProduct(client: ReturnType<typeof createShopifyAdminC
   assertNoUserErrors(remote ? "productUpdate" : "productCreate", result);
 
   const productId = result.product.id;
+  await updateVariantPolicies(client, product, remote, productId);
+
   const metafieldsResponse = await client.request(METAFIELDS_SET_MUTATION, {
     variables: {
       metafields: [{
