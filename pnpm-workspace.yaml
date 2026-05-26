@@ -3,6 +3,9 @@ packages:
   - hydrogen
 
 allowBuilds:
+  '@parcel/watcher': set this to true or false
   esbuild: true
   sharp: true
+  unrs-resolver: set this to true or false
+  vue-demi: set this to true or false
   workerd: true

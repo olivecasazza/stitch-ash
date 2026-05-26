@@ -1,0 +1,12 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@plugin "@tailwindcss/typography";
+
+@theme {
+    --font-sans: 'Inter', sans-serif;
+    --font-serif: 'Playfair Display', serif;
+}
+
+@import "./tokens.css";
+@import "./global.css";

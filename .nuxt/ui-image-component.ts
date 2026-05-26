@@ -1,0 +1,1 @@
+export { default } from "/home/olive/Repositories/stitch-ash/node_modules/.pnpm/@nuxt+image@2.0.0_db0@0.3.4_ioredis@5.10.1_magicast@0.5.3/node_modules/@nuxt/image/dist/runtime/components/NuxtImg.vue";
