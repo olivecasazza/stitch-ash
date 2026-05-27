@@ -1,8 +1,0 @@
-const Badge_vue_vue_type_style_index_0_scoped_aacad949_lang = ".badge[data-v-aacad949]{display:inline-block;font-size:.65rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;padding:.2em .55em;border-radius:var(--radius-none);line-height:1.6}.badge--embroidered[data-v-aacad949]{background:color-mix(in srgb,var(--thread-gold) 15%,transparent);color:var(--thread-gold);border:1px solid color-mix(in srgb,var(--thread-gold) 40%,transparent)}.badge--limited-run[data-v-aacad949]{background:color-mix(in srgb,var(--bone) 8%,transparent);color:var(--bone);border:1px solid color-mix(in srgb,var(--bone) 30%,transparent)}.badge--low-stock[data-v-aacad949]{background:color-mix(in srgb,var(--error-ember) 15%,transparent);color:#e06050;border:1px solid color-mix(in srgb,var(--error-ember) 40%,transparent)}.badge--made-to-order[data-v-aacad949]{background:color-mix(in srgb,var(--ash-silver) 10%,transparent);color:var(--ash-silver);border:1px solid color-mix(in srgb,var(--ash-silver) 30%,transparent)}";
-
-const BadgeStyles_CcSVeVjx = [
-  Badge_vue_vue_type_style_index_0_scoped_aacad949_lang
-];
-
-export { BadgeStyles_CcSVeVjx as default };
-//# sourceMappingURL=Badge-styles.CcSVeVjx.mjs.map

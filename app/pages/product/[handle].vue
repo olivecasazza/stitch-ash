@@ -233,8 +233,8 @@ useSeoMeta({
   .pdp__preview-notice {
     margin-block-end: var(--space-3);
     padding: 0.6rem 0.9rem;
-    border: 1px solid color-mix(in srgb, var(--thread-gold) 35%, transparent);
-    background: color-mix(in srgb, var(--thread-gold) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--bone) 20%, transparent);
+    background: var(--charcoal);
     color: var(--ash-silver);
     font-size: var(--text-sm);
     letter-spacing: 0.04em;
@@ -349,9 +349,9 @@ useSeoMeta({
   .pdp__embroidery-note {
     margin: 0;
     font-size: var(--text-sm);
-    color: color-mix(in srgb, var(--thread-gold) 70%, var(--ash-silver));
+    color: var(--ash-silver);
     letter-spacing: 0.04em;
-    border-inline-start: 2px solid color-mix(in srgb, var(--thread-gold) 50%, transparent);
+    border-inline-start: 2px solid var(--bone);
     padding-inline-start: 0.75rem;
   }
 
@@ -375,7 +375,8 @@ useSeoMeta({
     justify-content: center;
     font: inherit;
     font-weight: 600;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     padding: 0.8rem 1.5rem;
     cursor: pointer;
     border-radius: var(--radius-none);
@@ -383,22 +384,24 @@ useSeoMeta({
   }
 
   .pdp__atc-btn--primary {
-    background: var(--error-ember);
+    background: #000000;
     color: var(--bone);
-    border: 1px solid var(--error-ember);
+    border: 1px solid var(--bone);
   }
 
   .pdp__atc-btn--primary:hover,
   .pdp__atc-btn--primary:focus-visible {
-    background: color-mix(in srgb, var(--error-ember) 80%, var(--ink-black));
-    border-color: color-mix(in srgb, var(--error-ember) 80%, var(--ink-black));
+    background: var(--bone);
+    color: #000000;
+    border-color: var(--bone);
     outline: none;
   }
 
   .pdp__atc-btn--disabled {
     background: transparent;
-    border: 1px solid color-mix(in srgb, var(--thread-gold) 50%, transparent);
-    color: color-mix(in srgb, var(--thread-gold) 70%, var(--ash-silver));
+    border: 1px solid #222222;
+    color: var(--ash-silver);
+    opacity: 0.5;
     cursor: not-allowed;
   }
 

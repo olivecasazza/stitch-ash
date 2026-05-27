@@ -111,7 +111,7 @@ const selected = computed({
 
   /* Focus ring on swatch when input is focused */
   .size-selector__input:focus-visible + .size-selector__swatch {
-    outline: 2px solid var(--thread-gold);
+    outline: 1px solid var(--bone);
     outline-offset: 2px;
   }
 </style>

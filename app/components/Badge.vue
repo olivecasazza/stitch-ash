@@ -30,29 +30,8 @@ const classes = computed(() => ['badge', `badge--${props.variant}`])
   padding: 0.2em 0.55em;
   border-radius: var(--radius-none);
   line-height: 1.6;
-}
-
-.badge--embroidered {
-  background: color-mix(in srgb, var(--thread-gold) 15%, transparent);
-  color: var(--thread-gold);
-  border: 1px solid color-mix(in srgb, var(--thread-gold) 40%, transparent);
-}
-
-.badge--limited-run {
-  background: color-mix(in srgb, var(--bone) 8%, transparent);
-  color: var(--bone);
-  border: 1px solid color-mix(in srgb, var(--bone) 30%, transparent);
-}
-
-.badge--low-stock {
-  background: color-mix(in srgb, var(--error-ember) 15%, transparent);
-  color: #e06050;
-  border: 1px solid color-mix(in srgb, var(--error-ember) 40%, transparent);
-}
-
-.badge--made-to-order {
-  background: color-mix(in srgb, var(--ash-silver) 10%, transparent);
+  background: var(--charcoal);
   color: var(--ash-silver);
-  border: 1px solid color-mix(in srgb, var(--ash-silver) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ash-silver) 20%, transparent);
 }
 </style>

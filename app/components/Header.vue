@@ -81,7 +81,7 @@ const { quantity, open } = useCart()
   left: 0;
   width: 100%;
   height: 1px;
-  background: var(--thread-gold);
+  background: var(--bone);
   transform: scaleX(0);
   transform-origin: right;
   transition: transform var(--transition-base);
@@ -114,8 +114,8 @@ const { quantity, open } = useCart()
 
 .cart-pill:hover,
 .cart-pill:focus-visible {
-  border-color: var(--thread-gold);
-  background: color-mix(in srgb, var(--thread-gold) 6%, transparent);
+  border-color: var(--bone);
+  background: color-mix(in srgb, var(--bone) 6%, transparent);
   transform: translateY(-0.5px);
   outline: none;
 }
@@ -134,7 +134,7 @@ const { quantity, open } = useCart()
   font-size: 0.68rem;
   font-weight: 700;
   font-family: var(--font-mono);
-  background: var(--thread-gold);
+  background: var(--bone);
   color: var(--ink-black);
   border-radius: 9999px;
   line-height: 1;

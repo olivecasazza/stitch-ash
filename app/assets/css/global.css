@@ -82,16 +82,15 @@ body {
   font-size: clamp(1rem, 1.6vw, 1.25rem);
   color: var(--bone);
 }
-.hero .tag strong { color: var(--ember-text); font-weight: 600; font-style: normal; }
+.hero .tag strong { color: var(--bone); font-weight: 700; font-style: normal; }
 
-/* Section labels */
 .eyebrow {
   font-size: 0.78rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ash-silver);
   display: inline-block;
-  border-block-end: 1px solid var(--error-ember);
+  border-block-end: 1px solid #333333;
   padding-block-end: 4px;
 }
 
@@ -114,7 +113,7 @@ body {
   transition: border-color var(--transition-base), transform var(--transition-base);
 }
 .card:hover, .card:focus-visible {
-  border-color: var(--error-ember);
+  border-color: var(--bone);
   outline: none;
   transform: translateY(-2px);
 }
@@ -176,23 +175,24 @@ body {
   padding: 0.65rem 0.75rem;
 }
 .signup input[type="email"]:focus-visible {
-  outline: 2px solid var(--thread-gold);
-  outline-offset: -1px;
-  border-color: var(--thread-gold);
+  outline: none;
+  border-color: var(--bone);
 }
 .signup button {
-  background: var(--error-ember);
+  background: #000000;
   color: var(--bone);
-  border: 1px solid var(--error-ember);
+  border: 1px solid var(--bone);
   font: inherit;
   font-weight: 600;
-  letter-spacing: 0.05em;
-  padding: 0.65rem 1.2rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.65rem 1.4rem;
   cursor: pointer;
-  transition: background var(--transition-base);
+  transition: background var(--transition-base), color var(--transition-base);
 }
 .signup button:hover, .signup button:focus-visible {
-  background: color-mix(in srgb, var(--error-ember) 80%, var(--ink-black));
+  background: var(--bone);
+  color: #000000;
   outline: none;
 }
 .signup .note {
@@ -244,12 +244,13 @@ body {
 .product .price-line {
   margin-top: 0.5rem;
   font-size: 1.15rem;
-  color: var(--ember-text);
+  color: var(--bone);
+  font-weight: 600;
 }
 .product .detail {
   font-size: 0.94rem;
   color: var(--ash-silver);
-  border-inline-start: 2px solid var(--error-ember);
+  border-inline-start: 2px solid var(--bone);
   padding-inline-start: 0.85rem;
 }
 
@@ -270,8 +271,7 @@ body {
   }
 }
 
-/* Focus baseline — always visible for keyboard users */
 :focus-visible {
-  outline: 2px solid var(--thread-gold);
+  outline: 1px solid var(--bone);
   outline-offset: 2px;
 }

@@ -37963,13 +37963,13 @@ const _routes = [
     name: "collection-handle___en-us",
     path: "/collection/:handle()",
     meta: __nuxt_page_meta$1 || {},
-    component: () => import('./_handle_-DIfp9K1F.mjs')
+    component: () => import('./_handle_-CmHfwJZX.mjs')
   },
   {
     name: "product-handle___en-us",
     path: "/product/:handle()",
     meta: __nuxt_page_meta || {},
-    component: () => import('./_handle_-B95eds8B.mjs')
+    component: () => import('./_handle_-ChDokZfh.mjs')
   },
   {
     name: "ops-platform___en-us",
@@ -37979,7 +37979,7 @@ const _routes = [
   {
     name: "index___en-us",
     path: "/",
-    component: () => import('./index-CfDCuEk4.mjs')
+    component: () => import('./index-B2OTtkfO.mjs')
   }
 ];
 var shared_cjs_prodExports = /* @__PURE__ */ requireShared_cjs_prod();
@@ -58726,7 +58726,7 @@ _sfc_main$4.setup = (props, ctx) => {
 };
 const __nuxt_component_0 = Object.assign(_sfc_main$4, { __name: "UApp" });
 const layouts = {
-  default: vueExports.defineAsyncComponent(() => import('./default-B2-Mn-Z9.mjs').then((m) => m.default || m))
+  default: vueExports.defineAsyncComponent(() => import('./default-BnwPgkG8.mjs').then((m) => m.default || m))
 };
 const routeRulesMatcher = _routeRulesMatcher;
 const LayoutLoader = vueExports.defineComponent({
