@@ -8,8 +8,6 @@ export default defineNuxtConfig({
         '@nuxt/ui',
     ],
 
-    ignore: ['hydrogen/**'],
-
     css: ['~/assets/css/main.css'],
 
     ui: {
@@ -31,7 +29,6 @@ export default defineNuxtConfig({
 
     routeRules: {
         '/': { prerender: true },
-        '/ops-platform': { prerender: true },
     },
 
     compatibilityDate: '2026-03-15',
@@ -47,15 +44,7 @@ export default defineNuxtConfig({
     fonts: {
         families: [
             {
-                name: 'Playfair Display',
-                provider: 'google',
-            },
-            {
                 name: 'Inter',
-                provider: 'google',
-            },
-            {
-                name: 'UnifrakturMaguntia',
                 provider: 'google',
             },
         ],
