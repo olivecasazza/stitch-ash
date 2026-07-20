@@ -1,68 +1,97 @@
 /* STITCH AND ASH — Design tokens (UX_FRAMEWORK §1 + §5)
    Source of truth for all brand values.
    Imported at the top of global.css — do not link directly.
+
+   Updated for STI-223-3: JetBrains Mono typography, grey hierarchy,
+   editorial spacing grid, centered max-width layout.
 */
 
 :root {
   /* ─── Color ─────────────────────────────────────────────────────────────── */
   --ink-black:    #000000; /* Pitch black background */
-  --charcoal:     #0B0B0B; /* Extremely dark charcoal for subtle card/section contrast */
-  --bone:         #F7F3EC;
-  --crisp-white:  #FFFFFF;
-  --ash-silver:   #C0C0C0;
-  --thread-gold:  #B08D57;
-  --error-ember:  #9F3A2F;
+  --charcoal:     #111111; /* Elevated card/section surface (slightly lighter for distinction) */
+  --charcoal-mid: #1A1A1A; /* Mid-tone surface for hover states, secondary panels */
+  --crisp-white:  #FFFFFF; /* Reserved for critical contrast only */
 
-  /* Backward-compatible aliases (used throughout existing CSS) */
+  /* Grey hierarchy (editorial grey scale) */
+  --grey-100:      #F0EFED; /* Lightest grey — near-white */
+  --grey-200:      #D4D2CF; /* Light grey — tertiary text */
+  --grey-300:      #B8B5B0; /* Mid-light grey */
+  --grey-400:      #9C9892; /* Mid grey — secondary text */
+  --grey-500:      #807C75; /* Mid-dark grey */
+  --grey-600:      #645F58; /* Dark grey — dividers */
+  --grey-700:      #48433C; /* Darker grey */
+  --grey-800:      #2C2822; /* Very dark grey */
+  --grey-900:      #1A1713; /* Near-black grey */
+
+  /* Semantic aliases */
+  --bone:          #F7F3EC; /* Primary text on dark backgrounds */
+  --ash-silver:    #C0C0C0; /* Secondary/metadata text */
+  --ash-muted:     var(--grey-600); /* Rule lines, dividers, muted borders */
+  --thread-gold:   #B08D57; /* Rare accent — limited badges, focus rings */
+  --error-ember:   #9F3A2F; /* Validation and error states */
+
+  /* Backward-compatible aliases */
   --black:        var(--ink-black);
   --ash:          var(--ash-silver);
   --ember:        var(--error-ember);
-  /* ember-text is slightly hotter for body-text contrast on black (AA at 14pt) */
-  --ember-text:   #C8362B;
+  --ember-text:   #C8362B; /* Slightly hotter for body-text contrast on black (AA at 14pt) */
+
+  /* ─── Typography — JetBrains Mono as primary typeface ──────────────────── */
+  --font-mono:    "JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
+  --font-body:    var(--font-mono);  /* Everything is JetBrains Mono */
+  --font-display: var(--font-mono);  /* Display/headings same — brand is monospace */
+
+  /* Type scale */
+  --text-xs:      0.7rem;        /* ~11px — badges, labels */
+  --text-sm:      0.8rem;        /* ~13px — secondary info */
+  --text-base:    0.9375rem;     /* ~15px — body text */
+  --text-lg:      1.0625rem;     /* ~17px — large body */
+  --text-xl:      1.25rem;       /* 20px — small headings */
+  --text-2xl:     1.5rem;        /* 24px — section headings */
+  --text-3xl:     2rem;          /* 32px — page headings */
+  --text-display: clamp(2.5rem, 6vw + 1rem, 6.5rem); /* Hero display */
 
   /* ─── Spacing — 8px base grid ────────────────────────────────────────────── */
-  --space-1:   8px;
-  --space-2:   16px;
-  --space-3:   24px;
-  --space-4:   32px;
-  --space-5:   40px;
-  --space-6:   48px;
-  --space-7:   64px;
-  --space-8:   96px;
-  --space-9:   128px;
-  --space-10:  160px;
-  --space-11:  192px;
-  --space-12:  256px;
+  --space-1:    8px;
+  --space-2:    16px;
+  --space-3:    24px;
+  --space-4:    32px;
+  --space-5:    40px;
+  --space-6:    48px;
+  --space-7:    64px;
+  --space-8:    96px;
+  --space-9:    128px;
+  --space-10:   160px;
+  --space-11:   192px;
+  --space-12:   256px;
 
-  /* Page gutter: 20px mobile → 40px tablet → 72px desktop */
-  --gutter: clamp(1.25rem, 2.5vw + 0.5rem, 4.5rem);
+  /* Editorial page gutter: 20px mobile → 48px tablet → 80px desktop */
+  --gutter: clamp(1.25rem, 3vw + 0.5rem, 5rem);
 
-  /* ─── Typography ─────────────────────────────────────────────────────────── */
-  --font-display: "Playfair Display", "Cormorant Garamond", Merriweather, Cambria, Georgia, serif;
-  --font-body:    Inter, "Neue Haas Grotesk", "Helvetica Neue", system-ui, sans-serif;
-  /* Preserve existing alias */
-  --font-serif:   var(--font-display);
-
-  --text-sm:      0.8rem;      /* ~12.8px */
-  --text-base:    1rem;        /* 16px */
-  --text-lg:      1.125rem;    /* 18px */
-  --text-xl:      1.25rem;     /* 20px */
-  --text-2xl:     1.5rem;      /* 24px */
-  --text-display: clamp(2.5rem, 6vw + 1rem, 6.5rem);
+  /* Section spacing */
+  --section-sm:  clamp(2rem, 4vw, 3rem);
+  --section-md:  clamp(3rem, 6vw, 5rem);
+  --section-lg:  clamp(4rem, 8vw, 7rem);
+  --section-xl:  clamp(6rem, 12vw, 10rem);
 
   /* ─── Radius ─────────────────────────────────────────────────────────────── */
-  --radius-none:  0;
+  --radius-none: 0;
   --radius-tight: 2px;
 
   /* ─── Shadow ─────────────────────────────────────────────────────────────── */
   --shadow-none: none;
-  --shadow-card: 0 2px 8px rgb(0 0 0 / 0.25);   /* subtle — no aggressive shadows */
+  --shadow-card: 0 2px 8px rgb(0 0 0 / 0.3);
 
   /* ─── Transitions ────────────────────────────────────────────────────────── */
-  --transition-base: 180ms ease;
-  --transition-slow: 360ms ease;
+  --transition-fast: 120ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 350ms ease;
 
-  /* ─── Misc (carry-forward from global.css) ───────────────────────────────── */
-  --measure: 62ch;
-  --rule:    1px solid color-mix(in srgb, var(--ash-silver) 50%, transparent);
+  /* ─── Layout measures ────────────────────────────────────────────────────── */
+  --content-max:  1100px;  /* Max width for page content */
+  --content-wide: 1280px;  /* Max width for full-bleed sections */
+  --measure:      65ch;    /* Comfortable reading measure */
+  --rule:         1px solid var(--grey-600); /* Standard divider */
+  --rule-light:   1px solid color-mix(in srgb, var(--grey-600) 40%, transparent);
 }

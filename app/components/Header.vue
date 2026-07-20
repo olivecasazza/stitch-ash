@@ -3,63 +3,63 @@ const { quantity, open } = useCart()
 </script>
 
 <template>
-  <header class="site-header">
+  <header class="site-header wrap--wide">
     <NuxtLink to="/" aria-label="STITCH AND ASH home" class="logo-link">
       <svg class="mark" viewBox="0 0 260 32" role="img" aria-label="STITCH AND ASH">
         <text
           x="0"
           y="24"
-          font-family='"UnifrakturMaguntia", "Old English Text MT", "Cambria", serif'
-          font-size="26"
-          letter-spacing="1.5"
-          font-weight="400"
+          font-family="'JetBrains Mono', monospace"
+          font-size="22"
+          letter-spacing="2"
+          font-weight="600"
         >STITCH &amp; ASH</text>
       </svg>
     </NuxtLink>
+
     <nav class="nav-menu" aria-label="Primary">
       <NuxtLink to="/products/sku-001" class="nav-link">Shop</NuxtLink>
       <NuxtLink to="/#statement" class="nav-link">Story</NuxtLink>
       <NuxtLink to="/ops-platform" class="nav-link">Ops</NuxtLink>
-      
-      <button class="cart-pill" @click.prevent="open = true" aria-label="Cart">
-        <span>Cart</span>
+
+      <button class="cart-pill" @click.prevent="open = true" aria-label="Open cart">
+        <span class="cart-pill__label">Cart</span>
         <ClientOnly>
-          <span v-if="quantity" class="cart-badge">{{ quantity }}</span>
-          <span v-else class="cart-badge">0</span>
+          <span v-if="quantity" class="cart-pill__count">{{ quantity }}</span>
+          <span v-else class="cart-pill__count">0</span>
         </ClientOnly>
       </button>
     </nav>
   </header>
 
-  <!-- Embed CartModal/Slideover so it is globally accessible via open state -->
+  <!-- Global cart slideover -->
   <CartModal />
 </template>
 
 <style scoped>
 .logo-link {
   display: inline-flex;
-  transition: opacity var(--transition-base), transform var(--transition-base);
+  transition: opacity var(--transition-base);
 }
 
 .logo-link:hover,
 .logo-link:focus-visible {
-  opacity: 0.85;
-  transform: translateY(-0.5px);
+  opacity: 0.8;
   outline: none;
 }
 
 .nav-menu {
   display: flex;
   align-items: center;
-  gap: clamp(1rem, 2vw, 2rem);
+  gap: clamp(0.75rem, 2vw, 1.5rem);
   font-family: var(--font-body);
 }
 
 .nav-link {
   position: relative;
-  color: var(--ash-silver);
+  color: var(--grey-400);
   text-decoration: none;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -93,55 +93,46 @@ const { quantity, open } = useCart()
   transform-origin: left;
 }
 
-/* Premium Cart Pill Button */
+/* Cart pill button */
 .cart-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.85rem;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
   background: var(--charcoal);
-  border: 1px solid color-mix(in srgb, var(--ash-silver) 20%, transparent);
-  border-radius: 9999px;
-  color: var(--bone);
+  border: 1px solid var(--grey-600);
+  border-radius: var(--radius-tight);
+  color: var(--grey-300);
   font-family: var(--font-body);
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  transition: border-color var(--transition-base), background-color var(--transition-base), transform var(--transition-base);
+  transition:
+    border-color var(--transition-base),
+    color var(--transition-base);
   cursor: pointer;
 }
 
 .cart-pill:hover,
 .cart-pill:focus-visible {
   border-color: var(--bone);
-  background: color-mix(in srgb, var(--bone) 6%, transparent);
-  transform: translateY(-0.5px);
+  color: var(--bone);
   outline: none;
 }
 
-.cart-pill:active {
-  transform: translateY(0.5px);
-}
-
-.cart-badge {
+.cart-pill__count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.6em;
-  height: 1.6em;
-  padding-inline: 0.35em;
-  font-size: 0.68rem;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  background: var(--bone);
-  color: var(--ink-black);
-  border-radius: 9999px;
+  min-width: 1.4em;
+  height: 1.4em;
+  padding-inline: 0.25em;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--grey-600);
+  color: var(--bone);
+  border-radius: var(--radius-tight);
   line-height: 1;
-  transition: transform var(--transition-base);
-}
-
-.cart-pill:hover .cart-badge {
-  transform: scale(1.05);
 }
 </style>

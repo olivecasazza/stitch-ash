@@ -44,8 +44,9 @@ export default defineNuxtConfig({
     fonts: {
         families: [
             {
-                name: 'Inter',
+                name: 'JetBrains Mono',
                 provider: 'google',
+                weights: [300, 400, 500, 600, 700],
             },
         ],
     },

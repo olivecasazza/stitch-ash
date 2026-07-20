@@ -13,25 +13,23 @@ const labels: Record<string, string> = {
 }
 
 const label = computed(() => labels[props.variant] ?? props.variant)
-const classes = computed(() => ['badge', `badge--${props.variant}`])
 </script>
 
 <template>
-  <span :class="classes">{{ label }}</span>
+  <span class="badge" :class="`badge--${variant}`">{{ label }}</span>
 </template>
 
 <style scoped>
 .badge {
   display: inline-block;
-  font-size: 0.65rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   padding: 0.2em 0.55em;
-  border-radius: var(--radius-none);
   line-height: 1.6;
-  background: var(--charcoal);
-  color: var(--ash-silver);
-  border: 1px solid color-mix(in srgb, var(--ash-silver) 20%, transparent);
+  background: var(--charcoal-mid);
+  color: var(--grey-300);
+  border: 1px solid var(--grey-600);
 }
 </style>
