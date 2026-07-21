@@ -232,12 +232,15 @@ useSeoMeta({
 
   .pdp__preview-notice {
     margin-block-end: var(--space-3);
+    margin-inline: auto;
+    max-width: var(--measure);
     padding: 0.6rem 0.9rem;
     border: 1px solid color-mix(in srgb, var(--bone) 20%, transparent);
     background: var(--charcoal);
     color: var(--ash-silver);
     font-size: var(--text-sm);
     letter-spacing: 0.04em;
+    text-align: center;
   }
 
   .pdp__layout {
@@ -253,10 +256,17 @@ useSeoMeta({
     }
   }
 
-  /* Gallery */
+  /* Gallery — center placeholder within its grid cell on mobile */
   .pdp__gallery {
     position: sticky;
     top: var(--space-3);
+    display: flex;
+    justify-content: center;
+  }
+
+  .pdp__gallery > * {
+    width: 100%;
+    max-width: 36rem;
   }
 
   .pdp__image-placeholder {
@@ -303,11 +313,29 @@ useSeoMeta({
     border-color: var(--ash-silver);
   }
 
-  /* Info panel */
+  /* Info panel — center title and supporting text on mobile,
+     switch to left-align on desktop so the price/description read naturally. */
   .pdp__info {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    text-align: center;
     gap: var(--space-3);
+  }
+
+  /* Children that benefit from full width even on mobile (CTAs, accordions) */
+  .pdp__size-wrap,
+  .pdp__atc-btn,
+  .pdp__accordion-wrap {
+    align-self: stretch;
+    width: 100%;
+  }
+
+  @media (min-width: 768px) {
+    .pdp__info {
+      align-items: stretch;
+      text-align: left;
+    }
   }
 
   .pdp__badges {
@@ -315,6 +343,7 @@ useSeoMeta({
     flex-wrap: wrap;
     gap: 0.4rem;
     align-items: center;
+    justify-content: center;
   }
 
   .pdp__preview-badge {
@@ -323,12 +352,15 @@ useSeoMeta({
 
   .pdp__name {
     margin: 0;
+    margin-inline: auto;
+    max-width: var(--measure);
     font-family: var(--font-display);
     font-size: clamp(1.75rem, 3vw + 0.5rem, 2.75rem);
     font-weight: 500;
     letter-spacing: 0.02em;
     line-height: 1.1;
     color: var(--bone);
+    text-align: center;
   }
 
   .pdp__price {
@@ -339,20 +371,26 @@ useSeoMeta({
     letter-spacing: 0.03em;
   }
 
-  .pdp__description {
-    margin: 0;
-    color: var(--ash-silver);
-    line-height: 1.65;
-    font-size: var(--text-base);
-  }
-
   .pdp__embroidery-note {
     margin: 0;
+    margin-inline: auto;
+    max-width: var(--measure);
     font-size: var(--text-sm);
     color: var(--ash-silver);
     letter-spacing: 0.04em;
     border-inline-start: 2px solid var(--bone);
     padding-inline-start: 0.75rem;
+    text-align: left;
+  }
+
+  .pdp__description {
+    margin: 0;
+    margin-inline: auto;
+    max-width: var(--measure);
+    color: var(--ash-silver);
+    line-height: 1.65;
+    font-size: var(--text-base);
+    text-align: left;
   }
 
   .pdp__one-size {
