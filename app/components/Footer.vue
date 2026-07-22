@@ -27,7 +27,9 @@
 
 <style scoped>
 .site-foot {
-  padding: var(--space-5) var(--gutter);
+  width: min(100%, var(--content-wide));
+  margin-inline: auto;
+  padding-block: var(--space-5);
   display: flex;
   flex-direction: column;
   align-items: center;

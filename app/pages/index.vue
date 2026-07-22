@@ -19,7 +19,7 @@ useSeoMeta({
           class="mark mark--hero"
           viewBox="0 0 700 100"
           preserveAspectRatio="xMidYMid meet"
-          style="width: 100%; max-width: 700px;"
+          style="width: 100%; max-width: 43.75rem;"
           role="img"
           aria-label="STITCH AND ASH"
         >

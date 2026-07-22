@@ -21,6 +21,7 @@ body {
 
 /* Centered max-width container for page content */
 .wrap {
+  width: min(100%, var(--content-max));
   max-width: var(--content-max);
   margin-inline: auto;
   padding-inline: var(--gutter);
@@ -28,6 +29,7 @@ body {
 
 /* Wider variant for full-width sections */
 .wrap--wide {
+  width: min(100%, var(--content-wide));
   max-width: var(--content-wide);
   margin-inline: auto;
   padding-inline: var(--gutter);
@@ -72,7 +74,9 @@ body {
 
 /* ── Header / nav ───────────────────────────────────────────────────────── */
 .site-header {
-  padding: var(--space-3) var(--gutter);
+  width: min(100%, var(--content-wide));
+  margin-inline: auto;
+  padding-block: var(--space-3);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -132,6 +136,7 @@ body {
 .mark--hero {
   height: clamp(3rem, 10vw, 6rem);
   display: block;
+  margin-inline: auto;
 }
 
 /* ── Hero ────────────────────────────────────────────────────────────────── */
