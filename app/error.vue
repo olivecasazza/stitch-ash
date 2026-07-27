@@ -29,20 +29,70 @@ watch(id, value => !value ? init().then(get) : get(), { immediate: true })
 <template>
     <UApp :locale="locales[language]">
         <NuxtLayout>
-            <UError
-                :error="props.error"
-                :clear="false"
-            >
-                <template #links>
-                    <UButton
-                        @click="clearError({
-                            redirect: localePath('/'),
-                        })"
+            <main class="error-page wrap measure">
+                <div class="error-card">
+                    <h1 class="error-code">{{ props.error.statusCode }}</h1>
+                    <p class="error-message">{{ props.error.statusMessage || props.error.message }}</p>
+                    <NuxtLink
+                        :to="localePath('/')"
+                        class="error-link"
                     >
-                        {{ $t('error.home') }}
-                    </UButton>
-                </template>
-            </UError>
+                        &larr; Back to home
+                    </NuxtLink>
+                </div>
+            </main>
         </NuxtLayout>
     </UApp>
 </template>
+
+<style scoped>
+.error-page {
+    padding-block: clamp(4rem, 12vw, 8rem);
+    text-align: center;
+}
+
+.error-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.error-code {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(4rem, 12vw, 8rem);
+    line-height: 1;
+    color: var(--grey-600);
+    letter-spacing: -0.03em;
+}
+
+.error-message {
+    margin: 0;
+    font-size: var(--text-lg);
+    color: var(--grey-400);
+    line-height: 1.5;
+    max-width: 36ch;
+}
+
+.error-link {
+    display: inline-block;
+    margin-block-start: var(--space-2);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--bone);
+    text-decoration: none;
+    border-bottom: 1px solid var(--grey-600);
+    padding-block-end: 2px;
+    transition: border-color var(--transition-base);
+}
+
+.error-link:hover,
+.error-link:focus-visible {
+    border-color: var(--bone);
+    outline: none;
+}
+</style>

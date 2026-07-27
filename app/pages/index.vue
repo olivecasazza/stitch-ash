@@ -17,19 +17,19 @@ useSeoMeta({
       <h1>
         <svg
           class="mark mark--hero"
-          viewBox="0 0 780 120"
+          viewBox="0 0 700 100"
           preserveAspectRatio="xMidYMid meet"
-          style="width: 100%; max-width: 780px;"
+          style="width: 100%; max-width: 43.75rem;"
           role="img"
           aria-label="STITCH AND ASH"
         >
           <text
             x="0"
-            y="92"
-            font-family='"UnifrakturMaguntia", "Old English Text MT", "Cambria", serif'
-            font-size="104"
-            letter-spacing="2"
-            font-weight="400"
+            y="72"
+            font-family="'JetBrains Mono', monospace"
+            font-size="76"
+            letter-spacing="4"
+            font-weight="600"
           >STITCH &amp; ASH</text>
         </svg>
       </h1>
@@ -40,7 +40,9 @@ useSeoMeta({
 
     <!-- PRODUCTS -->
     <section class="wrap" aria-labelledby="prod-h">
-      <p class="eyebrow" id="prod-h" style="margin-block-start: clamp(3rem, 6vw, 5rem)">The first capsule &mdash; embroidered black on black</p>
+      <p class="eyebrow" id="prod-h" style="margin-block-start: clamp(3rem, 6vw, 5rem)">
+        The first capsule — embroidered black on black
+      </p>
       <div class="products">
         <ProductCard
           v-for="p in PRODUCTS"
@@ -59,13 +61,13 @@ useSeoMeta({
       <div class="wrap measure stack">
         <p class="eyebrow">Brand</p>
         <p>
-          We make black hoodies. Minimal, embroidered, and black on black.
+          We make black apparel. Minimal, embroidered, and black on black.
         </p>
         <p>
-          They are comfortable, heavy, and have double stitching that won't fall apart.
+          Comfortable, heavy, with double stitching that won't fall apart.
         </p>
         <p>
-          No cheap blanks. Just heavy black cotton and black thread embroidery. That is it.
+          No cheap blanks. Just heavy black cotton and black thread embroidery.
         </p>
       </div>
     </section>
@@ -75,7 +77,7 @@ useSeoMeta({
       <p class="eyebrow">Pilot waitlist</p>
       <template v-if="waitlistParam === 'ok'">
         <p class="note" role="status" aria-live="polite" style="color:var(--bone)">
-          You&rsquo;re on the list. We&rsquo;ll reach out when the pilot opens.
+          You're on the list. We'll reach out when the pilot opens.
         </p>
       </template>
       <template v-else>
@@ -89,7 +91,7 @@ useSeoMeta({
             <button type="submit">Join the waitlist</button>
           </div>
           <p class="note">
-            During the pilot, orders are free &mdash; you&rsquo;ll receive a render of
+            During the pilot, orders are free — you'll receive a render of
             the piece. Real fulfilment lands in the next phase.
           </p>
         </form>

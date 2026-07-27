@@ -126,10 +126,13 @@ watch(() => collection.value?.products.pageInfo, async () => await nextTick().th
                 <ProductCard
                     v-for="(product, index) in products"
                     :key="product.id"
-                    :product="product"
+                    :href="`/product/${product.handle}`"
+                    :name="product.title"
+                    :price="product.priceRange?.minVariantPrice?.amount ?? ''"
+                    :image-src="product.featuredImage?.url"
+                    :image-alt="product.featuredImage?.altText ?? product.title"
                     class="pb-14 border-b border-b-default"
                     :loading="index < 3 ? 'eager' : 'lazy'"
-                    carousel
                 />
             </div>
 
