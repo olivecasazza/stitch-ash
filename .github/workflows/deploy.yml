@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  # Manual re-deploy of main. Also needed because GITHUB_TOKEN (auto-merge)
+  # pushes do not trigger `on: push`, so bot-merged PRs never auto-deploy.
+  workflow_dispatch: {}
 
 jobs:
   deploy:
