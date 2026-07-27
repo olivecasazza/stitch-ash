@@ -8,6 +8,15 @@ export default defineNuxtConfig({
         '@nuxt/ui',
     ],
 
+    // Deploy target is Cloudflare Pages (see wrangler.toml + .github/workflows/deploy.yml).
+    // The preset makes `nuxt build` emit dist/ with a _worker.js, which the deploy
+    // step uploads via `directory: dist`. Without it, the default node-server preset
+    // writes .output/public and the deploy step's `dist` upload fails (was broken since
+    // the Hydrogen->Nuxt switch on 2026-06-14).
+    nitro: {
+        preset: 'cloudflare_pages',
+    },
+
     css: ['~/assets/css/main.css'],
 
     ui: {

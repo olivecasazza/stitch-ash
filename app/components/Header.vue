@@ -20,7 +20,6 @@ const { quantity, open } = useCart()
     <nav class="nav-menu" aria-label="Primary">
       <NuxtLink to="/products/sku-001" class="nav-link">Shop</NuxtLink>
       <NuxtLink to="/#statement" class="nav-link">Story</NuxtLink>
-      <NuxtLink to="/ops-platform" class="nav-link">Ops</NuxtLink>
 
       <button class="cart-pill" @click.prevent="open = true" aria-label="Open cart">
         <span class="cart-pill__label">Cart</span>

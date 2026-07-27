@@ -84,7 +84,11 @@ const { data: products } = await useStorefrontData(key, `#graphql
         loop
     >
         <ProductCard
-            :product="product"
+            :href="`/product/${product.handle}`"
+            :name="product.title"
+            :price="product.priceRange?.minVariantPrice?.amount ?? ''"
+            :image-src="product.featuredImage?.url"
+            :image-alt="product.featuredImage?.altText ?? product.title"
             :loading="index < 3 ? props.loading : 'lazy'"
         />
     </UCarousel>

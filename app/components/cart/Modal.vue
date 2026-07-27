@@ -67,7 +67,6 @@ watch(() => route.path, () => open.value = false)
           trailing-icon="i-lucide-arrow-right"
           :ui="{
             trailingIcon: 'size-4',
-            font: 'font-mono',
           }"
           :disabled="loading || lines.length === 0"
         />
