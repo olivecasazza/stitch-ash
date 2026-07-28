@@ -8,6 +8,17 @@ export default defineNuxtConfig({
         '@nuxt/ui',
     ],
 
+    // Restrict shopify GraphQL validation to .vue files only — catalog
+    // scripts in src/catalog/ use the Admin API (different schema) and
+    // must not be validated against the Storefront API.
+    shopify: {
+        clients: {
+            storefront: {
+                documents: ['**/*.vue'],
+            },
+        },
+    },
+
     css: ['~/assets/css/main.css'],
 
     ui: {
