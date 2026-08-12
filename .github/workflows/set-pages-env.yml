@@ -35,23 +35,28 @@ jobs:
           ENVIRONMENT: ${{ inputs.environment }}
         run: |
           set -euo pipefail
-          echo "::group::Encrypting value via CF API"
-          # Cloudflare Pages `PUT /projects/:name/environments/:env/variables` accepts
-          # plain JSON for the value; CF encrypts at rest. The request requires the
-          # Pages:Edit token scope. The GH-side CLOUDFLARE_API_TOKEN has this scope
-          # (the cluster-side tunnel token does not).
-          BODY=$(jq -nc --arg k "$KEY" --arg v "$VALUE" '[{name: $k, value: $v, type: "secret_text"}]')
-          URL="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/stitch-ash-web/environments/${ENVIRONMENT}/variables"
-          echo "PUT $URL"
+          echo "::group::Setting $KEY on stitch-ash-web ($ENVIRONMENT)"
+          # Cloudflare Pages env vars live on the project, not on a deployment.
+          # We PATCH the project and supply a single env var under
+          # deployment_configs.{environment}.env_vars. CF encrypts at rest.
+          # Pages:Edit scope is required; the GH-side CLOUDFLARE_API_TOKEN has it.
+          BODY=$(jq -nc \
+            --arg k "$KEY" \
+            --arg v "$VALUE" \
+            --arg env "$ENVIRONMENT" \
+            '{(("deployment_configs") + "." + $env): {env_vars: {($k): {type: "secret_text", value: $v}}}}')
+          URL="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/stitch-ash-web"
+          echo "PATCH $URL"
+          echo "body: $BODY"
           HTTP=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
-            -X PUT \
+            -X PATCH \
             -H "Authorization: Bearer ${CF_TOKEN}" \
             -H "Content-Type: application/json" \
             --data "$BODY" \
             "$URL")
           echo "HTTP: $HTTP"
           cat /tmp/resp.json | jq .
-          if [ "$HTTP" -ne 200 ] && [ "$HTTP" -ne 201 ]; then
+          if [ "$HTTP" -ne 200 ]; then
             echo "::error::Failed to set env var (HTTP $HTTP)"
             exit 1
           fi
