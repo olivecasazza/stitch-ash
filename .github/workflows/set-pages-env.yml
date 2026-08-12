@@ -1,0 +1,59 @@
+name: Set Pages env var
+
+on:
+  workflow_dispatch:
+    inputs:
+      key:
+        description: "Env var name (e.g. PAPERCLIP_ADMIN_API_KEY)"
+        required: true
+        type: string
+      value:
+        description: "Env var value (treated as secret — use masked input)"
+        required: true
+        type: string
+      environment:
+        description: "Pages environment (production | preview)"
+        required: true
+        type: choice
+        default: production
+        options:
+          - production
+          - preview
+
+jobs:
+  set-env:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Set Pages env var via CF API
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          KEY: ${{ inputs.key }}
+          VALUE: ${{ inputs.value }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          echo "::group::Encrypting value via CF API"
+          # Cloudflare Pages `PUT /projects/:name/environments/:env/variables` accepts
+          # plain JSON for the value; CF encrypts at rest. The request requires the
+          # Pages:Edit token scope. The GH-side CLOUDFLARE_API_TOKEN has this scope
+          # (the cluster-side tunnel token does not).
+          BODY=$(jq -nc --arg v "$VALUE" '[{name: $KEY, value: $v, type: "secret_text"}]')
+          URL="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/stitch-ash-web/environments/${ENVIRONMENT}/variables"
+          echo "PUT $URL"
+          HTTP=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+            -X PUT \
+            -H "Authorization: Bearer ${CF_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "$BODY" \
+            "$URL")
+          echo "HTTP: $HTTP"
+          cat /tmp/resp.json | jq .
+          if [ "$HTTP" -ne 200 ] && [ "$HTTP" -ne 201 ]; then
+            echo "::error::Failed to set env var (HTTP $HTTP)"
+            exit 1
+          fi
+          echo "::endgroup::"
+          echo "Set ${KEY} on stitch-ash-web (${ENVIRONMENT}) — verify by sending a test admin bug report to https://stitch-ash-web.pages.dev/api/bug-report"
