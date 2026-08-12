@@ -1,0 +1,51 @@
+name: Set Pages env vars via wrangler
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Pages environment"
+        required: true
+        type: choice
+        default: production
+        options:
+          - production
+          - preview
+
+jobs:
+  set-env:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set all Pages env vars via wrangler
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          PAPERCLIP_ADMIN_API_KEY: ${{ secrets.PAPERCLIP_ADMIN_API_KEY }}
+          SHOPIFY_STOREFRONT_ACCESS_TOKEN: ${{ secrets.SHOPIFY_STOREFRONT_ACCESS_TOKEN }}
+          SHOPIFY_STOREFRONT_DOMAIN: ${{ secrets.SHOPIFY_STOREFRONT_DOMAIN }}
+        run: |
+          set -euo pipefail
+          echo "::group::Setting env vars on stitch-ash-web ($ENVIRONMENT)"
+          # Use wrangler canonical API: `wrangler pages secret put` per var.
+          # Wrangler checks the wrangler.toml in the repo; ours is the
+          # canonical source-of-truth for the project name.
+          for VAR in PAPERCLIP_ADMIN_API_KEY SHOPIFY_STOREFRONT_ACCESS_TOKEN SHOPIFY_STOREFRONT_DOMAIN; do
+            VAL="${!VAR}"
+            if [ -z "$VAL" ]; then
+              echo "::warning::$VAR is unset; sending empty placeholder"
+              VAL=""
+            fi
+            echo "Setting $VAR on $ENVIRONMENT..."
+            printf '%s' "$VAL" | npx wrangler@3 pages secret put "$VAR" \
+              --project-name stitch-ash-web \
+              --env "$ENVIRONMENT" \
+              --skip-confirmation
+          done
+          echo "::endgroup::"
+          echo "All env vars set. Trigger a redeploy to pick them up."
