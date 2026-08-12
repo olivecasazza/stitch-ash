@@ -42,10 +42,9 @@ jobs:
               VAL=""
             fi
             echo "Setting $VAR on $ENVIRONMENT..."
-            printf '%s' "$VAL" | npx wrangler@3 pages secret put "$VAR" \
+            printf '%s' "$VAL" | npx --yes wrangler@3 pages secret put "$VAR" \
               --project-name stitch-ash-web \
-              --env "$ENVIRONMENT" \
-              --skip-confirmation
+              --env "$ENVIRONMENT"
           done
           echo "::endgroup::"
           echo "All env vars set. Trigger a redeploy to pick them up."
