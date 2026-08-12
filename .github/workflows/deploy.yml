@@ -41,12 +41,14 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: 'stitch-ash-web'
-          # Match wrangler.toml (pages_build_output_dir = ".output/public").
-          # Nuxt 4 builds to .output/public/. The previous `directory: 'dist'`
-          # was a stale Astro-era path; deploys worked by accident because the
-          # Pages project was presumably hand-fixed in the dashboard, but PR
-          # preview deployments failed the preview-gate.
-          directory: '.output/public'
+          # nuxt.config.ts sets `nitro.preset: 'cloudflare_pages'`, so the Nuxt
+          # build emits the Pages artifact to `dist/` (NOT `.output/public/`,
+          # which is the default node-server preset). The wrangler.toml
+          # `pages_build_output_dir = ".output/public"` is stale and harmless —
+          # the Pages project uses the value the GitHub integration sends at
+          # deploy time. Update wrangler.toml in a follow-up to keep local
+          # `wrangler pages dev` consistent.
+          directory: 'dist'
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ github.ref_name }}
           wranglerVersion: '3'
