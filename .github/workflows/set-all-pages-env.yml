@@ -1,0 +1,67 @@
+name: Set all Pages env vars
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Pages environment"
+        required: true
+        type: choice
+        default: production
+        options:
+          - production
+          - preview
+
+jobs:
+  set-env:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Set all Pages env vars via CF API
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          # All production env vars in one PATCH. Keep this list authoritative.
+          PAPERCLIP_ADMIN_API_KEY: ${{ secrets.PAPERCLIP_ADMIN_API_KEY }}
+          SHOPIFY_STOREFRONT_ACCESS_TOKEN: ${{ secrets.SHOPIFY_STOREFRONT_ACCESS_TOKEN }}
+          SHOPIFY_STOREFRONT_DOMAIN: ${{ secrets.SHOPIFY_STOREFRONT_DOMAIN }}
+        run: |
+          set -euo pipefail
+          echo "::group::Setting all env vars on stitch-ash-web ($ENVIRONMENT)"
+          # PATCH replaces env_vars entirely; we must include all known keys here
+          # or they get wiped. Keys missing from this env block are set to
+          # empty string as a placeholder.
+          for VAR in PAPERCLIP_ADMIN_API_KEY SHOPIFY_STOREFRONT_ACCESS_TOKEN SHOPIFY_STOREFRONT_DOMAIN; do
+            if [ -z "${!VAR:-}" ]; then
+              echo "WARN: $VAR is unset; sending empty placeholder"
+              export "$VAR"=""
+            fi
+          done
+          BODY=$(jq -nc \
+            --arg pcpk "$PAPERCLIP_ADMIN_API_KEY" \
+            --arg shopifyDomain "$SHOPIFY_STOREFRONT_DOMAIN" \
+            --arg shopifyToken "$SHOPIFY_STOREFRONT_ACCESS_TOKEN" \
+            --arg env "$ENVIRONMENT" \
+            '{(("deployment_configs") + "." + $env): {env_vars: {
+              "PAPERCLIP_ADMIN_API_KEY": {type: "secret_text", value: $pcpk},
+              "SHOPIFY_STOREFRONT_ACCESS_TOKEN": {type: "secret_text", value: $shopifyToken},
+              "SHOPIFY_STOREFRONT_DOMAIN": {type: "secret_text", value: $shopifyDomain}
+            }}}')
+          URL="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/stitch-ash-web"
+          echo "PATCH $URL"
+          HTTP=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+            -X PATCH \
+            -H "Authorization: Bearer ${CF_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "$BODY" \
+            "$URL")
+          echo "HTTP: $HTTP"
+          cat /tmp/resp.json | jq '.result.deployment_configs' | jq '..|objects|select(.env_vars? != null)|.env_vars|keys'
+          if [ "$HTTP" -ne 200 ]; then
+            echo "::error::Failed (HTTP $HTTP)"
+            cat /tmp/resp.json | jq .
+            exit 1
+          fi
+          echo "::endgroup::"
