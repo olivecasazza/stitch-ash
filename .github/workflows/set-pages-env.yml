@@ -40,7 +40,7 @@ jobs:
           # plain JSON for the value; CF encrypts at rest. The request requires the
           # Pages:Edit token scope. The GH-side CLOUDFLARE_API_TOKEN has this scope
           # (the cluster-side tunnel token does not).
-          BODY=$(jq -nc --arg v "$VALUE" '[{name: $KEY, value: $v, type: "secret_text"}]')
+          BODY=$(jq -nc --arg k "$KEY" --arg v "$VALUE" '[{name: $k, value: $v, type: "secret_text"}]')
           URL="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/stitch-ash-web/environments/${ENVIRONMENT}/variables"
           echo "PUT $URL"
           HTTP=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
