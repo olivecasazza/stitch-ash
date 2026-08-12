@@ -41,7 +41,12 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: 'stitch-ash-web'
-          directory: 'dist'
+          # Match wrangler.toml (pages_build_output_dir = ".output/public").
+          # Nuxt 4 builds to .output/public/. The previous `directory: 'dist'`
+          # was a stale Astro-era path; deploys worked by accident because the
+          # Pages project was presumably hand-fixed in the dashboard, but PR
+          # preview deployments failed the preview-gate.
+          directory: '.output/public'
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ github.ref_name }}
           wranglerVersion: '3'
