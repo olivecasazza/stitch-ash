@@ -38,6 +38,14 @@ export default defineNuxtConfig({
 
     routeRules: {
         '/': { prerender: true },
+        // Legacy /products/<handle> alias -> canonical /product/<handle>.
+        // /products/<handle> is a contract URL: it's still emitted by
+        // functions/api/checkout.js:121 as the waitlist redirectBase, and
+        // docs/test-purchase-handoff.md:6 documents it as the URL to
+        // navigate to. External links (paid social, email, Shopify-mirror
+        // sync, blog references) hit this path and previously 404'd.
+        // STI-271 fix: 308 keeps the request method/body on the canonical PDP.
+        '/products/:handle': { redirect: '/product/:handle', statusCode: 308 },
     },
 
     compatibilityDate: '2026-03-15',
