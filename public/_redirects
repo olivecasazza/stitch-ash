@@ -1,8 +1,0 @@
-# Cloudflare Pages redirects.
-# STI-271: legacy /products/<handle> (still emitted by
-# functions/api/checkout.js:121 as the waitlist redirectBase, and documented
-# at docs/test-purchase-handoff.md:6) -> canonical /product/<handle>.
-# 308 preserves the request method/body so future POST/PUT probes that
-# happen to hit the legacy URL aren't dropped on the redirect.
-# Last entry wins for static assets; Cloudflare evaluates top-to-bottom.
-/products/:handle  /product/:handle  308

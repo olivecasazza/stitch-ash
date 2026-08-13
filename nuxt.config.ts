@@ -39,12 +39,13 @@ export default defineNuxtConfig({
     routeRules: {
         '/': { prerender: true },
         // STI-271: legacy /products/<handle> -> canonical /product/<handle>
-        // is implemented as a Cloudflare Pages _redirects file in public/
-        // rather than a routeRule. Nitro treats routeRule `to` as a literal
-        // string and emits the unsubstituted pattern into the Location
-        // header; Cloudflare's _redirects format supports capture-group
-        // substitution natively. The redirect entry is:
-        //   /products/:handle  /product/:handle  308
+        // is handled by server/middleware/products-redirect.ts. Neither a
+        // routeRule (Nitro does not substitute `:handle` into the Location
+        // header) nor a Cloudflare _redirects file (the `cloudflare_pages`
+        // Nitro preset puts a `_worker.js` at the deployment root, which
+        // overrides the Pages edge-layer redirect processing) work for
+        // this in our current setup. The middleware runs in the Nitro
+        // worker and issues a 308 with the actual handle interpolated.
     },
 
     compatibilityDate: '2026-03-15',
