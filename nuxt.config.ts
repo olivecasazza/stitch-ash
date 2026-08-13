@@ -38,14 +38,13 @@ export default defineNuxtConfig({
 
     routeRules: {
         '/': { prerender: true },
-        // Legacy /products/<handle> alias -> canonical /product/<handle>.
-        // /products/<handle> is a contract URL: it's still emitted by
-        // functions/api/checkout.js:121 as the waitlist redirectBase, and
-        // docs/test-purchase-handoff.md:6 documents it as the URL to
-        // navigate to. External links (paid social, email, Shopify-mirror
-        // sync, blog references) hit this path and previously 404'd.
-        // STI-271 fix: 308 keeps the request method/body on the canonical PDP.
-        '/products/:handle': { redirect: '/product/:handle', statusCode: 308 },
+        // STI-271: legacy /products/<handle> -> canonical /product/<handle>
+        // is implemented as a Cloudflare Pages _redirects file in public/
+        // rather than a routeRule. Nitro treats routeRule `to` as a literal
+        // string and emits the unsubstituted pattern into the Location
+        // header; Cloudflare's _redirects format supports capture-group
+        // substitution natively. The redirect entry is:
+        //   /products/:handle  /product/:handle  308
     },
 
     compatibilityDate: '2026-03-15',
