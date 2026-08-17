@@ -332,10 +332,9 @@ useSeoMeta({
   }
 
   .pdp__atc-btn--disabled {
-    background: transparent;
-    border: 1px solid #222222;
-    color: var(--ash-silver);
-    opacity: 0.5;
+    background: var(--bone);
+    color: var(--ink-black);
+    border: 1px solid var(--bone);
     cursor: not-allowed;
   }
 
