@@ -141,7 +141,7 @@ body {
 
 /* ── Hero ────────────────────────────────────────────────────────────────── */
 .hero {
-  padding-block: var(--section-lg);
+  padding-block: var(--section-md);
   border-bottom: var(--rule-light);
   text-align: center;
 }
