@@ -1,6 +1,6 @@
 /* STITCH AND ASH — global styles
    Engineering bias: < 50KB total page weight, WCAG AA, zero initial JS.
-   Updated for STI-223-3: JetBrains Mono, centered max-width, editorial spacing.
+   Updated for STI-279: editorial serif (Playfair Display) + grotesk (Inter).
 */
 @import "./tokens.css";
 
@@ -44,8 +44,8 @@ body {
 
 /* ── Typography utilities ───────────────────────────────────────────────── */
 
-/* JetBrains Mono is the default — no need for separate classes.
-   Keep monospace for everything per brand direction. */
+/* Display type uses --font-display (editorial serif), body uses --font-body (grotesk).
+   Monospace (--font-mono) reserved for code blocks only. */
 
 /* Eyebrow label — uppercase, tracked, grey */
 .eyebrow {
