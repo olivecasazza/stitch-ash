@@ -24,8 +24,9 @@ useSeoMeta({
           aria-label="STITCH AND ASH"
         >
           <text
-            x="0"
+            x="350"
             y="72"
+            text-anchor="middle"
             font-family="'JetBrains Mono', monospace"
             font-size="76"
             letter-spacing="4"
