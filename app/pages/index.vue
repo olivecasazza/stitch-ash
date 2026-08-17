@@ -77,10 +77,10 @@ useSeoMeta({
 
     <!-- WAITLIST -->
     <section id="signup" class="signup wrap">
-      <p class="eyebrow">Pilot waitlist</p>
+      <p class="eyebrow">Waitlist</p>
       <template v-if="waitlistParam === 'ok'">
         <p class="note" role="status" aria-live="polite" style="color:var(--bone)">
-          You're on the list. We'll reach out when the pilot opens.
+          You're on the list. We'll reach out when we launch.
         </p>
       </template>
       <template v-else>
@@ -94,8 +94,7 @@ useSeoMeta({
             <button type="submit">Join the waitlist</button>
           </div>
           <p class="note">
-            During the pilot, orders are free — you'll receive a render of
-            the piece. Real fulfilment lands in the next phase.
+            We'll notify you when the shop opens. No spam, ever.
           </p>
         </form>
       </template>

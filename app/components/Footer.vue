@@ -14,8 +14,7 @@
     </NuxtLink>
 
     <div class="footer-meta">
-      <span class="footer-copy">&copy; STITCH &amp; ASH — pilot</span>
-      <span class="footer-trilogy" aria-label="Thread colors">Bone · Ember · Ash</span>
+      <span class="footer-copy">&copy; STITCH &amp; ASH</span>
     </div>
 
     <nav class="footer-links" aria-label="Footer">

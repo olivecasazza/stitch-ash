@@ -84,12 +84,7 @@ useSeoMeta({
 
 <template>
   <main class="pdp wrap">
-    <!-- Pilot-launch notice (customer-facing copy; internal preview flag is
-         exposed separately below as a comment-only marker for QA). -->
-    <div v-if="isPreview" class="pdp__preview-notice" role="status">
-      <span>Pilot launch — fulfillment coming soon. Join the waitlist for launch access.</span>
-      <!-- internal:isPreview={{isPreview}} -->
-    </div>
+
 
     <div class="pdp__layout">
       <!-- LEFT: Image gallery — clean fallback when no Shopify imagery available -->

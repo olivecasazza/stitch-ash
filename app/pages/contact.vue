@@ -6,7 +6,7 @@
 useSeoMeta({
   title: 'Contact — STITCH AND ASH',
   description:
-    'Get in touch with STITCH AND ASH. Questions about sizing, embroidery, or the pilot launch — we read every message.',
+    'Get in touch with STITCH AND ASH. Questions about sizing, embroidery, or your order — we read every message.',
 })
 
 const name = ref('')
@@ -75,7 +75,7 @@ async function onSubmit() {
     <h1 class="contact__title">Contact</h1>
 
     <p class="contact__lede section-title">
-      Questions about sizing, embroidery, or the pilot launch — we read every message.
+      Questions about sizing, embroidery, or your order — we read every message.
     </p>
 
     <section class="contact__panel stack-lg" aria-labelledby="contact-form-h">
@@ -149,7 +149,7 @@ async function onSubmit() {
         <a href="mailto:hello@stitch-and-ash.com" class="contact__link">hello@stitch-and-ash.com</a>.
       </p>
       <p class="contact__line text-muted">
-        We respond within a few business days. The pilot is small and we read every message by hand.
+        We respond within a few business days. We read every message by hand.
       </p>
     </section>
   </main>
