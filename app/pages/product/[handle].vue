@@ -67,13 +67,7 @@ const hasRealSizes = computed(() => (staticProduct.value?.sizes?.length ?? 0) > 
 const sizeValues = computed(() => (staticProduct.value?.sizes || []).map(s => s.label))
 const selectedSize = ref(sizeValues.value[0] || 'One size')
 
-// 3. Zoom interactive state
-const zoomed = ref(false)
-const toggleZoom = () => {
-  zoomed.value = !zoomed.value
-}
-
-// 4. Cart addition via reactive composable
+// 3. Cart addition via reactive composable
 const { add: addToCart, open: openCart } = useCart()
 
 const handleAddToCart = async () => {
@@ -98,83 +92,19 @@ useSeoMeta({
     </div>
 
     <div class="pdp__layout">
-      <!-- LEFT: Image gallery (SVG placeholder with cross-hatch + interactive zoom) -->
+      <!-- LEFT: Image gallery — clean fallback when no Shopify imagery available -->
       <div class="pdp__gallery">
-        <div
-          class="pdp__image-placeholder"
-          :data-zoomed="zoomed ? '' : undefined"
-          @click="toggleZoom"
-          role="button"
-          :aria-label="zoomed ? 'Collapse image' : 'Zoom image'"
-          tabindex="0"
-          @keydown.enter="toggleZoom"
-        >
+        <div class="pdp__image-fallback">
           <svg
             viewBox="0 0 600 750"
             xmlns="http://www.w3.org/2000/svg"
             :aria-label="`${displayName} — product image coming soon`"
             role="img"
-            class="pdp__placeholder-svg"
-            :style="zoomed ? { transform: 'scale(1.6)' } : {}"
+            class="pdp__fallback-svg"
           >
             <rect width="600" height="750" fill="#0B0B0B" />
-            <rect
-              x="1"
-              y="1"
-              width="598"
-              height="748"
-              fill="none"
-              stroke="#C0C0C0"
-              stroke-width="1"
-              stroke-dasharray="6 6"
-              opacity="0.4"
-            />
-            <!-- Thread-like cross-hatch to suggest embroidery texture -->
-            <g stroke="#1A1A1A" stroke-width="1" opacity="0.6">
-              <line v-for="i in 20" :key="`h-${i}`" :x1="0" :y1="(i - 1) * 40" :x2="600" :y2="(i - 1) * 40" />
-              <line v-for="i in 15" :key="`v-${i}`" :x1="(i - 1) * 42" :y1="0" :x2="(i - 1) * 42" :y2="750" />
-            </g>
-            <text
-              x="300"
-              y="360"
-              text-anchor="middle"
-              dominant-baseline="middle"
-              fill="#C0C0C0"
-              font-family="'JetBrains Mono', monospace"
-              font-size="13"
-              letter-spacing="0.12em"
-              opacity="0.5"
-            >
-              {{ displayName.toUpperCase() }}
-            </text>
-            <text
-              x="300"
-              y="385"
-              text-anchor="middle"
-              dominant-baseline="middle"
-              fill="#C0C0C0"
-              font-family="'JetBrains Mono', monospace"
-              font-size="10"
-              letter-spacing="0.1em"
-              opacity="0.35"
-            >
-              PHOTOGRAPHY COMING SOON
-            </text>
+            <rect x="1" y="1" width="598" height="748" fill="none" stroke="#C0C0C0" stroke-width="1" opacity="0.15" />
           </svg>
-          <!-- Zoom hint button -->
-          <button
-            class="pdp__zoom-btn"
-            :aria-label="zoomed ? 'Collapse image' : 'Zoom image'"
-            @click.stop="toggleZoom"
-          >
-            <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-              <circle cx="8" cy="8" r="5.5" />
-              <line x1="12.5" y1="12.5" x2="18" y2="18" />
-              <line v-if="!zoomed" x1="8" y1="5.5" x2="8" y2="10.5" />
-              <line v-if="!zoomed" x1="5.5" y1="8" x2="10.5" y2="8" />
-              <line v-if="zoomed" x1="5.5" y1="8" x2="10.5" y2="8" />
-            </svg>
-          </button>
         </div>
       </div>
 
@@ -271,48 +201,17 @@ useSeoMeta({
     max-width: 36rem;
   }
 
-  .pdp__image-placeholder {
+  .pdp__image-fallback {
     position: relative;
     aspect-ratio: 4 / 5;
     overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--ash-silver) 20%, transparent);
     background: var(--ink-black);
-    cursor: zoom-in;
-    outline: none;
   }
 
-  .pdp__image-placeholder[data-zoomed] {
-    cursor: zoom-out;
-  }
-
-  .pdp__placeholder-svg {
+  .pdp__fallback-svg {
     width: 100%;
     height: 100%;
     display: block;
-    transition: transform var(--transition-slow);
-  }
-
-  .pdp__zoom-btn {
-    position: absolute;
-    bottom: var(--space-2);
-    right: var(--space-2);
-    background: color-mix(in srgb, var(--ink-black) 80%, transparent);
-    border: 1px solid color-mix(in srgb, var(--ash-silver) 30%, transparent);
-    color: var(--ash-silver);
-    width: 2rem;
-    height: 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: color var(--transition-base), border-color var(--transition-base);
-    border-radius: var(--radius-none);
-  }
-
-  .pdp__zoom-btn:hover,
-  .pdp__zoom-btn:focus-visible {
-    color: var(--bone);
-    border-color: var(--ash-silver);
   }
 
   /* Info panel — center title and supporting text on mobile,

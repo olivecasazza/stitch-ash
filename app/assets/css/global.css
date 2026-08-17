@@ -218,15 +218,16 @@ body {
   opacity: 1;
 }
 
-.product-card__placeholder {
+.product-card__image-fallback {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
-  border: 1px dashed var(--grey-600);
-  color: var(--grey-500);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  background: var(--ink-black);
+}
+
+.product-card__fallback-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .product-card__body {

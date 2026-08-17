@@ -52,6 +52,8 @@ useSeoMeta({
           :price="p.price"
           :note="p.embroideryCopy"
           :badge="p.badge"
+          :image-src="p.imageSrc"
+          :image-alt="p.imageAlt"
         />
       </div>
     </section>

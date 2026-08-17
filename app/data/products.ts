@@ -37,6 +37,10 @@ export interface StaticProduct {
   badge: "made-to-order";
   /** PDP accordion content. */
   details: ProductAccordionSection[];
+  /** Optional product image URL for ProductCard. */
+  imageSrc?: string;
+  /** Optional alt text for product image. */
+  imageAlt?: string;
 }
 
 const HOODIE_DETAILS: ProductAccordionSection[] = [
