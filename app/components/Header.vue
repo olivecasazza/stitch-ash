@@ -92,31 +92,31 @@ const { quantity, open } = useCart()
   transform-origin: left;
 }
 
-/* Cart pill button */
+/* Cart pill button — white fill on dark surface (UX_FRAMEWORK) */
 .cart-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   padding: 0.3rem 0.75rem;
-  background: var(--charcoal);
-  border: 1px solid var(--grey-600);
+  background: var(--bone);
+  border: 1px solid var(--bone);
   border-radius: var(--radius-tight);
-  color: var(--grey-300);
+  color: var(--ink-black);
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   transition:
-    border-color var(--transition-base),
+    background-color var(--transition-base),
     color var(--transition-base);
   cursor: pointer;
 }
 
 .cart-pill:hover,
 .cart-pill:focus-visible {
-  border-color: var(--bone);
-  color: var(--bone);
+  background: var(--crisp-white);
+  color: var(--ink-black);
   outline: none;
 }
 
@@ -129,7 +129,7 @@ const { quantity, open } = useCart()
   padding-inline: 0.25em;
   font-size: 0.7rem;
   font-weight: 600;
-  background: var(--grey-600);
+  background: var(--ink-black);
   color: var(--bone);
   border-radius: var(--radius-tight);
   line-height: 1;
