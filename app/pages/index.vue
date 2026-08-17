@@ -52,7 +52,6 @@ useSeoMeta({
           :name="p.name"
           :price="p.price"
           :note="p.embroideryCopy"
-          :badge="p.badge"
           :image-src="p.imageSrc"
           :image-alt="p.imageAlt"
         />

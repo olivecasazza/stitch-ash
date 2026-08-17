@@ -26,6 +26,7 @@ const label = computed(() => labels[props.variant] ?? props.variant)
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  white-space: nowrap;
   padding: 0.2em 0.55em;
   line-height: 1.6;
   background: var(--charcoal-mid);

@@ -33,8 +33,9 @@ export interface StaticProduct {
   embroideryCopy: string;
   /** Available sizes. Single-entry ["One size"] for non-sized items. */
   sizes: ProductSize[];
-  /** Badge variant for ProductCard + PDP. */
-  badge: "made-to-order";
+  /** Badge variant for ProductCard + PDP. Optional — only set when a card
+   *  warrants one (per UX_FRAMEWORK: "use sparingly"). Not set on every card. */
+  badge?: "made-to-order";
   /** PDP accordion content. */
   details: ProductAccordionSection[];
   /** Optional product image URL for ProductCard. */
@@ -128,7 +129,6 @@ export const PRODUCTS: StaticProduct[] = [
       { label: "XL", value: "XL" },
       { label: "XXL", value: "XXL" },
     ],
-    badge: "made-to-order",
     details: HOODIE_DETAILS,
   },
   {
@@ -140,7 +140,6 @@ export const PRODUCTS: StaticProduct[] = [
     embroideryCopy:
       "Black thread on black weave. Repeated brand-mark pattern along length.",
     sizes: [{ label: "One size", value: "one-size" }],
-    badge: "made-to-order",
     details: LANYARD_DETAILS,
   },
   {
@@ -152,7 +151,6 @@ export const PRODUCTS: StaticProduct[] = [
     embroideryCopy:
       "Black thread on black backing. Single design with embedded brand mark.",
     sizes: [{ label: "One size", value: "one-size" }],
-    badge: "made-to-order",
     details: STICKER_DETAILS,
   },
 ];

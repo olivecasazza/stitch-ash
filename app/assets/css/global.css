@@ -253,6 +253,12 @@ body {
   font-size: var(--text-xl);
   letter-spacing: -0.01em;
   color: var(--bone);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.product-card__row > .badge {
+  flex: 0 0 auto;
 }
 
 .product-card__note {
@@ -412,6 +418,7 @@ body {
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  white-space: nowrap;
   padding: 0.2em 0.55em;
   line-height: 1.6;
   background: var(--charcoal-mid);
