@@ -257,6 +257,7 @@ useSeoMeta({
     line-height: 1.1;
     color: var(--bone);
     text-align: center;
+    text-wrap: balance;
   }
 
   .pdp__price {
