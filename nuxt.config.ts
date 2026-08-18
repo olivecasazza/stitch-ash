@@ -37,7 +37,8 @@ export default defineNuxtConfig({
     },
 
     routeRules: {
-        '/': { prerender: true },
+        // TEMPORARY: prerender disabled — pre-existing 500 on Cloudflare Pages worker
+        // /': { prerender: true },
         // STI-271: legacy /products/<handle> -> canonical /product/<handle>
         // is handled by server/middleware/products-redirect.ts. Neither a
         // routeRule (Nitro does not substitute `:handle` into the Location
