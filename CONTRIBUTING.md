@@ -55,6 +55,20 @@ CF Pages sanitises branch names (slashes → hyphens, lowercased). For example:
 4. **Failed typecheck or build** — `pr-checks` failed; run `pnpm typecheck && pnpm build` locally.
 5. **`do-not-merge` label** — remove it if added by mistake.
 
+### Before opening a PR
+
+Run the following locally to avoid a red CI build:
+
+```bash
+# Internal-copy gate (must pass before any customer-visible change)
+./scripts/ci/no-internal-copy-in-storefront.sh
+
+# Typecheck and build
+pnpm typecheck && pnpm build
+```
+
+See [docs/DEVELOPING-storefront.md](docs/DEVELOPING-storefront.md) for the full storefront dev lifecycle.
+
 ### Required secrets
 
 | Secret | Purpose |
