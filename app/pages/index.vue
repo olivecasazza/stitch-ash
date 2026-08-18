@@ -86,7 +86,7 @@ useSeoMeta({
         <form method="post" action="/api/checkout" class="stack">
           <div>
             <label for="email">Email</label>
-            <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@elsewhere.com" />
+            <input type="email" id="email" name="email" required autocomplete="email" placeholder="your@email.com" />
           </div>
           <div style="display:flex;gap:.5rem;flex-wrap:wrap">
             <input type="hidden" name="intent" value="waitlist" />
