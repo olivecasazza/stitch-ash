@@ -1,6 +1,7 @@
 /* STITCH AND ASH — global styles
    Engineering bias: < 50KB total page weight, WCAG AA, zero initial JS.
-   Updated for STI-279: editorial serif (Playfair Display) + grotesk (Inter).
+   Single brand face (JetBrains Mono) for display, body, and UI.
+   Square edges everywhere, hairline dividers in place of shadow.
 */
 @import "./tokens.css";
 
@@ -12,7 +13,8 @@ body {
   margin: 0;
   background: var(--ink-black);
   color: var(--bone);
-  font: 400 var(--text-base)/1.6 var(--font-body);
+  font: 400 var(--text-lg)/1.55 var(--font-body);
+  font-feature-settings: "tnum" 1;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -39,13 +41,14 @@ body {
 .measure  { max-width: var(--measure); }
 
 /* Stack spacing helpers */
-.stack    > * + * { margin-block-start: 1rem; }
-.stack-lg > * + * { margin-block-start: var(--space-5); }
+.stack    > * + * { margin-block-start: var(--space-lg); }
+.stack-lg > * + * { margin-block-start: var(--space-3xl); }
 
 /* ── Typography utilities ───────────────────────────────────────────────── */
 
-/* Display type uses --font-display (editorial serif), body uses --font-body (grotesk).
-   Monospace (--font-mono) reserved for code blocks only. */
+/* Single face (JetBrains Mono) carries display, body, and UI.
+   Display type uses --font-display (mono, weight 500, tight letter-spacing);
+   body uses --font-body (mono); --font-mono reserved as the explicit mono key. */
 
 /* Eyebrow label — uppercase, tracked, grey */
 .eyebrow {
@@ -54,8 +57,8 @@ body {
   text-transform: uppercase;
   color: var(--grey-400);
   display: inline-block;
-  padding-block-end: 4px;
-  border-block-end: 1px solid var(--grey-600);
+  padding-block-end: var(--space-xs);
+  border-block-end: 1px solid var(--border-rule);
   font-weight: 500;
   text-wrap: balance;
 }
@@ -71,17 +74,17 @@ body {
 
 /* Body text variants */
 .text-secondary { color: var(--grey-400); }
-.text-muted     { color: var(--grey-500); }
+.text-muted     { color: var(--grey-400); }
 
 /* ── Header / nav ───────────────────────────────────────────────────────── */
 .site-header {
   width: min(100%, var(--content-wide));
   margin-inline: auto;
-  padding-block: var(--space-3);
+  padding-block: var(--space-xl);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1.5rem;
+  gap: var(--space-lg);
   border-bottom: var(--rule-light);
   background: var(--ink-black);
   position: sticky;
@@ -92,7 +95,7 @@ body {
 .site-header nav {
   display: flex;
   align-items: center;
-  gap: clamp(0.75rem, 2vw, 1.5rem);
+  gap: clamp(12px, 2vw, 24px);
   font-size: var(--text-sm);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -104,7 +107,7 @@ body {
   color: var(--grey-400);
   text-decoration: none;
   border-bottom: 1px solid transparent;
-  padding-block-end: 2px;
+  padding-block-end: var(--space-xs);
   transition: color var(--transition-base), border-color var(--transition-base);
   background: none;
   border-top: none;
@@ -152,11 +155,11 @@ body {
   font-weight: 400;
 }
 .hero .tag {
-  margin-top: var(--space-4);
+  margin-top: var(--space-2xl);
   max-width: 42ch;
   margin-inline: auto;
   font-size: var(--text-lg);
-  color: var(--grey-300);
+  color: var(--grey-200);
   line-height: 1.5;
   text-wrap: balance;
 }
@@ -235,15 +238,15 @@ body {
 .product-card__body {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: var(--space-3) var(--space-3) var(--space-4);
+  gap: 4px;
+  padding: var(--space-xl) var(--space-xl) var(--space-2xl);
 }
 
 .product-card__row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: var(--space-sm);
 }
 
 .product-card__name {
@@ -273,6 +276,7 @@ body {
   font-size: var(--text-base);
   color: var(--bone);
   font-weight: 500;
+  font-feature-settings: "tnum" 1;
 }
 
 /* ── Brand statement / editorial section ────────────────────────────────── */
@@ -289,7 +293,7 @@ body {
   font-family: var(--font-body);
 }
 .statement p + p {
-  margin-top: 1.5rem;
+  margin-top: var(--space-lg);
   color: var(--grey-400);
 }
 
@@ -301,7 +305,7 @@ body {
 }
 .signup form {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-sm);
   flex-wrap: wrap;
   max-width: 28rem;
   margin-inline: auto;
@@ -311,7 +315,7 @@ body {
   display: block;
   font-size: var(--text-sm);
   color: var(--grey-400);
-  margin-block-end: var(--space-1);
+  margin-block-end: var(--space-sm);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -319,11 +323,11 @@ body {
   flex: 1 1 14rem;
   min-width: 0;
   background: transparent;
-  border: 1px solid var(--grey-600);
+  border: 1px solid var(--border-rule);
   color: var(--bone);
   font: inherit;
-  font-size: var(--text-base);
-  padding: var(--space-2) var(--space-2);
+  font-size: var(--text-lg);
+  padding: var(--space-md) var(--space-lg);
 }
 .signup input[type="email"]:focus-visible {
   outline: none;
@@ -339,7 +343,7 @@ body {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-md) var(--space-lg);
   cursor: pointer;
   transition: opacity var(--transition-base);
   font-family: var(--font-body);
@@ -352,19 +356,19 @@ body {
   outline: none;
 }
 .signup .note {
-  margin-block-start: var(--space-2);
+  margin-block-start: var(--space-lg);
   font-size: var(--text-sm);
   color: var(--grey-400);
 }
 
 /* ── Site footer ────────────────────────────────────────────────────────── */
 .site-foot {
-  padding: var(--space-5) var(--gutter);
+  padding: var(--space-3xl) var(--gutter);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-xl);
   color: var(--grey-400);
   font-size: var(--text-xs);
   letter-spacing: 0.08em;
@@ -375,7 +379,7 @@ body {
 .product {
   display: grid;
   grid-template-columns: 1fr;
-  gap: clamp(2rem, 5vw, 4rem);
+  gap: clamp(var(--space-2xl), 5vw, var(--space-3xl));
   padding-block: var(--section-md);
 }
 @media (min-width: 720px) {
@@ -387,7 +391,7 @@ body {
   border: var(--rule-light);
   display: grid;
   place-items: center;
-  color: var(--grey-500);
+  color: var(--grey-400);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
 }
@@ -399,7 +403,7 @@ body {
   letter-spacing: -0.01em;
 }
 .product .price-line {
-  margin-top: 0.5rem;
+  margin-top: var(--space-sm);
   font-size: var(--text-lg);
   color: var(--bone);
   font-weight: 500;
@@ -408,7 +412,7 @@ body {
   font-size: var(--text-base);
   color: var(--grey-400);
   border-inline-start: 2px solid var(--grey-400);
-  padding-inline-start: var(--space-3);
+  padding-inline-start: var(--space-xl);
 }
 
 /* ── Badge ──────────────────────────────────────────────────────────────── */
@@ -419,11 +423,11 @@ body {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   white-space: nowrap;
-  padding: 0.2em 0.55em;
+  padding: 2px 6px;
   line-height: 1.6;
-  background: var(--charcoal-mid);
-  color: var(--grey-300);
-  border: 1px solid var(--grey-600);
+  background: var(--grey-950);
+  color: var(--grey-400);
+  border: 1px solid var(--border-rule);
 }
 
 /* ── View Transitions ───────────────────────────────────────────────────── */

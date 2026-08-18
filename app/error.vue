@@ -55,7 +55,7 @@ watch(id, value => !value ? init().then(get) : get(), { immediate: true })
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--space-3);
+    gap: var(--space-xl);
 }
 
 .error-code {
@@ -64,7 +64,7 @@ watch(id, value => !value ? init().then(get) : get(), { immediate: true })
     font-weight: 500;
     font-size: clamp(4rem, 12vw, 8rem);
     line-height: 1;
-    color: var(--grey-600);
+    color: var(--border-rule);
     letter-spacing: -0.03em;
 }
 
@@ -78,14 +78,14 @@ watch(id, value => !value ? init().then(get) : get(), { immediate: true })
 
 .error-link {
     display: inline-block;
-    margin-block-start: var(--space-2);
+    margin-block-start: var(--space-lg);
     font-size: var(--text-sm);
     font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--bone);
     text-decoration: none;
-    border-bottom: 1px solid var(--grey-600);
+    border-bottom: 1px solid var(--border-rule);
     padding-block-end: 2px;
     transition: border-color var(--transition-base);
 }

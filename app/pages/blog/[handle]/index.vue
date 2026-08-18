@@ -73,13 +73,13 @@ useSeoMeta({
 .breadcrumb {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-block-end: var(--space-4);
+  gap: var(--space-sm);
+  margin-block-end: var(--space-2xl);
   font-family: var(--font-body);
   font-size: var(--text-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--grey-500);
+  color: var(--grey-400);
 }
 
 .breadcrumb__link {
@@ -95,15 +95,15 @@ useSeoMeta({
 }
 
 .breadcrumb__sep {
-  color: var(--grey-600);
+  color: var(--border-rule);
 }
 
 .breadcrumb__current {
-  color: var(--grey-300);
+  color: var(--grey-400);
 }
 
 .blog-title {
-  margin: 0 0 var(--space-5);
+  margin: 0 0 var(--space-3xl);
   font-family: var(--font-display);
   font-weight: 500;
   font-size: clamp(2rem, 4vw, 3rem);
@@ -114,12 +114,12 @@ useSeoMeta({
 
 .blog-posts {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-2xl);
 }
 
 .blog-card {
   border-bottom: var(--rule-light);
-  padding-block-end: var(--space-4);
+  padding-block-end: var(--space-2xl);
 }
 
 .blog-card__link {
@@ -134,7 +134,7 @@ useSeoMeta({
 }
 
 .blog-card__title {
-  margin: 0 0 0.35rem;
+  margin: 0 0 4px;
   font-family: var(--font-display);
   font-weight: 500;
   font-size: var(--text-xl);
@@ -144,9 +144,9 @@ useSeoMeta({
 .blog-card__date {
   display: block;
   font-size: var(--text-xs);
-  color: var(--grey-500);
+  color: var(--grey-400);
   letter-spacing: 0.04em;
-  margin-block-end: 0.35rem;
+  margin-block-end: 4px;
   text-transform: uppercase;
 }
 

@@ -1,97 +1,81 @@
-/* STITCH AND ASH — Design tokens (UX_FRAMEWORK §1 + §5)
-   Source of truth for all brand values.
+/* STITCH AND ASH — Design tokens.
+   Source of truth: DESIGN.md at the repo root (google-labs-code/design.md, alpha).
+   This file is the build mirror — every CSS custom property traces to a token in DESIGN.md.
    Imported at the top of global.css — do not link directly.
 
-   Updated for STI-279: Playfair Display (editorial serif) for display,
-   Inter (grotesk) for UI, JetBrains Mono for code only.
+   Compact monochrome minimal: pitch-black ground, achromatic grey hierarchy,
+   one typeface (JetBrains Mono) carrying everything, square edges everywhere,
+   hairline dividers in place of shadow.
 */
 
 :root {
-  /* ─── Color ─────────────────────────────────────────────────────────────── */
-  --ink-black:    #000000; /* Pitch black background */
-  --charcoal:     #111111; /* Elevated card/section surface (slightly lighter for distinction) */
-  --charcoal-mid: #1A1A1A; /* Mid-tone surface for hover states, secondary panels */
-  --crisp-white:  #FFFFFF; /* Reserved for critical contrast only */
+  /* ─── Color — achromatic on pitch black ────────────────────────────────── */
+  --ink-black:    #000000; /* Page ground, header, footer, product framing. */
+  --charcoal:     #0E0E0E; /* Elevated card/modal surface; distinguished by hairline, never shadow. */
+  --grey-950:     #1A1A1A; /* Hover wells, image fallback plates, mid-tone surface. */
+  --border-rule:  #2A2A2A; /* Hairline divider + disabled-control fill. */
 
-  /* Grey hierarchy (editorial grey scale) */
-  --grey-100:      #F0EFED; /* Lightest grey — near-white */
-  --grey-200:      #D4D2CF; /* Light grey — tertiary text */
-  --grey-300:      #B8B5B0; /* Mid-light grey */
-  --grey-400:      #9C9892; /* Mid grey — secondary text */
-  --grey-500:      #807C75; /* Mid-dark grey */
-  --grey-600:      #645F58; /* Dark grey — dividers */
-  --grey-700:      #48433C; /* Darker grey */
-  --grey-800:      #2C2822; /* Very dark grey */
-  --grey-900:      #1A1713; /* Near-black grey */
+  /* Grey ramp — every value achromatic. */
+  --primary:      #5C5C5C; /* Muted strokes; low-emphasis interactive surface. */
+  --grey-400:     #9A9A9A; /* Secondary text, captions, metadata, timestamps. */
+  --grey-200:     #CFCFCF; /* Default body-text color for non-hero paragraph copy. */
 
-  /* Semantic aliases */
-  --bone:          #F7F3EC; /* Primary text on dark backgrounds */
-  --ash-silver:    #C0C0C0; /* Secondary/metadata text */
-  --ash-muted:     var(--grey-600); /* Rule lines, dividers, muted borders */
-  --thread-gold:   #B08D57; /* Rare accent — limited badges, focus rings */
-  --error-ember:   #9F3A2F; /* Validation and error states */
+  --bone:         #E8E8E8; /* Neutral emphasis text; the only "off-black" tone for inline emphasis. */
+  --white:        #FFFFFF; /* Reserved for max-contrast moments: primary CTA fill, focus ring. */
+  --focus:        #FFFFFF; /* 2px solid square focus ring, 2px offset, no colour tint (DESIGN.md). */
 
-  /* Backward-compatible aliases */
-  --black:        var(--ink-black);
-  --ash:          var(--ash-silver);
-  --ember:        var(--error-ember);
-  --ember-text:   #C8362B; /* Slightly hotter for body-text contrast on black (AA at 14pt) */
-
-  /* ─── Typography — editorial serif for display, grotesk for UI ─────────── */
+  /* ─── Typography — one face does all the work ──────────────────────────── */
   --font-mono:    "JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
-  --font-body:    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;  /* Grotesk for UI */
-  --font-display: "Playfair Display", Georgia, "Times New Roman", serif;  /* Editorial serif for display */
+  --font-body:    var(--font-mono); /* Single brand face; mono carries everything. */
+  --font-display: var(--font-mono); /* Display uses mono, not an editorial serif. */
 
-  /* Type scale */
-  --text-xs:      0.7rem;        /* ~11px — badges, labels */
-  --text-sm:      0.8rem;        /* ~13px — secondary info */
-  --text-base:    0.9375rem;     /* ~15px — body text */
-  --text-lg:      1.0625rem;     /* ~17px — large body */
-  --text-xl:      1.25rem;       /* 20px — small headings */
-  --text-2xl:     1.5rem;        /* 24px — section headings */
-  --text-3xl:     2rem;          /* 32px — page headings */
+  /* Type scale — JetBrains Mono, tabular figures on every numeric. */
+  --text-xs:      0.6875rem; /* 11px — tracked uppercase labels */
+  --text-sm:      0.75rem;   /* 12px — secondary info */
+  --text-base:    0.8125rem; /* 13px — body */
+  --text-lg:      0.9375rem; /* 15px — large body */
+  --text-xl:      1.25rem;   /* 20px — small headings */
+  --text-2xl:     1.75rem;   /* 28px — section headings */
+  --text-3xl:     2.5rem;    /* 40px — page headings */
   --text-display: clamp(2.5rem, 6vw + 1rem, 6.5rem); /* Hero display */
 
-  /* ─── Spacing — 0.5rem base grid ─────────────────────────────────────────── */
-  --space-1:    0.5rem;
-  --space-2:    1rem;
-  --space-3:    1.5rem;
-  --space-4:    2rem;
-  --space-5:    2.5rem;
-  --space-6:    3rem;
-  --space-7:    4rem;
-  --space-8:    6rem;
-  --space-9:    8rem;
-  --space-10:   10rem;
-  --space-11:   12rem;
-  --space-12:   16rem;
+  /* ─── Spacing — 4px base grid ───────────────────────────────────────────── */
+  --space-xs:   4px;
+  --space-sm:   8px;
+  --space-md:   12px;
+  --space-lg:   16px;
+  --space-xl:   24px;
+  --space-2xl:  32px;
+  --space-3xl:  48px;
+  --space-4xl:  64px;
+  --space-5xl:  96px;
 
   /* Editorial page gutter: fluid from mobile to desktop. */
-  --gutter: clamp(1.25rem, 3vw + 0.5rem, 5rem);
+  --gutter: clamp(1rem, 2vw + 0.5rem, 2.5rem);
 
   /* Section spacing */
-  --section-sm:  clamp(2rem, 4vw, 3rem);
-  --section-md:  clamp(3rem, 6vw, 5rem);
-  --section-lg:  clamp(4rem, 8vw, 7rem);
-  --section-xl:  clamp(6rem, 12vw, 10rem);
+  --section-sm:  32px;
+  --section-md:  48px;
+  --section-lg:  64px;
+  --section-xl:  96px;
 
-  /* ─── Radius ─────────────────────────────────────────────────────────────── */
+  /* ─── Radius — square edges everywhere ─────────────────────────────────── */
   --radius-none: 0;
-  --radius-tight: 2px;
+  --radius-sm:   0;
+  --radius-md:   0;
+  --radius-lg:   0;
 
-  /* ─── Shadow ─────────────────────────────────────────────────────────────── */
-  --shadow-none: none;
-  --shadow-card: 0 2px 8px rgb(0 0 0 / 0.3);
+  /* ─── Shadow — flat. No shadow tokens. ─────────────────────────────────── */
 
-  /* ─── Transitions ────────────────────────────────────────────────────────── */
+  /* ─── Transitions ──────────────────────────────────────────────────────── */
   --transition-fast: 120ms ease;
   --transition-base: 200ms ease;
   --transition-slow: 350ms ease;
 
-  /* ─── Layout measures ────────────────────────────────────────────────────── */
+  /* ─── Layout measures ──────────────────────────────────────────────────── */
   --content-max:  68.75rem; /* Max width for page content */
   --content-wide: 80rem;    /* Max width for full-bleed sections */
-  --measure:      65ch;    /* Comfortable reading measure */
-  --rule:         0.0625rem solid var(--grey-600); /* Standard divider */
-  --rule-light:   0.0625rem solid color-mix(in srgb, var(--grey-600) 40%, transparent);
+  --measure:      65ch;     /* Comfortable reading measure */
+  --rule:         1px solid var(--border-rule); /* Standard divider */
+  --rule-light:   1px solid color-mix(in srgb, var(--border-rule) 100%, transparent);
 }

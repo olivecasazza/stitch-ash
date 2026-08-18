@@ -33,7 +33,7 @@ watch(() => route.path, () => open.value = false)
 
       <p
         v-if="lines.length === 0"
-        class="my-auto text-center text-[var(--grey-500)]"
+        class="my-auto text-center text-[var(--grey-400)]"
       >
         {{ $t('cart.empty') }}
       </p>

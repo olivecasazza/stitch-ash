@@ -42,8 +42,8 @@ defineProps<{
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.75rem;
-    padding-block: 0.85rem;
+    gap: var(--space-md);
+    padding-block: var(--space-md);
     cursor: pointer;
     list-style: none;
     font-size: var(--text-sm);
@@ -60,12 +60,12 @@ defineProps<{
 
   .accordion__summary:hover,
   .accordion__summary:focus-visible {
-    color: var(--ash-silver);
+    color: var(--grey-400);
     outline: none;
   }
 
   .accordion__summary:focus-visible {
-    outline: 2px solid var(--thread-gold);
+    outline: 2px solid var(--bone);
     outline-offset: 2px;
   }
 
@@ -79,13 +79,13 @@ defineProps<{
   }
 
   .accordion__body {
-    padding-block: 0.4rem 1.1rem;
+    padding-block: var(--space-xs) var(--space-lg);
   }
 
   .accordion__body p {
     margin: 0;
     font-size: var(--text-sm);
-    color: var(--ash-silver);
+    color: var(--grey-400);
     line-height: 1.6;
   }
 </style>

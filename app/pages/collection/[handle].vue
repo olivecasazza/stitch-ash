@@ -71,13 +71,13 @@ useSeoMeta({
 .breadcrumb {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-block-end: var(--space-4);
+  gap: var(--space-sm);
+  margin-block-end: var(--space-2xl);
   font-family: var(--font-body);
   font-size: var(--text-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--grey-500);
+  color: var(--grey-400);
 }
 
 .breadcrumb__link {
@@ -93,15 +93,15 @@ useSeoMeta({
 }
 
 .breadcrumb__sep {
-  color: var(--grey-600);
+  color: var(--border-rule);
 }
 
 .breadcrumb__current {
-  color: var(--grey-300);
+  color: var(--grey-400);
 }
 
 .collection-title {
-  margin: 0 0 var(--space-3);
+  margin: 0 0 var(--space-xl);
   font-family: var(--font-display);
   font-weight: 500;
   font-size: clamp(2rem, 4vw, 3rem);
@@ -111,7 +111,7 @@ useSeoMeta({
 }
 
 .collection-desc {
-  margin: 0 0 var(--space-5);
+  margin: 0 0 var(--space-3xl);
   font-size: var(--text-lg);
   color: var(--grey-400);
   max-width: var(--measure);

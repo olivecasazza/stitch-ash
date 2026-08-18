@@ -38,8 +38,8 @@ const finalImageAlt = computed(() => props.imageAlt || props.name)
       </template>
       <div v-else class="product-card__image-fallback" aria-hidden="true">
         <svg viewBox="0 0 600 750" xmlns="http://www.w3.org/2000/svg" class="product-card__fallback-svg">
-          <rect width="600" height="750" fill="#0B0B0B" />
-          <rect x="1" y="1" width="598" height="748" fill="none" stroke="#C0C0C0" stroke-width="1" opacity="0.15" />
+          <rect width="600" height="750" fill="#0E0E0E" />
+          <rect x="1" y="1" width="598" height="748" fill="none" stroke="#9A9A9A" stroke-width="1" opacity="0.15" />
         </svg>
       </div>
     </div>
@@ -59,7 +59,7 @@ const finalImageAlt = computed(() => props.imageAlt || props.name)
 
 <style scoped>
 .product-card__currency {
-  color: var(--grey-500);
+  color: var(--grey-400);
   margin-right: 0.05em;
 }
 </style>

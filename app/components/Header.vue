@@ -97,10 +97,10 @@ const { quantity, open } = useCart()
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.3rem 0.75rem;
+  padding: var(--space-xs) var(--space-md);
   background: var(--bone);
   border: 1px solid var(--bone);
-  border-radius: var(--radius-tight);
+  border-radius: 0;
   color: var(--ink-black);
   font-family: var(--font-body);
   font-size: var(--text-sm);
@@ -115,7 +115,7 @@ const { quantity, open } = useCart()
 
 .cart-pill:hover,
 .cart-pill:focus-visible {
-  background: var(--crisp-white);
+  background: var(--white);
   color: var(--ink-black);
   outline: none;
 }
@@ -126,12 +126,12 @@ const { quantity, open } = useCart()
   justify-content: center;
   min-width: 1.4em;
   height: 1.4em;
-  padding-inline: 0.25em;
+  padding-inline: 4px;
   font-size: 0.7rem;
   font-weight: 600;
   background: var(--ink-black);
   color: var(--bone);
-  border-radius: var(--radius-tight);
+  border-radius: 0;
   line-height: 1;
 }
 </style>
