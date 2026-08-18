@@ -47,6 +47,20 @@ CF Pages sanitises branch names (slashes → hyphens, lowercased). For example:
 
 **Prerequisite**: the Cloudflare Pages project (`stitch-ash-web`) must have GitHub integration with "Automatic branch deployments" enabled. If this isn't set up, `preview-gate` will time out after 5 minutes.
 
+### Before opening a PR
+
+Run the following locally to avoid a red CI build:
+
+```bash
+# Internal-copy gate (must pass before any customer-visible change)
+./scripts/ci/no-internal-copy-in-storefront.sh
+
+# Typecheck and build
+pnpm typecheck && pnpm build
+```
+
+See [docs/DEVELOPING-storefront.md](docs/DEVELOPING-storefront.md) for the full storefront dev lifecycle.
+
 ### If your PR is blocked, check
 
 1. **Missing semver label** — does your title start with a recognised prefix? If `semver:unknown` is applied, look for the bot comment explaining what to fix.
