@@ -71,8 +71,8 @@ components:
     backgroundColor: "{colors.focus}"
     textColor:        "{colors.ink}"
   button-disabled:
-    backgroundColor: "{colors.border-rule}"
-    textColor:        "{colors.grey-400}"
+    backgroundColor: "{colors.bone}"
+    textColor:        "{colors.ink}"
     typography:       "{typography.label}"
     rounded:          "{rounded.none}"
     padding:          "12px 16px"

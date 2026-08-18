@@ -178,7 +178,7 @@ useSeoMeta({
           disabled
           aria-disabled="true"
         >
-          Made to order — coming soon
+          Notify me when available
         </button>
 
         <!-- Accordions -->
