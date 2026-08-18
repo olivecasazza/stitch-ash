@@ -32,3 +32,14 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  internal-copy-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run internal-copy gate
+        run: ./scripts/ci/no-internal-copy-in-storefront.sh
