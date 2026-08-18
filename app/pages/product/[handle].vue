@@ -16,6 +16,8 @@ if (!staticProduct.value) {
   })
 }
 
+const carousel = useTemplateRef('carousel')
+
 // 1. Attempt Shopify fetch - fallback gracefully on missing env or errors
 const { data, error } = await useStorefrontData(`product-${handle.value}`, `#graphql
   query FetchProduct($handle: String!) {
@@ -23,6 +25,17 @@ const { data, error } = await useStorefrontData(`product-${handle.value}`, `#gra
       id
       title
       description
+      images(first: 20) {
+        edges {
+          node {
+            id
+            url
+            altText
+            width
+            height
+          }
+        }
+      }
       variants(first: 50) {
         edges {
           node {
@@ -33,6 +46,13 @@ const { data, error } = await useStorefrontData(`product-${handle.value}`, `#gra
               currencyCode
             }
             availableForSale
+            image {
+              id
+              url
+              altText
+              width
+              height
+            }
           }
         }
       }
@@ -67,6 +87,18 @@ const hasRealSizes = computed(() => (staticProduct.value?.sizes?.length ?? 0) > 
 const sizeValues = computed(() => (staticProduct.value?.sizes || []).map(s => s.label))
 const selectedSize = ref(sizeValues.value[0] || 'One size')
 
+const productImages = computed(() => {
+  if (!data.value?.product?.images?.edges?.length) return []
+  return data.value.product.images.edges.map((edge: any) => edge.node)
+})
+
+const selectedVariant = computed(() => {
+  if (!resolvedVariants.value.length) return null
+  return resolvedVariants.value.find((v: any) => v.availableForSale) ?? resolvedVariants.value[0]
+})
+
+watch(selectedVariant, () => (carousel.value as any)?.emblaApi?.scrollTo(0))
+
 // 3. Cart addition via reactive composable
 const { add: addToCart, open: openCart } = useCart()
 
@@ -87,9 +119,16 @@ useSeoMeta({
 
 
     <div class="pdp__layout">
-      <!-- LEFT: Image gallery — clean fallback when no Shopify imagery available -->
+      <!-- LEFT: Image gallery -->
       <div class="pdp__gallery">
-        <div class="pdp__image-fallback">
+        <ProductGallery
+          v-if="productImages.length"
+          ref="carousel"
+          :product="({ images: { edges: productImages.map((img: any) => ({ node: img })) } }) as any"
+          :selected-variant="selectedVariant"
+          :thumbnails="true"
+        />
+        <div v-else class="pdp__image-fallback">
           <svg
             viewBox="0 0 600 750"
             xmlns="http://www.w3.org/2000/svg"

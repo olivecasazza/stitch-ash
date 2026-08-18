@@ -85,7 +85,7 @@ defineProps<{
   .accordion__body p {
     margin: 0;
     font-size: var(--text-sm);
-    color: var(--grey-400);
+    color: var(--grey-200);
     line-height: 1.6;
   }
 </style>

@@ -104,9 +104,9 @@ const selected = computed({
 
   /* Checked state via adjacent sibling combinator */
   .size-selector__input:checked + .size-selector__swatch {
-    background: var(--bone);
+    background: var(--white);
     color: var(--ink-black);
-    border-color: var(--bone);
+    border-color: var(--white);
   }
 
   /* Focus ring on swatch when input is focused */
