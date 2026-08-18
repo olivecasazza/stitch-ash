@@ -37,9 +37,9 @@
 .skip-link {
   position: absolute;
   top: -100%;
-  left: var(--space-3);
+  left: var(--space-xl);
   z-index: 100;
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-sm) var(--space-xl);
   background: var(--bone);
   color: var(--ink-black);
   font-family: var(--font-mono);
@@ -49,7 +49,7 @@
 }
 
 .skip-link:focus {
-  top: var(--space-2);
+  top: var(--space-lg);
   outline: 2px solid var(--bone);
   outline-offset: 2px;
 }

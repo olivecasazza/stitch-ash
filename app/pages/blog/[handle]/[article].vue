@@ -74,13 +74,13 @@ useSeoMeta({
 .breadcrumb {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-block-end: var(--space-4);
+  gap: var(--space-sm);
+  margin-block-end: var(--space-2xl);
   font-family: var(--font-body);
   font-size: var(--text-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--grey-500);
+  color: var(--grey-400);
   flex-wrap: wrap;
 }
 
@@ -97,11 +97,11 @@ useSeoMeta({
 }
 
 .breadcrumb__sep {
-  color: var(--grey-600);
+  color: var(--border-rule);
 }
 
 .breadcrumb__current {
-  color: var(--grey-300);
+  color: var(--grey-400);
 }
 
 .article-title {
@@ -115,14 +115,14 @@ useSeoMeta({
 }
 
 .article-content {
-  padding-block-start: var(--space-4);
+  padding-block-start: var(--space-2xl);
 }
 
 /* Blog body (rich text from Shopify) */
 .article-body {
   font-size: var(--text-base);
   line-height: 1.7;
-  color: var(--grey-300);
+  color: var(--grey-200);
 }
 
 .article-body :deep(h2),
@@ -131,7 +131,7 @@ useSeoMeta({
   font-family: var(--font-display);
   font-weight: 500;
   color: var(--bone);
-  margin-block: var(--space-4) var(--space-2);
+  margin-block: var(--space-2xl) var(--space-lg);
 }
 
 .article-body :deep(h2) {
@@ -143,7 +143,7 @@ useSeoMeta({
 }
 
 .article-body :deep(p) {
-  margin-block: 0 1rem;
+  margin-block: 0 var(--space-lg);
 }
 
 .article-body :deep(a) {
@@ -159,13 +159,13 @@ useSeoMeta({
 .article-body :deep(img) {
   max-width: 100%;
   height: auto;
-  margin-block: var(--space-4);
+  margin-block: var(--space-2xl);
   border: var(--rule-light);
 }
 
 .article-body :deep(blockquote) {
-  border-inline-start: 2px solid var(--grey-600);
-  padding-inline-start: var(--space-3);
+  border-inline-start: 2px solid var(--border-rule);
+  padding-inline-start: var(--space-xl);
   margin-inline: 0;
   color: var(--grey-400);
   font-style: italic;
@@ -173,16 +173,16 @@ useSeoMeta({
 
 .article-body :deep(ul),
 .article-body :deep(ol) {
-  padding-inline-start: 1.2rem;
+  padding-inline-start: var(--space-lg);
 }
 
 .article-body :deep(li) {
-  margin-block: 0.35rem;
+  margin-block: 4px;
 }
 
 .article-body :deep(hr) {
   border: none;
   border-block-start: var(--rule-light);
-  margin-block: var(--space-5);
+  margin-block: var(--space-3xl);
 }
 </style>

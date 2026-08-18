@@ -97,8 +97,8 @@ useSeoMeta({
             role="img"
             class="pdp__fallback-svg"
           >
-            <rect width="600" height="750" fill="#0B0B0B" />
-            <rect x="1" y="1" width="598" height="748" fill="none" stroke="#C0C0C0" stroke-width="1" opacity="0.15" />
+            <rect width="600" height="750" fill="#0E0E0E" />
+            <rect x="1" y="1" width="598" height="748" fill="none" stroke="#9A9A9A" stroke-width="1" opacity="0.15" />
           </svg>
         </div>
       </div>
@@ -158,13 +158,13 @@ useSeoMeta({
   }
 
   .pdp__preview-notice {
-    margin-block-end: var(--space-3);
+    margin-block-end: var(--space-xl);
     margin-inline: auto;
     max-width: var(--measure);
-    padding: 0.6rem 0.9rem;
+    padding: var(--space-md) var(--space-lg);
     border: 1px solid color-mix(in srgb, var(--bone) 20%, transparent);
     background: var(--charcoal);
-    color: var(--ash-silver);
+    color: var(--grey-400);
     font-size: var(--text-sm);
     letter-spacing: 0.04em;
     text-align: center;
@@ -186,7 +186,7 @@ useSeoMeta({
   /* Gallery — center placeholder within its grid cell on mobile */
   .pdp__gallery {
     position: sticky;
-    top: var(--space-3);
+    top: var(--space-xl);
     display: flex;
     justify-content: center;
   }
@@ -216,7 +216,7 @@ useSeoMeta({
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: var(--space-3);
+    gap: var(--space-xl);
   }
 
   /* Children that benefit from full width even on mobile (CTAs, accordions) */
@@ -237,7 +237,7 @@ useSeoMeta({
   .pdp__badges {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: var(--space-xs);
     align-items: center;
     justify-content: center;
   }
@@ -266,6 +266,7 @@ useSeoMeta({
     font-weight: 600;
     color: var(--bone);
     letter-spacing: 0.03em;
+    font-feature-settings: "tnum" 1;
   }
 
   .pdp__embroidery-note {
@@ -273,10 +274,10 @@ useSeoMeta({
     margin-inline: auto;
     max-width: var(--measure);
     font-size: var(--text-sm);
-    color: var(--ash-silver);
+    color: var(--grey-400);
     letter-spacing: 0.04em;
     border-inline-start: 2px solid var(--bone);
-    padding-inline-start: 0.75rem;
+    padding-inline-start: var(--space-md);
     text-align: left;
   }
 
@@ -284,7 +285,7 @@ useSeoMeta({
     margin: 0;
     margin-inline: auto;
     max-width: var(--measure);
-    color: var(--ash-silver);
+    color: var(--grey-400);
     line-height: 1.65;
     font-size: var(--text-base);
     text-align: left;
@@ -299,7 +300,7 @@ useSeoMeta({
   .pdp__one-size-label {
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--ash-silver);
+    color: var(--grey-400);
     margin-inline-end: 0.5ch;
   }
 
@@ -312,14 +313,14 @@ useSeoMeta({
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    padding: 0.8rem 1.5rem;
+    padding: var(--space-md) var(--space-lg);
     cursor: pointer;
-    border-radius: var(--radius-none);
+    border-radius: 0;
     transition: background var(--transition-base), border-color var(--transition-base), color var(--transition-base);
   }
 
   .pdp__atc-btn--primary {
-    background: #000000;
+    background: var(--ink-black);
     color: var(--bone);
     border: 1px solid var(--bone);
   }
@@ -327,7 +328,7 @@ useSeoMeta({
   .pdp__atc-btn--primary:hover,
   .pdp__atc-btn--primary:focus-visible {
     background: var(--bone);
-    color: #000000;
+    color: var(--ink-black);
     border-color: var(--bone);
     outline: none;
   }
@@ -340,6 +341,6 @@ useSeoMeta({
   }
 
   .pdp__accordion-wrap {
-    margin-block-start: var(--space-1);
+    margin-block-start: var(--space-sm);
   }
 </style>

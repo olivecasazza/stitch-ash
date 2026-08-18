@@ -28,11 +28,11 @@
 .site-foot {
   width: min(100%, var(--content-wide));
   margin-inline: auto;
-  padding-block: var(--space-5);
+  padding-block: var(--space-3xl);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-xl);
   border-top: var(--rule-light);
   color: var(--grey-400);
   font-family: var(--font-body);
@@ -46,7 +46,7 @@
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--space-lg);
   }
 }
 
@@ -66,21 +66,21 @@
 .footer-meta {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-xl);
 }
 
 .footer-copy {
-  color: var(--grey-500);
+  color: var(--grey-400);
 }
 
 .footer-trilogy {
-  color: var(--grey-500);
+  color: var(--grey-400);
 }
 
 .footer-links {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-xl);
 }
 
 .footer-link {

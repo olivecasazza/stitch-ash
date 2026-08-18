@@ -24,7 +24,7 @@ export default defineAppConfig({
         // type system rejects and the runtime silently ignored.)
         card: {
             slots: {
-                root: 'bg-[var(--charcoal)] border-[var(--grey-600)] text-[var(--bone)]',
+                root: 'bg-[var(--charcoal)] border-[var(--border-rule)] text-[var(--bone)]',
                 header: 'text-[var(--bone)]',
                 body: 'text-[var(--grey-400)]',
             },
@@ -34,8 +34,8 @@ export default defineAppConfig({
             slots: {
                 overlay: 'bg-black/60',
                 content: 'bg-[var(--charcoal)] text-[var(--bone)]',
-                header: 'border-b-[var(--grey-600)]',
-                footer: 'border-t-[var(--grey-600)]',
+                header: 'border-b-[var(--border-rule)]',
+                footer: 'border-t-[var(--border-rule)]',
                 close: 'text-[var(--grey-400)] hover:text-[var(--bone)]',
             },
         },
@@ -44,8 +44,8 @@ export default defineAppConfig({
             slots: {
                 overlay: 'bg-black/60',
                 content: 'bg-[var(--charcoal)] text-[var(--bone)]',
-                header: 'border-b-[var(--grey-600)] text-[var(--bone)]',
-                footer: 'border-t-[var(--grey-600)]',
+                header: 'border-b-[var(--border-rule)] text-[var(--bone)]',
+                footer: 'border-t-[var(--border-rule)]',
                 close: 'text-[var(--grey-400)] hover:text-[var(--bone)]',
             },
         },
@@ -58,19 +58,19 @@ export default defineAppConfig({
 
         input: {
             slots: {
-                base: 'bg-[var(--ink-black)] border-[var(--grey-600)] text-[var(--bone)] placeholder:text-[var(--grey-500)] focus:border-[var(--bone)]',
+                base: 'bg-[var(--ink-black)] border-[var(--border-rule)] text-[var(--bone)] placeholder:text-[var(--grey-400)] focus:border-[var(--bone)]',
             },
         },
 
         inputNumber: {
             slots: {
-                base: 'bg-[var(--ink-black)] border-[var(--grey-600)] text-[var(--bone)] focus:border-[var(--bone)]',
+                base: 'bg-[var(--ink-black)] border-[var(--border-rule)] text-[var(--bone)] focus:border-[var(--bone)]',
             },
         },
 
         select: {
             slots: {
-                base: 'bg-[var(--ink-black)] border-[var(--grey-600)] text-[var(--bone)] focus:border-[var(--bone)]',
+                base: 'bg-[var(--ink-black)] border-[var(--border-rule)] text-[var(--bone)] focus:border-[var(--bone)]',
             },
         },
     },

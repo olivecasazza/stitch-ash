@@ -167,17 +167,17 @@ async function onSubmit() {
   font-family: var(--font-display);
   font-size: var(--text-3xl);
   letter-spacing: 0.04em;
-  margin-block-start: var(--space-2);
-  margin-block-end: var(--space-3);
+  margin-block-start: var(--space-lg);
+  margin-block-end: var(--space-xl);
 }
 
 .contact__lede {
-  color: var(--grey-300);
-  margin-block-end: var(--space-5);
+  color: var(--grey-200);
+  margin-block-end: var(--space-3xl);
 }
 
 .contact__panel {
-  padding-block: var(--space-4);
+  padding-block: var(--space-2xl);
   border-block-start: var(--rule-light);
 }
 
@@ -192,7 +192,7 @@ async function onSubmit() {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--bone);
-  margin-block-end: var(--space-3);
+  margin-block-end: var(--space-xl);
 }
 
 .contact__form {
@@ -202,7 +202,7 @@ async function onSubmit() {
 .contact__field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-sm);
 }
 
 .contact__label {
@@ -216,9 +216,9 @@ async function onSubmit() {
   width: 100%;
   background: var(--charcoal);
   color: var(--bone);
-  border: 1px solid var(--grey-700);
+  border: 1px solid var(--border-rule);
   border-radius: 0;
-  padding: 0.65rem 0.8rem;
+  padding: var(--space-md) var(--space-lg);
   font: inherit;
   font-family: var(--font-body);
   letter-spacing: 0.02em;
@@ -227,17 +227,19 @@ async function onSubmit() {
 
 .contact__input:focus-visible {
   outline: none;
-  border-color: var(--thread-gold);
+  border-color: var(--bone);
 }
 
 .contact__input--area {
   resize: vertical;
-  min-height: 7rem;
+  min-height: 112px;
 }
 
 .contact__error {
-  color: var(--error-ember);
+  color: var(--grey-400);
   font-size: var(--text-sm);
+  text-decoration: underline;
+  text-decoration-color: var(--grey-400);
   margin: 0;
 }
 
@@ -246,7 +248,7 @@ async function onSubmit() {
   background: var(--bone);
   color: var(--ink-black);
   border: 1px solid var(--bone);
-  padding: 0.75rem 1.4rem;
+  padding: var(--space-md) var(--space-lg);
   font-family: var(--font-display);
   font-size: var(--text-sm);
   letter-spacing: 0.12em;
@@ -257,15 +259,15 @@ async function onSubmit() {
 
 .contact__submit:hover,
 .contact__submit:focus-visible {
-  background: var(--thread-gold);
-  border-color: var(--thread-gold);
+  background: var(--white);
+  border-color: var(--white);
   color: var(--ink-black);
   outline: none;
 }
 
 .contact__submit:disabled {
-  background: var(--grey-700);
-  border-color: var(--grey-700);
+  background: var(--border-rule);
+  border-color: var(--border-rule);
   color: var(--grey-400);
   cursor: not-allowed;
 }
@@ -281,19 +283,19 @@ async function onSubmit() {
 }
 
 .contact__line + .contact__line {
-  margin-block-start: var(--space-2);
+  margin-block-start: var(--space-lg);
 }
 
 .contact__link {
   color: var(--bone);
   text-decoration: underline;
-  text-decoration-color: var(--grey-600);
+  text-decoration-color: var(--border-rule);
   text-underline-offset: 0.2em;
 }
 
 .contact__link:hover,
 .contact__link:focus-visible {
-  text-decoration-color: var(--thread-gold);
+  text-decoration-color: var(--bone);
   outline: none;
 }
 </style>

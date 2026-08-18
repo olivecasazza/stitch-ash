@@ -53,15 +53,15 @@ const selected = computed({
     font-size: var(--text-sm);
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--ash-silver);
-    margin-block-end: 0.6rem;
+    color: var(--grey-400);
+    margin-block-end: var(--space-md);
     padding: 0;
   }
 
   .size-selector__options {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: var(--space-sm);
   }
 
   /* Hide the native radio visually; keep it accessible */
@@ -81,10 +81,10 @@ const selected = computed({
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 2.6rem;
-    height: 2.6rem;
-    padding-inline: 0.5rem;
-    border: 1px solid var(--ash-silver);
+    min-width: 40px;
+    height: 40px;
+    padding-inline: var(--space-sm);
+    border: 1px solid var(--grey-400);
     font-size: var(--text-sm);
     font-weight: 500;
     letter-spacing: 0.05em;
@@ -95,7 +95,7 @@ const selected = computed({
       border-color var(--transition-base),
       background var(--transition-base),
       color var(--transition-base);
-    border-radius: var(--radius-none);
+    border-radius: 0;
   }
 
   .size-selector__label:hover .size-selector__swatch {

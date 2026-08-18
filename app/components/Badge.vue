@@ -27,10 +27,10 @@ const label = computed(() => labels[props.variant] ?? props.variant)
   letter-spacing: 0.14em;
   text-transform: uppercase;
   white-space: nowrap;
-  padding: 0.2em 0.55em;
+  padding: 2px 6px;
   line-height: 1.6;
-  background: var(--charcoal-mid);
-  color: var(--grey-300);
-  border: 1px solid var(--grey-600);
+  background: var(--grey-950);
+  color: var(--grey-400);
+  border: 1px solid var(--border-rule);
 }
 </style>
