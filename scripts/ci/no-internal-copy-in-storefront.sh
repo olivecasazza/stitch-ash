@@ -13,7 +13,7 @@ PROHIBITED=(
   "Buy Buttons or Storefront API can plug into Astro"
 )
 
-CUSTOMER_PATHS="app/pages app/components app/layouts app/assets nuxt.config.ts"
+CUSTOMER_PATHS="app/pages app/components app/layouts app/assets app/app.config.ts app/error.vue nuxt.config.ts"
 
 FOUND=0
 for phrase in "${PROHIBITED[@]}"; do
