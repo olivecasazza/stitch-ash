@@ -172,14 +172,7 @@ useSeoMeta({
         >
           Add to cart
         </button>
-        <button
-          v-else
-          class="pdp__atc-btn pdp__atc-btn--disabled"
-          disabled
-          aria-disabled="true"
-        >
-          Notify me when available
-        </button>
+        <NotifyMeBtn v-else :handle="handle" />
 
         <!-- Accordions -->
         <div class="pdp__accordion-wrap">
