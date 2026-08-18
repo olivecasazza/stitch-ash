@@ -2,7 +2,3 @@
 @import "@nuxt/ui";
 
 @plugin "@tailwindcss/typography";
-
-@theme {
-    --font-sans: 'Source Sans 3', sans-serif;
-}
