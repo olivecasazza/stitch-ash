@@ -118,6 +118,11 @@ checklist in the Paperclip issue itself: each closed ticket gets one
 line — `STI-XXX — re-tested on <date> — green | regression →
 reopened as STI-YYY`.
 
+<!-- Gate fire log. One line per weekly smoke cycle; do not edit history. -->
+- STI-316 — 2026-08-18 — `no-internal-copy-in-storefront` gate fired
+  against the deployed preview (script fetched from PR #18 branch
+  `feat/sti-232-dev-lifecycle`, see issue comment for output) — green.
+
 ## Triage Playbook — `no-internal-copy-in-storefront` gate failures
 
 When the gate in § 3 fails on a PR (or the equivalent manual run flags
