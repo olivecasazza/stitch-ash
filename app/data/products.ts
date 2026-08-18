@@ -113,7 +113,10 @@ const STICKER_DETAILS: ProductAccordionSection[] = [
   },
 ];
 
-export const PRODUCTS: StaticProduct[] = [
+// TODO (STI-318): Replace imageSrc values with real Shopify CDN URLs once commerce-eng
+// uploads product photography. Expected format:
+// https://cdn.shopify.com/s/files/{product-id}/{image-id}.{ext}
+const PRODUCTS_DATA: StaticProduct[] = [
   {
     handle: "sku-001",
     name: "Embroidered Hoodie",
@@ -130,6 +133,8 @@ export const PRODUCTS: StaticProduct[] = [
       { label: "XXL", value: "XXL" },
     ],
     details: HOODIE_DETAILS,
+    imageSrc: undefined,
+    imageAlt: "Embroidered Hoodie — flat lay on black surface",
   },
   {
     handle: "sku-002",
@@ -141,6 +146,8 @@ export const PRODUCTS: StaticProduct[] = [
       "Black thread on black weave. Repeated brand-mark pattern along length.",
     sizes: [{ label: "One size", value: "one-size" }],
     details: LANYARD_DETAILS,
+    imageSrc: undefined,
+    imageAlt: "Embroidered Lanyard — hanging with breakaway clip",
   },
   {
     handle: "sku-003",
@@ -152,5 +159,9 @@ export const PRODUCTS: StaticProduct[] = [
       "Black thread on black backing. Single design with embedded brand mark.",
     sizes: [{ label: "One size", value: "one-size" }],
     details: STICKER_DETAILS,
+    imageSrc: undefined,
+    imageAlt: "Embroidered Sticker patch on black fabric",
   },
 ];
+
+export { PRODUCTS_DATA as PRODUCTS };
