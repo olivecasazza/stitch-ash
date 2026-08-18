@@ -51,6 +51,10 @@ Requires repo secrets:
 - `CLOUDFLARE_API_TOKEN` — CF API token with Pages:Edit permission
 - `CLOUDFLARE_ACCOUNT_ID` — CF account ID
 
+## Decisions
+
+Architecture and business decisions live in [docs/decisions/README.md](docs/decisions/README.md). Internal reasoning belongs there, never on customer-facing pages.
+
 ## Contributing
 
 All changes go through pull requests with conventional commit titles. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full flow: semver labels, auto-merge rules, preview URL format, and branch protection setup.
