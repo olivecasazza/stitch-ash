@@ -72,6 +72,7 @@ defineProps<{
   .accordion__icon {
     flex-shrink: 0;
     transition: transform var(--transition-base);
+    color: var(--accordion-icon);
   }
 
   details[open] .accordion__icon {
@@ -79,13 +80,15 @@ defineProps<{
   }
 
   .accordion__body {
+    background: var(--accordion-body-bg);
     padding-block: var(--space-xs) var(--space-lg);
+    padding-inline: var(--space-md);
   }
 
   .accordion__body p {
     margin: 0;
     font-size: var(--text-sm);
-    color: var(--grey-200);
+    color: var(--accordion-body-text);
     line-height: 1.6;
   }
 </style>

@@ -79,6 +79,13 @@ components:
   price:
     textColor:        "{colors.grey-200}"
     typography:       "{typography.numeric}"
+  accordion-body:
+    backgroundColor: "{colors.charcoal}"
+    textColor:       "{colors.bone}"
+    typography:      "{typography.body-sm}"
+    padding:         "4px 12px 16px"
+  accordion-icon:
+    textColor: "{colors.grey-400}"
 ---
 
 ## Overview
