@@ -31,6 +31,7 @@ export default defineNuxtConfig({
                 storefront: {
                     mock: false,
                     apiVersion: '2026-04',
+                    publicAccessToken: '',
                 },
             },
         },
