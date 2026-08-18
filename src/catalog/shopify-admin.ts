@@ -1,18 +1,69 @@
 import type { CatalogProduct, ProductDiff, ShopifyProduct, ShopifyVariant } from "./schema.js";
 
-function getShopifyAdminClient() {
-  const domain = process.env.SHOPIFY_STOREFRONT_DOMAIN ?? "stitch-and-ash.myshopify.com";
-  const token = process.env.SHOPIFY_ADMIN_TOKEN;
-  if (!token) throw new Error("SHOPIFY_ADMIN_TOKEN is not set in the environment");
+export type AdminClient = { domain: string; token: string; source: "static" | "client_credentials" };
 
-  return { domain, token };
+let cachedAdminClient: AdminClient | null = null;
+
+function mask(value: string | undefined): string {
+  if (!value) return "missing";
+  const prefix = value.slice(0, Math.min(value.length, 8));
+  return `set prefix=${JSON.stringify(prefix)} len=${value.length}`;
 }
 
-export function createShopifyAdminClient() {
-  return getShopifyAdminClient();
+export async function mintAdminToken(domain: string, clientId: string, clientSecret: string): Promise<string> {
+  const response = await fetch(`https://${domain}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+    }).toString(),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Shopify client_credentials mint ${response.status}: ${text}`);
+  }
+
+  const json = await response.json() as { access_token?: string; expires_in?: number };
+  if (!json.access_token) {
+    throw new Error(`Shopify client_credentials mint returned no access_token: ${JSON.stringify(json)}`);
+  }
+  return json.access_token;
 }
 
-async function shopifyAdminFetch(client: ReturnType<typeof getShopifyAdminClient>, query: string, variables?: Record<string, unknown>) {
+export async function buildAdminClient(): Promise<AdminClient> {
+  const domain = process.env.SHOPIFY_ADMIN_STORE_DOMAIN ?? process.env.SHOPIFY_STOREFRONT_DOMAIN ?? "stitch-and-ash.myshopify.com";
+
+  const staticToken = process.env.SHOPIFY_ADMIN_TOKEN;
+  const clientId = process.env.SHOPIFY_CLIENT_ID;
+  const clientSecret = process.env.SHOPIFY_CLIENT_SECRET;
+
+  if (staticToken && !staticToken.startsWith("atkn_")) {
+    return { domain, token: staticToken, source: "static" };
+  }
+
+  if (clientId && clientSecret) {
+    const token = await mintAdminToken(domain, clientId, clientSecret);
+    return { domain, token, source: "client_credentials" };
+  }
+
+  throw new Error(
+    `SHOPIFY_ADMIN_TOKEN missing/invalid and SHOPIFY_CLIENT_ID/SHOPIFY_CLIENT_SECRET not set. ` +
+      `Saw: SHOPIFY_ADMIN_TOKEN=${mask(staticToken)}, SHOPIFY_CLIENT_ID=${mask(clientId)}, ` +
+      `SHOPIFY_CLIENT_SECRET=${mask(clientSecret)}.`,
+  );
+}
+
+export async function createShopifyAdminClient(): Promise<AdminClient> {
+  if (cachedAdminClient) return cachedAdminClient;
+  cachedAdminClient = await buildAdminClient();
+  console.log(`shopify-admin: client ready (source=${cachedAdminClient.source}, domain=${cachedAdminClient.domain})`);
+  return cachedAdminClient;
+}
+
+async function shopifyAdminFetch(client: AdminClient, query: string, variables?: Record<string, unknown>) {
   const response = await fetch(`https://${client.domain}/admin/api/2026-04/graphql.json`, {
     method: "POST",
     headers: {
@@ -35,73 +86,95 @@ async function shopifyAdminFetch(client: ReturnType<typeof getShopifyAdminClient
   return json.data;
 }
 
-export async function getProductByHandle(client: ReturnType<typeof getShopifyAdminClient>, handle: string): Promise<ShopifyProduct | null> {
+export async function getProductByHandle(client: AdminClient, handle: string): Promise<ShopifyProduct | null> {
   const query = `
-    query getProductByHandle($handle: String!) {
-      product(handle: $handle) {
-        id
-        title
-        handle
-        status
-        productType
-        vendor
-        tags
-        descriptionHtml
-        options { name values }
-        variants(first: 50) {
-          edges { node {
+    query getProductByHandle($query: String!) {
+      products(first: 1, query: $query) {
+        edges {
+          node {
             id
-            sku
-            price
-            option1
-            option2
-            option3
-            inventoryManagement
-            inventoryPolicy
-            inventoryQuantity
-          }}
+            title
+            handle
+            status
+            productType
+            vendor
+            tags
+            descriptionHtml
+            options { name values }
+            variants(first: 50) {
+              edges { node {
+                id
+                sku
+                price
+                selectedOptions { name value }
+                inventoryPolicy
+                inventoryQuantity
+              }}
+            }
+          }
         }
       }
     }
   `;
 
-  const data = await shopifyAdminFetch(client, query, { handle }) as {
-    product: {
-      id: string;
-      title: string;
-      handle: string;
-      status: string;
-      productType: string | null;
-      vendor: string | null;
-      tags: string[];
-      descriptionHtml: string;
-      options: { name: string; values: string[] }[];
-      variants: { edges: { node: ShopifyVariant }[] };
-    } | null;
+  const data = await shopifyAdminFetch(client, query, { query: `handle:${handle}` }) as {
+    products: {
+      edges: {
+        node: {
+          id: string;
+          title: string;
+          handle: string;
+          status: string;
+          productType: string | null;
+          vendor: string | null;
+          tags: string[];
+          descriptionHtml: string;
+          options: { name: string; values: string[] }[];
+          variants: { edges: { node: ShopifyVariant }[] };
+        };
+      }[];
+    };
   };
 
-  if (!data.product) return null;
+  const node = data.products.edges[0]?.node;
+  if (!node) return null;
 
   return {
-    id: data.product.id,
-    title: data.product.title,
-    handle: data.product.handle,
-    status: data.product.status,
-    productType: data.product.productType,
-    vendor: data.product.vendor,
-    tags: data.product.tags,
-    bodyHtml: data.product.descriptionHtml,
-    options: data.product.options,
-    variants: data.product.variants.edges.map(e => e.node),
+    id: node.id,
+    title: node.title,
+    handle: node.handle,
+    status: node.status,
+    productType: node.productType,
+    vendor: node.vendor,
+    tags: node.tags,
+    bodyHtml: node.descriptionHtml,
+    options: node.options,
+    variants: node.variants.edges.map(e => e.node),
   };
 }
 
 function normalizeVariant(v: CatalogProduct["variants"][0]): string {
-  return JSON.stringify({ sku: v.sku, price: v.price, option1: v.option1 ?? null, inventoryPolicy: v.inventoryPolicy ?? "CONTINUE" });
+  return JSON.stringify({
+    sku: v.sku,
+    price: v.price,
+    option1: v.option1 ?? null,
+    option2: v.option2 ?? null,
+    option3: v.option3 ?? null,
+    inventoryPolicy: v.inventoryPolicy ?? "CONTINUE",
+  });
 }
 
 function normalizeRemoteVariant(v: ShopifyVariant): string {
-  return JSON.stringify({ sku: v.sku, price: v.price, option1: v.option1 ?? null, inventoryPolicy: v.inventory_policy ?? "CONTINUE" });
+  const byName: Record<string, string> = {};
+  for (const o of v.selectedOptions) byName[o.name] = o.value;
+  return JSON.stringify({
+    sku: v.sku,
+    price: v.price,
+    option1: byName["Option1"] ?? byName["Title"] ?? null,
+    option2: byName["Option2"] ?? null,
+    option3: byName["Option3"] ?? null,
+    inventoryPolicy: v.inventory_policy ?? "CONTINUE",
+  });
 }
 
 export function diffProduct(product: CatalogProduct, remote: ShopifyProduct | null): ProductDiff {
@@ -138,7 +211,7 @@ export function diffProduct(product: CatalogProduct, remote: ShopifyProduct | nu
 }
 
 export async function applyProduct(
-  client: ReturnType<typeof getShopifyAdminClient>,
+  client: AdminClient,
   product: CatalogProduct,
   remote: ShopifyProduct | null,
 ): Promise<string> {

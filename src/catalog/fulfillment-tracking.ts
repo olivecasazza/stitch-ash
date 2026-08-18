@@ -1,4 +1,5 @@
 import type { FulfillmentTarget, ShippingPolicy, TrackingInput } from "./schema.js";
+import { buildAdminClient } from "./shopify-admin.js";
 
 export function validateTrackingInput(
   input: TrackingInput,
@@ -19,9 +20,7 @@ export function validateTrackingInput(
 }
 
 export async function findOrderFulfillmentTarget(orderName: string): Promise<FulfillmentTarget | null> {
-  const token = process.env.SHOPIFY_ADMIN_TOKEN;
-  const domain = process.env.SHOPIFY_STOREFRONT_DOMAIN ?? "stitch-and-ash.myshopify.com";
-  if (!token) throw new Error("SHOPIFY_ADMIN_TOKEN is not set");
+  const client = await buildAdminClient();
 
   const query = `
     query getOrderByName($name: String!) {
@@ -43,11 +42,11 @@ export async function findOrderFulfillmentTarget(orderName: string): Promise<Ful
     }
   `;
 
-  const response = await fetch(`https://${domain}/admin/api/2026-04/graphql.json`, {
+  const response = await fetch(`https://${client.domain}/admin/api/2026-04/graphql.json`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Shopify-Access-Token": token,
+      "X-Shopify-Access-Token": client.token,
     },
     body: JSON.stringify({ query, variables: { name: orderName } }),
   });
@@ -101,9 +100,7 @@ export async function applyFulfillmentTracking(
   target: FulfillmentTarget,
   input: TrackingInput,
 ): Promise<string> {
-  const token = process.env.SHOPIFY_ADMIN_TOKEN;
-  const domain = process.env.SHOPIFY_STOREFRONT_DOMAIN ?? "stitch-and-ash.myshopify.com";
-  if (!token) throw new Error("SHOPIFY_ADMIN_TOKEN is not set");
+  const client = await buildAdminClient();
 
   const mutation = `
     mutation createFulfillment($orderId: ID!, $input: FulfillmentInput!) {
@@ -129,11 +126,11 @@ export async function applyFulfillmentTracking(
     notifyCustomer: input.notifyCustomer ?? false,
   };
 
-  const response = await fetch(`https://${domain}/admin/api/2026-04/graphql.json`, {
+  const response = await fetch(`https://${client.domain}/admin/api/2026-04/graphql.json`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Shopify-Access-Token": token,
+      "X-Shopify-Access-Token": client.token,
     },
     body: JSON.stringify({ query: mutation, variables: { orderId: target.orderId, input: fulfillmentInput } }),
   });

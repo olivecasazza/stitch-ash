@@ -101,10 +101,7 @@ export interface ShopifyVariant {
   id: string;
   sku: string;
   price: string;
-  option1: string | null;
-  option2: string | null;
-  option3: string | null;
-  inventory_management: string | null;
+  selectedOptions: { name: string; value: string }[];
   inventory_policy: string | null;
   inventory_quantity: number | null;
 }
