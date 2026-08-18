@@ -65,6 +65,11 @@
   --radius-md:   0;
   --radius-lg:   0;
 
+  /* ─── Component tokens ───────────────────────────────────────────────────── */
+  --accordion-body-bg:     var(--charcoal);
+  --accordion-body-text:  var(--bone);
+  --accordion-icon:       var(--grey-400);
+
   /* ─── Shadow — flat. No shadow tokens. ─────────────────────────────────── */
 
   /* ─── Transitions ──────────────────────────────────────────────────────── */

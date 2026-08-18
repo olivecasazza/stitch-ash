@@ -102,7 +102,7 @@ const selected = computed({
     border-color: var(--bone);
   }
 
-  /* Checked state via adjacent sibling combinator */
+  /* Checked state: white fill, dark text — 21:1 AA on black ground */
   .size-selector__input:checked + .size-selector__swatch {
     background: var(--white);
     color: var(--ink-black);
