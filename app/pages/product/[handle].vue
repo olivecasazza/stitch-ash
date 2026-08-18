@@ -164,7 +164,7 @@ useSeoMeta({
           </p>
         </div>
 
-        <!-- Add to cart OR Made to order status CTA -->
+        <!-- Add to cart OR notify-me CTA -->
         <button
           v-if="variantId"
           class="pdp__atc-btn pdp__atc-btn--primary"
@@ -178,7 +178,7 @@ useSeoMeta({
           disabled
           aria-disabled="true"
         >
-          Made to order — coming soon
+          Notify me when available
         </button>
 
         <!-- Accordions -->
@@ -373,9 +373,9 @@ useSeoMeta({
   }
 
   .pdp__atc-btn--disabled {
-    background: var(--bone);
+    background: var(--white);
     color: var(--ink-black);
-    border: 1px solid var(--bone);
+    border: 1px solid var(--white);
     cursor: not-allowed;
   }
 
