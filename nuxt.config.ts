@@ -29,7 +29,7 @@ export default defineNuxtConfig({
 
             clients: {
                 storefront: {
-                    mock: true,
+                    mock: false,
                     apiVersion: '2026-04',
                 },
             },
