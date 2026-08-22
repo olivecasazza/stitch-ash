@@ -29,8 +29,8 @@ const label = computed(() => labels[props.variant] ?? props.variant)
   white-space: nowrap;
   padding: 2px 6px;
   line-height: 1.6;
-  background: var(--grey-950);
+  background: transparent;
   color: var(--grey-400);
-  border: 1px solid var(--border-rule);
+  border: 1px solid var(--primary);
 }
 </style>
