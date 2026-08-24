@@ -1,0 +1,37 @@
+name: KV triage (read-only)
+
+# Read-only dump of the STITCH_BUG_REPORTS KV namespace for triage runs.
+# Lists all keys, then prints each value. No writes.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: List keys
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@3 kv namespace list > ns.json
+          NS_ID=$(node -e 'const ns=JSON.parse(require("fs").readFileSync("ns.json","utf8"));const m=ns.find(n=>/STITCH_BUG_REPORTS/i.test(n.title));if(!m){console.error("namespace not found");process.exit(1)}console.log(m.id)')
+          echo "NS_ID=$NS_ID"
+          npx --yes wrangler@3 kv key list --namespace-id "$NS_ID" > keys.json
+          node -e 'console.log(JSON.parse(require("fs").readFileSync("keys.json","utf8")).map(k=>k.name).join("\n"))'
+          echo "---VALUES---"
+          node -e '
+            const keys=JSON.parse(require("fs").readFileSync("keys.json","utf8")).map(k=>k.name);
+            console.log(JSON.stringify({count:keys.length,keys}));
+          ' > meta.json
+          cat meta.json
+          for K in $(node -e 'const k=JSON.parse(require("fs").readFileSync("keys.json","utf8"));console.log(k.map(x=>encodeURIComponent(x.name)).join("\n"))'); do
+            DECODED=$(node -e "console.log(decodeURIComponent('$K'))")
+            echo "=== KEY: $DECODED ==="
+            npx --yes wrangler@3 kv key get --namespace-id "$NS_ID" "$DECODED" || echo "(get failed)"
+          done
+          echo "===DONE==="
