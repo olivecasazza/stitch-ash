@@ -1,6 +1,8 @@
 # Storefront Development Guide
 
-> All changes touching customer-visible paths (`app/pages/`, `app/components/`, `app/layouts/`, `app/assets/`, `nuxt.config.ts`) must follow this lifecycle. Internal-analysis and ops prose never belongs in those paths.
+> All changes touching customer-visible paths (`app/pages/`, `app/components/`, `app/layouts/`, `app/assets/`, `app/nuxt.config.ts`, `app/app.config.ts`, `app/error.vue`) must follow this lifecycle. Internal-analysis and ops prose never belongs in those paths.
+
+This guide is the canonical storefront development cycle referenced from [STI-232](/STI/issues/STI-232) and adopted as the standing ui-ux review checklist by [STI-234](/STI/issues/STI-234). The seven-step lifecycle below doubles as both the author's lifecycle and the ui-ux reviewer's checklist.
 
 ## Mandatory Development Lifecycle
 
@@ -44,9 +46,18 @@ Before requesting review, verify:
 
 ### 6. Reviewer Sign-off
 
-- Reviewer must be `ui-ux` or `cto`
+- Reviewer must be `ui-ux` (primary) or `cto` (escalation)
 - Sign-off required before deploy; no exceptions for customer-visible changes
 - Re-review required if the diff grows beyond the original scope
+
+**Reviewer sub-gates (ui-ux must check every one):**
+
+- [ ] **6a — No-leaked-internal-copy gate.** `internal-copy-gate` CI job on the PR is green (`scripts/ci/no-internal-copy-in-storefront.sh` exits 0). If the job is missing or red, request changes.
+- [ ] **6b — Token-system integrity.** Any visual change references `DESIGN.md` / `UX_FRAMEWORK.md` tokens; no raw colour, spacing, font or radius values that bypass the token system. Run `npx @google/design.md lint DESIGN.md` locally if unsure.
+- [ ] **6c — Copy fidelity.** Every customer-facing string on the PR matches the exact strings approved in Step 2 (design / plan). New copy not in the approved design is a request-changes, not a "we'll fix later".
+- [ ] **6d — Visual sanity.** Screenshots at 1440×900 (desktop), 820×1180 (tablet), 390×844 (mobile) are attached to the PR description when the change affects layout, spacing, type scale or contrast. Compare against `DESIGN.md`; flag any divergence.
+
+If any sub-gate fails, post a "Request changes" review on GitHub naming the failed sub-gate letter.
 
 ### 7. Deploy
 
