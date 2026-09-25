@@ -37,20 +37,14 @@ jobs:
           SHOPIFY_STOREFRONT_TOKEN: ${{ secrets.SHOPIFY_STOREFRONT_ACCESS_TOKEN }}
         run: pnpm build
 
+      # STI-241: cloudflare/pages-action was deleted upstream (repo now 404),
+      # breaking deploys with "Unable to resolve action `cloudflare/pages-action`".
+      # Publish via wrangler-action + `wrangler pages deploy` instead — same
+      # artifact (nuxt cloudflare_pages preset emits dist/ with _worker.js).
       - name: Publish to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: 'stitch-ash-web'
-          # nuxt.config.ts sets `nitro.preset: 'cloudflare_pages'`, so the Nuxt
-          # build emits the Pages artifact to `dist/` (NOT `.output/public/`,
-          # which is the default node-server preset). The wrangler.toml
-          # `pages_build_output_dir = ".output/public"` is stale and harmless —
-          # the Pages project uses the value the GitHub integration sends at
-          # deploy time. Update wrangler.toml in a follow-up to keep local
-          # `wrangler pages dev` consistent.
-          directory: 'dist'
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ github.ref_name }}
           wranglerVersion: '3'
+          command: pages deploy dist --project-name=stitch-ash-web --branch=${{ github.ref_name }} --commit-dirty=true
