@@ -126,6 +126,71 @@ reopened as STI-YYY`.
   review); internal copy checked via `curl` of home + PDP HTML — green.
   No prohibited strings found. Script confirmed on `main` at SHA
   `469cb5befa0a`.
+- STI-395 — 2026-09-26 (later cycle, heartbeat) — full standing pass run
+  against live `https://preview.stitch-ash.com` — **all green**.
+  HTTP 200: `/`, `/products`, `/contact`, `/product/sku-001..003`;
+  `/products/sku-001` → `308` → `/product/sku-001`. Both Pages Functions
+  proven on their success paths: `POST /api/bug-report` → `200
+  {"destination":"human-admin-queue","id":"admin-feedback:..."}`;
+  `POST /api/checkout` → `422` carrying a genuine Storefront API error
+  (bogus variant), which proves the `SHOPIFY_*` secrets are wired and
+  reachable — not just that the route answers. Deploy provenance:
+  `origin/main` HEAD `81b7b81` = `deploy.yml` run
+  [36272429407](https://github.com/olivecasazza/stitch-ash/actions/runs/36272429407)
+  (conclusion `success`), and the live CSS carries that commit's
+  signature (`.btn-primary` white fill, was bone). No internal/ops copy
+  on any customer-facing page; `/ops-platform` 404s and no nav link
+  points at it. `npx @google/design.md lint DESIGN.md` → 0 errors,
+  0 warnings. Contrast verified by computation over the live token set,
+  not by eye — see below.
+- STI-395 — 2026-09-26 — re-test of closed defects, all green, no
+  regressions: STI-310 (PDP contrast) PASS, STI-308 (internal/ops CTA
+  copy + invisible button) PASS, STI-313 (serif/typography) PASS,
+  STI-241 (no collection/shop page) PASS, STI-393 (border-radius +
+  serif on live storefront) **not reproducible** — closed as a false
+  positive, evidence below. STI-309 (no product photography) remains
+  real and stays blocked.
+
+### Method notes worth keeping (learned the hard way this cycle)
+
+**A 200/202 status mismatch is not proof of deploy drift.** `/api/bug-report`
+returned `200` while `functions/api/bug-report.js` in `main` returns `202`.
+It is not drift: `deploy.yml` publishes `dist/` only, and with
+`nitro.preset: 'cloudflare_pages'` the handler that actually runs is
+`server/api/bug-report.ts`, whose `return` serialises as `200`. The
+`functions/` copies are dead code. Before filing a drift claim, prove
+*which* artifact the CDN is executing.
+
+**Tailwind utilities in the bundle are not style regressions.** The live CSS
+contains `border-radius: .25rem`, `box-shadow`, `linear-gradient` and
+`blur(8px)` — and all of it is inert. Those are JIT-emitted utility
+*definitions* (`.rounded`, `.shadow-lg`, `.bg-gradient-to-b`, `.blur`)
+plus Nuxt UI's `--ui-*` internals, and a DOM scan of the three
+customer-facing pages shows **zero** uses of those class names. A
+regression requires the class to be applied. Always check DOM usage
+before rejecting on a `border-radius > 0` or shadow rule.
+
+**Colour findings must be resolved against the declaration, not the render.**
+The vision model reported "price text must be grey-200 #CFCFCF, not
+primary #5C5C5C" on `/products`. The live rule is
+`.product-card__price { color: var(--bone) }` = `#E8E8E8` = **17.1:1** on
+ink — higher contrast than the colour it asked for. Same for the
+"pill-shaped" PDP buttons: `.btn-primary` declares no `border-radius`
+at all. Verify the claim in the stylesheet before filing it.
+
+**`PHOTOGRAPH PENDING` is not leaked placeholder copy.** It is the
+DESIGN.md-sanctioned image-fallback plate caption (`grey-950`, DESIGN.md
+"image fallback plates"), shipped deliberately in 81b7b81. The real
+underlying gap — no product photography exists — is tracked as STI-309,
+not as new placeholder copy.
+
+**Vision-review reviewer availability.** `auto/best-vision` returned
+`HTTP 502 Bad Gateway` for all 9 captures this cycle; the same captures
+graded clean on an explicit
+`openrouter/google/gemini-3.1-flash-lite-image`. One capture then hit
+`429`. If the default reviewer 502s, retry once with an explicit vision
+model id before marking any visual claim unverified. Capture and review
+are separate stages — a 502 on review does not invalidate the PNGs.
 
 ## Triage Playbook — `no-internal-copy-in-storefront` gate failures
 
