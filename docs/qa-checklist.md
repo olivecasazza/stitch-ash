@@ -46,11 +46,11 @@ If the deploy run is `failure`, `cancelled`, or missing: do not sign off. File a
 
 ### 3. No internal/ops copy on customer-facing pages
 
-The CI gate is `scripts/ci/no-internal-copy-in-storefront.sh` (introduced in
-[PR #18](https://github.com/olivecasazza/stitch-ash/pull/18), lands on
-`main` with the merge). Run it locally before opening any QA report, and
-also re-run it against the deployed preview in § 1 because PR #18 may
-have changed the prohibited-string list.
+The CI gate is `scripts/ci/no-internal-copy-in-storefront.sh` (merged on `main` via
+[PR #18](https://github.com/olivecasazza/stitch-ash/pull/18)). Run it
+locally before opening any QA report, and also re-run it against the
+deployed preview in § 1 because the prohibited-string list may have
+changed since the last smoke cycle.
 
 `CUSTOMER_PATHS` (mirrored from the script — do not diverge without filing
 a Paperclip issue parented on [STI-232](/issues/STI-232)):
@@ -122,6 +122,10 @@ reopened as STI-YYY`.
 - STI-316 — 2026-08-18 — `no-internal-copy-in-storefront` gate fired
   against the deployed preview (script fetched from PR #18 branch
   `feat/sti-232-dev-lifecycle`, see issue comment for output) — green.
+- STI-395 — 2026-09-26 — gate not run this cycle (blocked on visual
+  review); internal copy checked via `curl` of home + PDP HTML — green.
+  No prohibited strings found. Script confirmed on `main` at SHA
+  `469cb5befa0a`.
 
 ## Triage Playbook — `no-internal-copy-in-storefront` gate failures
 
@@ -206,8 +210,8 @@ the cycle's Paperclip issue.
 | Live site | `https://preview.stitch-ash.com` |
 | Workflow: PR checks | `.github/workflows/pr-checks.yml` (job `internal-copy-gate`) |
 | Workflow: deploy | `.github/workflows/deploy.yml` |
-| Script: gate | `scripts/ci/no-internal-copy-in-storefront.sh` (PR #18 branch, lands on `main` with merge) |
-| Author guide | `docs/DEVELOPING-storefront.md` (PR #18 branch, lands on `main` with merge) |
+| Script: gate | `scripts/ci/no-internal-copy-in-storefront.sh` (merged on `main` via PR #18) |
+| Author guide | `docs/DEVELOPING-storefront.md` (merged on `main` via PR #18) |
 | Design rubric | `DESIGN.md` (google-labs-code/design.md format) |
 | Visual review skill | `visual-review` (loaded per-skill, three viewports) |
 | Parent issue | [STI-232](/issues/STI-232) |
