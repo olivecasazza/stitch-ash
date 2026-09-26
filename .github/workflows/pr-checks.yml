@@ -28,6 +28,16 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Typecheck
+        # STI-395: @nuxtjs/shopify generates the StorefrontAPI codegen types
+        # (IMAGE_FRAGMENT, useStorefrontData, #shopify/storefront, ...) during
+        # `nuxt prepare`. It skips setup entirely when the storefront token is
+        # absent — "[shopify] Skipping setup: config not provided or invalid" —
+        # so the types are never written and every consumer of them fails
+        # typecheck. The Build step below already receives this token; the
+        # typecheck step did not, which is why this check has been red for
+        # every storefront PR since PR #33.
+        env:
+          SHOPIFY_STOREFRONT_TOKEN: ${{ secrets.SHOPIFY_STOREFRONT_ACCESS_TOKEN }}
         run: pnpm typecheck
 
       - name: Build

@@ -335,9 +335,9 @@ body {
 }
 .signup button,
 .btn-primary {
-  background: var(--bone);
+  background: var(--white);
   color: var(--ink-black);
-  border: 1px solid var(--bone);
+  border: 1px solid var(--white);
   font: inherit;
   font-size: var(--text-sm);
   font-weight: 600;
@@ -345,15 +345,23 @@ body {
   text-transform: uppercase;
   padding: var(--space-md) var(--space-lg);
   cursor: pointer;
-  transition: opacity var(--transition-base);
+  transition: background-color var(--transition-fast);
   font-family: var(--font-body);
+  border-radius: var(--radius-none);
 }
 .signup button:hover,
-.btn-primary:hover,
+.btn-primary:hover {
+  background: var(--grey-200);
+  color: var(--ink-black);
+  border-color: var(--grey-200);
+}
 .signup button:focus-visible,
 .btn-primary:focus-visible {
-  opacity: 0.85;
-  outline: none;
+  background: var(--white);
+  color: var(--ink-black);
+  border-color: var(--white);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 .signup .note {
   margin-block-start: var(--space-lg);
