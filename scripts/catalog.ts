@@ -27,7 +27,7 @@ async function main() {
     return;
   }
 
-  const client = createShopifyAdminClient();
+  const client = await createShopifyAdminClient();
   const diffs = [];
 
   for (const product of products) {
