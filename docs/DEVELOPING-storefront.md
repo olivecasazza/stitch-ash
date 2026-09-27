@@ -48,6 +48,13 @@ Before requesting review, verify:
 - Sign-off required before deploy; no exceptions for customer-visible changes
 - Re-review required if the diff grows beyond the original scope
 
+**The reviewer's working checklist is
+[`docs/ui-ux-storefront-review-runbook.md`](./ui-ux-storefront-review-runbook.md).**
+Sign-off there is four sub-gates — 6a no-leaked-internal-copy, 6b token-system
+integrity, 6c copy fidelity, 6d visual sanity at three viewports — and all four
+must pass or be explicitly recorded as *unverified*. Read it before reviewing a
+storefront PR; do not sign off from this summary alone.
+
 ### 7. Deploy
 
 1. Open a PR targeting `main`
