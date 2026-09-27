@@ -40,6 +40,14 @@ jobs:
           SHOPIFY_STOREFRONT_TOKEN: ${{ secrets.SHOPIFY_STOREFRONT_ACCESS_TOKEN }}
         run: pnpm typecheck
 
+      # STI-432: `catalog:plan` reported 5 phantom `update variant` actions
+      # because the diff resolved remote option values by the hardcoded name
+      # "Option1"/"Title" and missed the `Size` option on sku-001. A false plan
+      # is what the operator approval gate exists to catch, so the diff itself
+      # is now under test. Pure unit test, no store credentials needed.
+      - name: Catalog diff tests
+        run: pnpm catalog:test
+
       - name: Build
         run: pnpm build
 

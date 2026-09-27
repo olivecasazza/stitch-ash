@@ -153,28 +153,36 @@ export async function getProductByHandle(client: AdminClient, handle: string): P
   };
 }
 
-function normalizeVariant(v: CatalogProduct["variants"][0]): string {
-  return JSON.stringify({
-    sku: v.sku,
-    price: v.price,
-    option1: v.option1 ?? null,
-    option2: v.option2 ?? null,
-    option3: v.option3 ?? null,
-    inventoryPolicy: v.inventoryPolicy ?? "CONTINUE",
-  });
+function resolveRemoteOptionValues(
+  remoteOptions: { name: string }[],
+  v: ShopifyVariant,
+): (string | null)[] {
+  const declared = remoteOptions.length > 0
+    ? remoteOptions.map(o => v.selectedOptions.find(s => s.name === o.name)?.value ?? null)
+    : v.selectedOptions.map(s => s.value);
+  return [declared[0] ?? null, declared[1] ?? null, declared[2] ?? null];
 }
 
-function normalizeRemoteVariant(v: ShopifyVariant): string {
-  const byName: Record<string, string> = {};
-  for (const o of v.selectedOptions) byName[o.name] = o.value;
-  return JSON.stringify({
-    sku: v.sku,
+interface ComparableVariant {
+  price: string;
+  options: (string | null)[];
+  inventoryPolicy: string;
+}
+
+function comparableLocalVariant(v: CatalogProduct["variants"][0]): ComparableVariant {
+  return {
     price: v.price,
-    option1: byName["Option1"] ?? byName["Title"] ?? null,
-    option2: byName["Option2"] ?? null,
-    option3: byName["Option3"] ?? null,
+    options: [v.option1 ?? null, v.option2 ?? null, v.option3 ?? null],
+    inventoryPolicy: v.inventoryPolicy ?? "CONTINUE",
+  };
+}
+
+function comparableRemoteVariant(v: ShopifyVariant, remoteOptions: { name: string }[]): ComparableVariant {
+  return {
+    price: v.price,
+    options: resolveRemoteOptionValues(remoteOptions, v),
     inventoryPolicy: v.inventory_policy ?? "CONTINUE",
-  });
+  };
 }
 
 export function diffProduct(product: CatalogProduct, remote: ShopifyProduct | null): ProductDiff {
@@ -200,10 +208,26 @@ export function diffProduct(product: CatalogProduct, remote: ShopifyProduct | nu
     const rv = remoteVariants.get(variant.sku);
     if (!rv) {
       actions.push(`add variant ${variant.sku}`);
-    } else {
-      if (variant.price !== rv.price) actions.push(`update variant ${variant.sku} price: ${rv.price} -> ${variant.price}`);
-      if (variant.inventoryPolicy !== (rv.inventory_policy ?? "CONTINUE")) actions.push(`update variant ${variant.sku} inventoryPolicy: ${rv.inventory_policy ?? "CONTINUE"} -> ${variant.inventoryPolicy ?? "CONTINUE"}`);
-      if (normalizeVariant(variant) !== normalizeRemoteVariant(rv)) actions.push(`update variant ${variant.sku}`);
+      continue;
+    }
+
+    // Field-by-field, so every real drift gets exactly one action line and a
+    // changed field is never silently swallowed by the catch-all.
+    const local = comparableLocalVariant(variant);
+    const remoteVariant = comparableRemoteVariant(rv, remote.options);
+
+    if (local.price !== remoteVariant.price) {
+      actions.push(`update variant ${variant.sku} price: ${remoteVariant.price} -> ${local.price}`);
+    }
+    for (const [index, field] of ["option1", "option2", "option3"].entries()) {
+      const from = remoteVariant.options[index];
+      const to = local.options[index];
+      if (from !== to) {
+        actions.push(`update variant ${variant.sku} ${field}: ${from ?? "(none)"} -> ${to ?? "(none)"}`);
+      }
+    }
+    if (local.inventoryPolicy !== remoteVariant.inventoryPolicy) {
+      actions.push(`update variant ${variant.sku} inventoryPolicy: ${remoteVariant.inventoryPolicy} -> ${local.inventoryPolicy}`);
     }
   }
 
