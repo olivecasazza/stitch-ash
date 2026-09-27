@@ -164,15 +164,23 @@ function normalizeVariant(v: CatalogProduct["variants"][0]): string {
   });
 }
 
-function normalizeRemoteVariant(v: ShopifyVariant): string {
+function normalizeRemoteVariant(v: ShopifyVariant, options: ShopifyProduct["options"]): string {
   const byName: Record<string, string> = {};
   for (const o of v.selectedOptions) byName[o.name] = o.value;
+  const byPosition = (index: number): string | null => {
+    const name = options[index]?.name ?? `Option${index + 1}`;
+    if (byName[name] !== undefined) return byName[name];
+    if (byName[`Option${index + 1}`] !== undefined) return byName[`Option${index + 1}`];
+    // Shopify's legacy "Title" option is only ever the first option.
+    if (index === 0 && byName.Title !== undefined) return byName.Title;
+    return null;
+  };
   return JSON.stringify({
     sku: v.sku,
     price: v.price,
-    option1: byName["Option1"] ?? byName["Title"] ?? null,
-    option2: byName["Option2"] ?? null,
-    option3: byName["Option3"] ?? null,
+    option1: byPosition(0),
+    option2: byPosition(1),
+    option3: byPosition(2),
     inventoryPolicy: v.inventory_policy ?? "CONTINUE",
   });
 }
@@ -203,7 +211,7 @@ export function diffProduct(product: CatalogProduct, remote: ShopifyProduct | nu
     } else {
       if (variant.price !== rv.price) actions.push(`update variant ${variant.sku} price: ${rv.price} -> ${variant.price}`);
       if (variant.inventoryPolicy !== (rv.inventory_policy ?? "CONTINUE")) actions.push(`update variant ${variant.sku} inventoryPolicy: ${rv.inventory_policy ?? "CONTINUE"} -> ${variant.inventoryPolicy ?? "CONTINUE"}`);
-      if (normalizeVariant(variant) !== normalizeRemoteVariant(rv)) actions.push(`update variant ${variant.sku}`);
+      if (normalizeVariant(variant) !== normalizeRemoteVariant(rv, remote.options)) actions.push(`update variant ${variant.sku}`);
     }
   }
 
