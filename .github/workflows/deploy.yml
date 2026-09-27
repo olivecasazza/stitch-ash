@@ -4,19 +4,61 @@ on:
   push:
     branches:
       - main
-  # Manual re-deploy of main. Also needed because GITHUB_TOKEN (auto-merge)
-  # pushes do not trigger `on: push`, so bot-merged PRs never auto-deploy.
+  # STI-433: reconcile drift between main and live.
+  #
+  # `on: push` fires only for pushes made by a NON-GITHUB_TOKEN credential, so
+  # every squash-merge performed by .github/workflows/auto-merge.yml lands on
+  # main WITHOUT a deploy run and the site silently drifts behind main. Three
+  # consecutive merges (fb284c4, 371b629, 3183b9a) produced zero workflow
+  # firings before this was fixed.
+  #
+  # `on: workflow_run` on the Auto-merge workflow was evaluated and REJECTED
+  # for this repo. Evidence recorded on STI-433 (read 2026-09-27):
+  #   * The Auto-merge run's `headSha` is the PRE-merge PR head (9846e063 for
+  #     PR #41), not the squash merge commit (3183b9a) that the run causes to
+  #     be created moments later. The merge commit does not exist at checkout
+  #     time, so it cannot be checked out from the payload.
+  #   * The Auto-merge run completes BEFORE the merge lands. PR #41: the
+  #     Auto-merge run finished 2026-09-27T21:19:35Z; the merge happened
+  #     2026-09-27T21:21:06Z — 91s later. A workflow_run deploy chained off
+  #     that run would publish a pre-merge tree, then never run again.
+  # `workflow_run` chains off a *push* workflow run, not off the merge itself,
+  # so its payload carries no post-merge commit to deploy.
+  #
+  # The schedule below is the durable, self-correcting backstop: it publishes
+  # whatever the tip of main is, so ANY missed automatic deploy is repaired on
+  # a later tick with no human or agent in the loop. Latest-wins deployment
+  # makes a redundant mid-cycle deploy harmless. Cron is never suppressed by
+  # the GITHUB_TOKEN recursion guard, which is precisely why it is used here.
+  schedule:
+    - cron: '*/10 * * * *'
   workflow_dispatch: {}
+
+# Cancel a scheduled deploy when a newer commit lands on main mid-run: the newer
+# run deploys a newer commit, so continuing the older one wastes minutes and
+# risks publishing a stale build last. Manual runs are never cancelled.
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: ${{ github.event_name == 'schedule' }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    needs: fresh-check
+    # Scheduled runs defer to the freshness gate; push and manual runs always
+    # deploy, so an explicit `gh workflow run deploy.yml --ref main` stays a
+    # faithful rebuild of that ref. `always()` is required because fresh-check
+    # is skipped for non-schedule events, and a skipped `needs` job would
+    # otherwise skip this one and silently disable every manual redeploy.
+    if: ${{ always() && (github.event_name != 'schedule' || needs.fresh-check.outputs.needed == 'true') }}
     permissions:
       contents: read
       deployments: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v3
@@ -48,3 +90,51 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: '3'
           command: pages deploy dist --project-name=stitch-ash-web --branch=${{ github.ref_name }} --commit-dirty=true
+
+  # STI-433: skip a scheduled deploy when main is already live. Without this the
+  # cron rebuilds and republishes an identical artifact every 10 minutes,
+  # burning Actions minutes and churning Cloudflare deployments for no change.
+  # Push and manual deploys are never skipped, so an explicit redeploy always
+  # rebuilds and republishes.
+  #
+  # "Already live" == the head SHA of the most recent SUCCESSFUL run of this
+  # workflow on main equals main's current head. Any error reading that history
+  # (first run after this change lands, API blip, missing permission) fails
+  # OPEN and deploys, so the gate can never be the reason the site stays stale.
+  fresh-check:
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    outputs:
+      needed: ${{ steps.check.outputs.needed }}
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Compare main against last successful deploy
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          head_sha="$(git ls-remote "https://github.com/${REPO}.git" refs/heads/main | cut -f1)"
+          echo "main head: ${head_sha}"
+
+          last_sha="$(gh api -X GET "repos/${REPO}/actions/workflows/deploy.yml/runs" \
+            -f status=success -f per_page=100 \
+            --jq '[.workflow_runs[] | select(.head_branch == "main") | .head_sha] | .[0] // empty' 2>&1)" || last_sha=""
+
+          if [ -z "${last_sha}" ]; then
+            echo "Could not read a prior successful deploy of main — failing OPEN and deploying."
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "last successful deploy head: ${last_sha}"
+          if [ "${last_sha}" = "${head_sha}" ]; then
+            echo "main is already live — nothing to deploy."
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "main has moved since the last successful deploy — deploying."
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi

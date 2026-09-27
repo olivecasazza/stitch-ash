@@ -116,7 +116,7 @@ export const useCart = () => {
                 { label: t('cart.toast.view'), onClick: () => { open.value = true } },
             ],
             color: 'success',
-            ui: { avatar: 'rounded-sm size-14' },
+            ui: { avatar: 'rounded-none size-14' },
         })
     }).catch(() => toast.add({
         title: t('cart.toast.error.add'),
@@ -163,7 +163,7 @@ export const useCart = () => {
                 { label: t('cart.toast.view'), onClick: () => { open.value = true } },
             ],
             color: 'success',
-            ui: { avatar: 'rounded-sm size-14' },
+            ui: { avatar: 'rounded-none size-14' },
         })
     }).catch(() => toast.add({
         title: t('cart.toast.error.update'),
