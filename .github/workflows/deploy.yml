@@ -25,40 +25,96 @@ on:
   # `workflow_run` chains off a *push* workflow run, not off the merge itself,
   # so its payload carries no post-merge commit to deploy.
   #
-  # The schedule below is the durable, self-correcting backstop: it publishes
-  # whatever the tip of main is, so ANY missed automatic deploy is repaired on
-  # a later tick with no human or agent in the loop. Latest-wins deployment
-  # makes a redundant mid-cycle deploy harmless. Cron is never suppressed by
-  # the GITHUB_TOKEN recursion guard, which is precisely why it is used here.
+  # STI-434: `on: push` does not fire for a commit created by GitHub's native
+  # auto-merge, and the cron backstop added by STI-433 has never been delivered
+  # by GitHub at all, so every bot-merge still left the site behind main. The
+  # deterministic trigger is `pull_request: closed` below, which fires on the
+  # merge event itself and carries the resulting merge commit.
+  #
+  # Why the obvious alternatives do not work here (evaluated on STI-434,
+  # 2026-09-27, against this repo's actual event stream):
+  #   * `on: push` — GitHub suppresses push events for commits its own
+  #     auto-merge service creates, so bot-merges never reach this trigger.
+  #   * `on: workflow_run` off Auto-merge — REJECTED on STI-433. That run's
+  #     headSha is the PRE-merge PR head, and it completes BEFORE the merge
+  #     lands (PR #41: run finished 21:19:35Z, merge 21:21:06Z, 91s later), so
+  #     a deploy chained off it would publish a pre-merge tree.
+  #   * `repository_dispatch` fired from auto-merge.yml — ALSO REJECTED on
+  #     STI-434. auto-merge.yml never performs the merge; it only calls the
+  #     `enablePullRequestAutoMerge` GraphQL mutation and exits. The merge is
+  #     then performed asynchronously by GitHub's native auto-merge service
+  #     once the required checks go green. There is therefore no workflow run
+  #     that happens *at* merge time to dispatch from — a dispatch step in
+  #     auto-merge.yml would fire long before the merge commit exists.
+  #   * `on: schedule` — still worth keeping as a last-resort backstop, but it
+  #     is not load-bearing: see below.
+  #
+  # Verified on STI-434 that this event IS delivered on this repo: the repo
+  # event feed shows PullRequestEvent action=merged for PRs #38, #39, #40, #41,
+  # #44 and #45, including the two bot-merges that produced zero deploy runs
+  # (PR #40 -> 95e70fde, PR #44 -> d1adb3d). The trigger is therefore proven
+  # live rather than assumed.
+  pull_request:
+    types: [closed]
+  # The schedule is a BACKSTOP, not the primary trigger. STI-434 measured zero
+  # schedule events across 80+ minutes and 8 cron boundaries after d1adb3d put
+  # the */10 backstop on main, with repo/org Actions permissions, workflow
+  # state, fork/archive/disabled flags and rulesets all confirmed healthy — the
+  # GitHub API exposes no reason, so the cause is not attributable from here.
+  # Coarsened to */30 because high-frequency crons are the ones GitHub drops
+  # under load; a bounded 30-minute self-heal is strictly better than the
+  # unbounded drift of a schedule that never fires at all.
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch: {}
 
 # Cancel a scheduled deploy when a newer commit lands on main mid-run: the newer
 # run deploys a newer commit, so continuing the older one wastes minutes and
 # risks publishing a stale build last. Manual runs are never cancelled.
+#
+# STI-434: the group is keyed on the DEPLOY TARGET, not on github.ref_name.
+# A `pull_request` event has ref_name like "40/merge", so keying on ref_name
+# would give merge-triggered deploys their own group that a cron deploy on
+# `main` would not cancel — the two could then race and publish out of order.
+# Every deploy this workflow performs targets main, so the group is a constant.
 concurrency:
-  group: deploy-${{ github.ref_name }}
+  group: deploy-main
   cancel-in-progress: ${{ github.event_name == 'schedule' }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: fresh-check
-    # Scheduled runs defer to the freshness gate; push and manual runs always
-    # deploy, so an explicit `gh workflow run deploy.yml --ref main` stays a
-    # faithful rebuild of that ref. `always()` is required because fresh-check
-    # is skipped for non-schedule events, and a skipped `needs` job would
-    # otherwise skip this one and silently disable every manual redeploy.
-    if: ${{ always() && (github.event_name != 'schedule' || needs.fresh-check.outputs.needed == 'true') }}
+    # Scheduled runs defer to the freshness gate; push, merge and manual runs
+    # always deploy, so an explicit `gh workflow run deploy.yml --ref main`
+    # stays a faithful rebuild of that ref. `always()` is required because
+    # fresh-check is skipped for non-schedule events, and a skipped `needs` job
+    # would otherwise skip this one and silently disable every manual redeploy.
+    #
+    # The pull_request clause drops closes that were not merges: GitHub
+    # delivers `closed` for abandoned PRs too, and main has not moved, so there
+    # is nothing to publish and the run would fail in every later step for lack
+    # of a checkout. This is a whole-job guard rather than a step guard on
+    # purpose — a skipped checkout with unguarded build steps fails the run.
+    if: >-
+      ${{ always()
+          && (github.event_name != 'schedule' || needs.fresh-check.outputs.needed == 'true')
+          && (github.event_name != 'pull_request' || github.event.pull_request.merged) }}
     permissions:
       contents: read
       deployments: write
+    # STI-434: on a `pull_request` event github.ref_name is "<pr>/merge" (e.g.
+    # "40/merge"), which is neither a branch nor a ref that can be checked out
+    # or published. The merge commit itself is only reachable via the base
+    # branch, so resolve the deploy target once and use it for the checkout and
+    # the Cloudflare branch alike.
+    env:
+      DEPLOY_REF: ${{ github.event_name == 'pull_request' && 'main' || github.ref_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ env.DEPLOY_REF }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v3
@@ -89,7 +145,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: '3'
-          command: pages deploy dist --project-name=stitch-ash-web --branch=${{ github.ref_name }} --commit-dirty=true
+          command: pages deploy dist --project-name=stitch-ash-web --branch=${{ env.DEPLOY_REF }} --commit-dirty=true
 
   # STI-433: skip a scheduled deploy when main is already live. Without this the
   # cron rebuilds and republishes an identical artifact every 10 minutes,
