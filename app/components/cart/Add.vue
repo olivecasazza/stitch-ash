@@ -39,7 +39,7 @@ const addToCart = async () => {
                 'ps-1.5',
                 'pe-1',
             ],
-            base: 'absolute bottom-0 group rounded-full p-2.5',
+            base: 'absolute bottom-0 group rounded-none p-2.5',
         }"
         @click="addToCart"
     />

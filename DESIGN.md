@@ -34,6 +34,12 @@ rounded:
   sm:   "0px"
   md:   "0px"
   lg:   "0px"
+  # `ui` is the vendor bridge, not a scale step. @nuxt/ui ships
+  # `:host,:root{--ui-radius:.25rem}` and its Tailwind `rounded-*`
+  # utilities compile against that value, NOT against the keys above, so
+  # it needs its own zeroed token. Mirrored as `--ui-radius: 0` in
+  # app/assets/css/tokens.css.
+  ui:   "0px"
 components:
   button-primary:
     backgroundColor: "{colors.white}"
@@ -194,6 +200,24 @@ modals, focus rings — all square. The 2px radius that lingered in the
 prior `radius-tight` token is **deleted**, not preserved. Every `rounded:`
 key in this seed resolves to `"0"`.
 
+### Third-party radius bridge (`rounded.ui`)
+
+Declaring `--radius-*: 0` is not sufficient on its own. `@nuxt/ui` ships its
+own root token, `:host,:root{--ui-radius:.25rem}`, and the Tailwind
+`rounded-*` utilities it registers compile against **that** value —
+`rounded-sm` is literally `border-radius:var(--ui-radius)`. Any component
+that uses a `rounded-*` class therefore reintroduces a 4px corner on the
+live site even though every `rounded:` key here is `"0px"`.
+
+The bridge is `rounded.ui: "0px"`, mirrored as
+`--ui-radius: 0` in `app/assets/css/tokens.css`. It is part of the token
+chain, not a component override: `DESIGN.md` -> `tokens.css` -> components.
+
+Utility classes are not the design system. A component that needs square
+edges takes `rounded-none` (or inherits the zeroed root), never `rounded`,
+`rounded-sm`, or `rounded-full`. `rounded-full` in particular is a pill and
+has no place in a square-edged system.
+
 ## Components
 
 ### Buttons
@@ -249,8 +273,9 @@ key in this seed resolves to `"0"`.
   mobile (390×844)**. A defect visible on only one viewport is still a
   defect.
 - Keep `tokens.css` in lockstep with this file. `--ink-black`,
-  `--font-body`, `--radius-tight` — every CSS custom property must trace
-  to a token here.
+  `--font-body`, `--radius-md` — every CSS custom property must trace
+  to a token here. Vendor-shipped custom properties count too: see
+  `rounded.ui`.
 - Commit styling decisions here before they reach a component. PRs that
   introduce a color, type, or radius without a `DESIGN.md` update are
   rejected at QA.
@@ -269,6 +294,14 @@ key in this seed resolves to `"0"`.
 - Don't reintroduce the deleted `radius-tight: 2px` token. Every
   `rounded:` key in this seed is `"0"`; future keys must also be `"0"`.
 - Don't add shadow, glow, gradient, blur, or `border-radius > 0`.
+- Don't use Tailwind/Nuxt-UI `rounded`, `rounded-sm`, `rounded-md`, or
+  `rounded-full` on a component. They compile against `--ui-radius`, not
+  against `rounded.*`, so they escape the token chain. Use `rounded-none`
+  or nothing at all.
+- Don't ship a vendor stylesheet's default custom properties unzeroed.
+  Audit `grep -oE '\-\-ui-[a-z-]+:[^;}]*' on the built CSS after any
+  dependency bump; a radius or font default can reappear in a patch
+  release without touching this file.
 - Don't ship large blocks of prose copy. Headlines ≤ 6 words, body
   sentences ≤ 16 words, microcopy ≤ 40 chars.
 - Don't use color to convey state. Weight + underline + border only.

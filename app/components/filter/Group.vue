@@ -66,7 +66,7 @@ watch(() => route.query, value => Object.keys(value).length === 0 ? filtersKey.v
                     />
 
                     <UBadge
-                        class="absolute font-bold rounded-full -top-1.5 -right-2 px-1.5 font-mono lg:text-xs lg:-right-3 lg:-top-2"
+                        class="absolute font-bold rounded-none -top-1.5 -right-2 px-1.5 font-mono lg:text-xs lg:-right-3 lg:-top-2"
                         size="xs"
                     >
                         {{ quantity }}

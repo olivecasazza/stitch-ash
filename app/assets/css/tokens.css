@@ -65,6 +65,14 @@
   --radius-md:   0;
   --radius-lg:   0;
 
+  /* ─── Vendor radius bridge — mirrors DESIGN.md `rounded.ui` ("0px") ───────
+     See "Third-party radius bridge (rounded.ui)" in DESIGN.md. @nuxt/ui ships
+     `--ui-radius:.25rem` inside `@layer theme`, and its Tailwind border-radius
+     utilities compile against that vendor token rather than the --radius-*
+     scale above. Zeroing the scale alone leaves 4px corners on the live site.
+     Declared unlayered so it wins over the vendor's layered default. */
+  --ui-radius: 0;
+
   /* ─── Component tokens ───────────────────────────────────────────────────── */
   --accordion-body-bg:     var(--charcoal);
   --accordion-body-text:  var(--bone);
