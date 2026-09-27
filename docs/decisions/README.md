@@ -13,6 +13,7 @@ here.
 ## Index
 
 - [2026-07-21 — Shopify as system of record](2026-07-21-shopify-as-system-of-record.md)
+- [2026-09-27 — Data provenance baseline for reporting](2026-09-27-data-provenance-baseline.md)
 
 ## Conventions
 
