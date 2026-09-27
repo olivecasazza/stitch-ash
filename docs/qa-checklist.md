@@ -164,9 +164,29 @@ reopened as STI-YYY`.
   `scripts/ci/no-internal-copy-in-storefront.sh` → passed, exit 0.
   `npx @google/design.md lint DESIGN.md` → 0 errors, 0 warnings.
   Nine PNGs captured across `1440x900` / `820x1180` / `390x844` and
-  attached to the issue, but **all nine failed vision grading** —
-  see the two method notes below. The pass is deliberately **not**
-  closed as all-green.
+  attached to the issue; the first grading attempt failed 9/9 because
+  the run used the `auto/*-vision` pool. Superseded by the entry below.
+- STI-404 — 2026-09-27 (later cycle, heartbeat) — **all green, visual
+  gate graded and adjudicated.** Same non-visual results as the entry
+  above. The 3-viewport graded visual gate ran for the first time:
+  `visual_review.py --full` at `1440x900` / `820x1180` / `390x844`
+  over `/`, `/products`, `/product/sku-001` →
+  **`9 capture(s), 0 failure(s)`** on
+  `openrouter/qwen/qwen3-vl-235b-a22b-instruct`, with all nine PNGs
+  attached. ~50 graded finding lines, adjudicated: rounded corners
+  **disproven** by corner-pixel walk (radius 0, 45/45 straight edge,
+  matches `border-radius: var(--radius-none)`); serif body text
+  **disproven** (only `ui-sans-serif` substring hits, no editorial
+  face); WCAG AA failures **disproven** (13.48:1 and 17.14:1 measured)
+  with the prescribed fix `#F7F3EC` itself a QR-1 regression; clipped
+  material note **disproven** (`.product-card__note` has no
+  overflow/ellipsis, markup has no `truncate`); remaining lines
+  discarded as aesthetic opinion. The one reproducible finding —
+  `PHOTOGRAPH PENDING` placeholder art at `high`, 9/9 viewports — is
+  **already owned by [STI-309](/issues/STI-309)**, which stays open and
+  blocked; graded evidence was posted there rather than filed as a
+  duplicate. Pass closed `done`. Dead `.rounded-*` utilities in the
+  shipped CSS bundle remain an open footgun, still unapplied.
 
 ### Method notes worth keeping (learned the hard way this cycle)
 
@@ -204,6 +224,54 @@ reads well — those need the vision verdict and stay **unverified**.
 Resist the pull to call a partial pass green; the value of the
 substitution is that it converts *specific* claims from assumed to
 measured, not that it completes the gate.
+
+**Probe the skill, not the gateway.** When a gate is reported broken,
+read the tool before diagnosing the infrastructure. On 2026-09-27 the
+`auto/*-vision` pool was still 502ing, so a hand-rolled probe
+confirmed "the blocker never cleared" — but `visual_review.py` had
+already been fixed to stop routing images through that pool, pinning
+`DEFAULT_MODEL = "openrouter/qwen/qwen3-vl-235b-a22b-instruct"` with
+four fallbacks. The gate ran 9/9 clean. I had guessed a model list out
+of `/v1/models` (787 entries) and missed the one that works. The
+gateway was broken in exactly the way the skill said it was, and the
+skill had already routed around it.
+
+**A vision finding is a hypothesis, and some of them prescribe the
+regression you are hunting.** The first fully-graded run produced ~50
+finding lines, and a large share were wrong — including lines that
+recommended the exact colours QR-1 forbids. Checked and dismissed on
+this cycle:
+
+- *"buttons have rounded corners"* (4 viewports) — a QR-1 auto-reject
+  trigger, so measure it. Walk the diagonal from the plate's corner:
+  radius 0 is white at step 0; radius > 0 is background. All 14 steps
+  white on both corners, left edge 45/45 rows white, and the live rule
+  is `border-radius: var(--radius-none)`. The model reads the
+  antialiasing on a 1px white border as curvature.
+- *"body text uses a serif font"* — grep the live CSS for serif faces
+  and you get two hits, both substrings of `ui-sans-serif` inside the
+  `--default-font-family` fallback. The house face is mono.
+- *"text fails WCAG AA, must be #FFFFFF or #F7F3EC"* — measured
+  contrast is 13.48:1 and 17.14:1 on the near-black ground. **The
+  prescribed fix `#F7F3EC` is itself a QR-1 style regression.** Filing
+  this uncritically would have caused the defect the gate exists to
+  catch.
+- *"use editorial serif for display"* — asserts a house rule that
+  inverts the real one. DESIGN.md is a single brand face; QR-1
+  rejects editorial serif outright.
+
+So the rule is: **resolve every colour, typeface and radius claim
+against the live CSS declaration or the decoded pixels before filing
+it**, and discard any recommendation that would land on a forbidden
+token. A reviewer that is confidently wrong is worse than one that is
+silent, and a graded gate is a source of hypotheses, not a verdict.
+
+**A green gate is not a green storefront.** The same clean run graded
+the known open [STI-309](/issues/STI-309) defect `high` at 9/9
+viewports — `PHOTOGRAPH PENDING` placeholder art on every product
+card. That issue stays open and blocked. Close the *pass* when the
+gate is green and the surviving findings are owned elsewhere; do not
+let a clean run quietly retire a real customer-facing defect.
 
 
 **A 200/202 status mismatch is not proof of deploy drift.** `/api/bug-report`
