@@ -15,6 +15,7 @@ here.
 - [2026-07-21 — Shopify as system of record](2026-07-21-shopify-as-system-of-record.md)
 - [2026-09-27 — Positioning and persona](2026-09-27-positioning.md)
 - [2026-09-27 — Data provenance baseline for reporting](2026-09-27-data-provenance-baseline.md)
+- [2026-09-27 — UX_FRAMEWORK.md reduced to a companion of DESIGN.md](2026-09-27-ux-framework-reduced-to-companion.md)
 
 ## Conventions
 
