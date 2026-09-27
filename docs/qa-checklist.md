@@ -126,6 +126,192 @@ reopened as STI-YYY`.
   review); internal copy checked via `curl` of home + PDP HTML — green.
   No prohibited strings found. Script confirmed on `main` at SHA
   `469cb5befa0a`.
+- STI-395 — 2026-09-26 (later cycle, heartbeat) — full standing pass run
+  against live `https://preview.stitch-ash.com` — **all green**.
+  HTTP 200: `/`, `/products`, `/contact`, `/product/sku-001..003`;
+  `/products/sku-001` → `308` → `/product/sku-001`. Both Pages Functions
+  proven on their success paths: `POST /api/bug-report` → `200
+  {"destination":"human-admin-queue","id":"admin-feedback:..."}`;
+  `POST /api/checkout` → `422` carrying a genuine Storefront API error
+  (bogus variant), which proves the `SHOPIFY_*` secrets are wired and
+  reachable — not just that the route answers. Deploy provenance:
+  `origin/main` HEAD `81b7b81` = `deploy.yml` run
+  [36272429407](https://github.com/olivecasazza/stitch-ash/actions/runs/36272429407)
+  (conclusion `success`), and the live CSS carries that commit's
+  signature (`.btn-primary` white fill, was bone). No internal/ops copy
+  on any customer-facing page; `/ops-platform` 404s and no nav link
+  points at it. `npx @google/design.md lint DESIGN.md` → 0 errors,
+  0 warnings. Contrast verified by computation over the live token set,
+  not by eye — see below.
+- STI-395 — 2026-09-26 — re-test of closed defects, all green, no
+  regressions: STI-310 (PDP contrast) PASS, STI-308 (internal/ops CTA
+  copy + invisible button) PASS, STI-313 (serif/typography) PASS,
+  STI-241 (no collection/shop page) PASS, STI-393 (border-radius +
+  serif on live storefront) **not reproducible** — closed as a false
+  positive, evidence below. STI-309 (no product photography) remains
+  real and stays blocked.
+- STI-404 — 2026-09-27 — standing pass, **non-visual gates all green,
+  graded visual gate UNVERIFIED**. Routes byte-identical to the
+  2026-09-26 cycle (`/` 22490 B, `/products` 20907 B,
+  `/product/sku-001` 31474 B, `/products/sku-001` → `308`,
+  `/contact` 19928 B); `POST /api/bug-report {}` → `400`,
+  `POST /api/checkout {}` → `400`, both Pages Functions answering.
+  Deploy provenance re-proved from the live site rather than CI:
+  `origin/main` HEAD `81b7b81` = `deploy.yml` run
+  [36272429407](https://github.com/olivecasazza/stitch-ash/actions/runs/36272429407)
+  = live `/_nuxt/builds/latest.json` id
+  `ec420c03-41f7-4b10-b966-5ba10018e642` @ `2026-09-26T21:18:08Z`.
+  `scripts/ci/no-internal-copy-in-storefront.sh` → passed, exit 0.
+  `npx @google/design.md lint DESIGN.md` → 0 errors, 0 warnings.
+  Nine PNGs captured across `1440x900` / `820x1180` / `390x844` and
+  attached to the issue; the first grading attempt failed 9/9 because
+  the run used the `auto/*-vision` pool. Superseded by the entry below.
+- STI-404 — 2026-09-27 (later cycle, heartbeat) — **all green, visual
+  gate graded and adjudicated.** Same non-visual results as the entry
+  above. The 3-viewport graded visual gate ran for the first time:
+  `visual_review.py --full` at `1440x900` / `820x1180` / `390x844`
+  over `/`, `/products`, `/product/sku-001` →
+  **`9 capture(s), 0 failure(s)`** on
+  `openrouter/qwen/qwen3-vl-235b-a22b-instruct`, with all nine PNGs
+  attached. ~50 graded finding lines, adjudicated: rounded corners
+  **disproven** by corner-pixel walk (radius 0, 45/45 straight edge,
+  matches `border-radius: var(--radius-none)`); serif body text
+  **disproven** (only `ui-sans-serif` substring hits, no editorial
+  face); WCAG AA failures **disproven** (13.48:1 and 17.14:1 measured)
+  with the prescribed fix `#F7F3EC` itself a QR-1 regression; clipped
+  material note **disproven** (`.product-card__note` has no
+  overflow/ellipsis, markup has no `truncate`); remaining lines
+  discarded as aesthetic opinion. The one reproducible finding —
+  `PHOTOGRAPH PENDING` placeholder art at `high`, 9/9 viewports — is
+  **already owned by [STI-309](/issues/STI-309)**, which stays open and
+  blocked; graded evidence was posted there rather than filed as a
+  duplicate. Pass closed `done`. Dead `.rounded-*` utilities in the
+  shipped CSS bundle remain an open footgun, still unapplied.
+
+### Method notes worth keeping (learned the hard way this cycle)
+
+**HTTP 200 with an empty body is not a result — check the payload.**
+`auto/best-vision` answers `502` on a model the pool itself reports
+as `[401]: … not supported`, but `aug/claude-sonnet-4.6-thinking` and
+`aug/gpt-4o-mini` answer **`200` with `tokens-in: 0`, `tokens-out: 0`
+and `data: [DONE]`** — a successful-looking status carrying no
+verdict at all. A vision gate that only asserts on status codes will
+report "reviewed, looks fine" and hallucinate a layout judgement. Gate
+code must assert that content came back. This is
+[STI-226](/issues/STI-226)'s failure mode arriving through an
+infrastructure seam rather than through an agent's mouth, which makes
+it more dangerous, not less: the status code actively lies. Tracked
+as [STI-411](/issues/STI-411).
+
+**When the grader is down, decode the pixels — but only claim what
+pixels can prove.** With no vision route available, a 60-line pure-Python
+PNG decoder (`zlib` + `struct`, no deps) is enough to move the
+*colour* family of the gate off token arithmetic and onto measured
+rendering: histogram the decode, count exact matches for each forbidden
+hex, and bound-box a suspicious colour. That is how the 2026-09-27 pass
+established from real pixels that the ground really is
+`#000000` / `#1A1A1A` / `#0E0E0E` (the DESIGN.md greys, 78 % / 13 % /
+5 % of desktop pixels), that `#F7F3EC` / `#B08D57` / `#9F3A2F` occur
+**zero** times, and that the one `#FFFFFF` region on mobile is a solid
+~172×45 px plate — the `.signup button` waitlist CTA, which
+`global.css:337` fills with the documented `--white` token, i.e. the
+STI-395 fix rendering correctly, at 21:1.
+
+This substitution is **bounded**. It proves colour, contrast, palette
+and the presence or absence of a solid plate. It proves *nothing* about
+layout, spacing, type scale, overlap, clipped text, or whether copy
+reads well — those need the vision verdict and stay **unverified**.
+Resist the pull to call a partial pass green; the value of the
+substitution is that it converts *specific* claims from assumed to
+measured, not that it completes the gate.
+
+**Probe the skill, not the gateway.** When a gate is reported broken,
+read the tool before diagnosing the infrastructure. On 2026-09-27 the
+`auto/*-vision` pool was still 502ing, so a hand-rolled probe
+confirmed "the blocker never cleared" — but `visual_review.py` had
+already been fixed to stop routing images through that pool, pinning
+`DEFAULT_MODEL = "openrouter/qwen/qwen3-vl-235b-a22b-instruct"` with
+four fallbacks. The gate ran 9/9 clean. I had guessed a model list out
+of `/v1/models` (787 entries) and missed the one that works. The
+gateway was broken in exactly the way the skill said it was, and the
+skill had already routed around it.
+
+**A vision finding is a hypothesis, and some of them prescribe the
+regression you are hunting.** The first fully-graded run produced ~50
+finding lines, and a large share were wrong — including lines that
+recommended the exact colours QR-1 forbids. Checked and dismissed on
+this cycle:
+
+- *"buttons have rounded corners"* (4 viewports) — a QR-1 auto-reject
+  trigger, so measure it. Walk the diagonal from the plate's corner:
+  radius 0 is white at step 0; radius > 0 is background. All 14 steps
+  white on both corners, left edge 45/45 rows white, and the live rule
+  is `border-radius: var(--radius-none)`. The model reads the
+  antialiasing on a 1px white border as curvature.
+- *"body text uses a serif font"* — grep the live CSS for serif faces
+  and you get two hits, both substrings of `ui-sans-serif` inside the
+  `--default-font-family` fallback. The house face is mono.
+- *"text fails WCAG AA, must be #FFFFFF or #F7F3EC"* — measured
+  contrast is 13.48:1 and 17.14:1 on the near-black ground. **The
+  prescribed fix `#F7F3EC` is itself a QR-1 style regression.** Filing
+  this uncritically would have caused the defect the gate exists to
+  catch.
+- *"use editorial serif for display"* — asserts a house rule that
+  inverts the real one. DESIGN.md is a single brand face; QR-1
+  rejects editorial serif outright.
+
+So the rule is: **resolve every colour, typeface and radius claim
+against the live CSS declaration or the decoded pixels before filing
+it**, and discard any recommendation that would land on a forbidden
+token. A reviewer that is confidently wrong is worse than one that is
+silent, and a graded gate is a source of hypotheses, not a verdict.
+
+**A green gate is not a green storefront.** The same clean run graded
+the known open [STI-309](/issues/STI-309) defect `high` at 9/9
+viewports — `PHOTOGRAPH PENDING` placeholder art on every product
+card. That issue stays open and blocked. Close the *pass* when the
+gate is green and the surviving findings are owned elsewhere; do not
+let a clean run quietly retire a real customer-facing defect.
+
+
+**A 200/202 status mismatch is not proof of deploy drift.** `/api/bug-report`
+returned `200` while `functions/api/bug-report.js` in `main` returns `202`.
+It is not drift: `deploy.yml` publishes `dist/` only, and with
+`nitro.preset: 'cloudflare_pages'` the handler that actually runs is
+`server/api/bug-report.ts`, whose `return` serialises as `200`. The
+`functions/` copies are dead code. Before filing a drift claim, prove
+*which* artifact the CDN is executing.
+
+**Tailwind utilities in the bundle are not style regressions.** The live CSS
+contains `border-radius: .25rem`, `box-shadow`, `linear-gradient` and
+`blur(8px)` — and all of it is inert. Those are JIT-emitted utility
+*definitions* (`.rounded`, `.shadow-lg`, `.bg-gradient-to-b`, `.blur`)
+plus Nuxt UI's `--ui-*` internals, and a DOM scan of the three
+customer-facing pages shows **zero** uses of those class names. A
+regression requires the class to be applied. Always check DOM usage
+before rejecting on a `border-radius > 0` or shadow rule.
+
+**Colour findings must be resolved against the declaration, not the render.**
+The vision model reported "price text must be grey-200 #CFCFCF, not
+primary #5C5C5C" on `/products`. The live rule is
+`.product-card__price { color: var(--bone) }` = `#E8E8E8` = **17.1:1** on
+ink — higher contrast than the colour it asked for. Same for the
+"pill-shaped" PDP buttons: `.btn-primary` declares no `border-radius`
+at all. Verify the claim in the stylesheet before filing it.
+
+**`PHOTOGRAPH PENDING` is not leaked placeholder copy.** It is the
+DESIGN.md-sanctioned image-fallback plate caption (`grey-950`, DESIGN.md
+"image fallback plates"), shipped deliberately in 81b7b81. The real
+underlying gap — no product photography exists — is tracked as STI-309,
+not as new placeholder copy.
+
+**Vision-review reviewer availability.** `auto/best-vision` returned
+`HTTP 502 Bad Gateway` for all 9 captures this cycle; the same captures
+graded clean on an explicit
+`openrouter/google/gemini-3.1-flash-lite-image`. One capture then hit
+`429`. If the default reviewer 502s, retry once with an explicit vision
+model id before marking any visual claim unverified. Capture and review
+are separate stages — a 502 on review does not invalidate the PNGs.
 
 ## Triage Playbook — `no-internal-copy-in-storefront` gate failures
 
