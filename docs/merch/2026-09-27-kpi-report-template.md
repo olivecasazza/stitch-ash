@@ -140,9 +140,16 @@ GraphQL endpoint and is the wrong source for anything in Section 1.
 `SHOPIFY_*` credentials which live in nixlab IaC and are operator-owned
 (hard rule 5: escalate, do not improvise; never paste secret values into
 issues). The weekly/monthly export therefore needs either an operator-run
-snapshot or a token provisioned for merch-lead. **This is an open dependency,
-tracked as a follow-up issue** — until it is resolved, Sections 1 and 3 stay
-`UNKNOWN` and are reported as such.
+snapshot or a token provisioned for merch-lead.
+
+**This is an open dependency, tracked as [STI-418](/STI/issues/STI-418)
+(operator: landed cost per SKU + a working Shopify Admin read).** Until it is
+resolved, Sections 1 and 3 stay `UNKNOWN` and are reported as such.
+
+Related: [STI-421](/STI/issues/STI-421) — the restored `src/catalog` schema
+silently strips `landedCost`, so the per-SKU COGS column in Section 1 cannot be
+populated from the repo catalog even once the data exists. A blank margin line
+is a data-provenance bug, not an empty month.
 
 ## Section 6 — Standing risks and gate status
 

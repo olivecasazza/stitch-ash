@@ -27,6 +27,12 @@ Recurring platform subscription cost and labour are excluded from the
 contribution figures below. Treat contribution margin as gross margin on goods
 less transaction fees, **not** as net margin.
 
+**The cost-basis side of this model has two open blockers, both owned outside
+merch-lead:** a written supplier quote ([STI-418](/STI/issues/STI-418)) and a
+`landedCost` field that survives the catalog schema
+([STI-421](/STI/issues/STI-421)). Until both land, the landed-cost column below
+is a planning placeholder and no price decision should be executed on it.
+
 ## Model
 
 Contribution = price − (2.9% + $0.30) − landed cost.
