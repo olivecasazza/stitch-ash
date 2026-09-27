@@ -37,19 +37,33 @@ is wrong, and restores `mock: true` to match it would **break the live
 Storefront API data path** — including the working cart and `checkoutUrl` that
 the [STI-327](/STI/issues/STI-327) audit verified against production.
 
-Two further facts are easy to conflate and must be kept separate:
+Three further facts are easy to conflate and must be kept separate:
 
-1. **The data path is live.** Preview serves real product ids
-   (`sku-001`, `sku-002`, `sku-003`) at `/products`, HTTP 200 — not a mock
-   fixture.
-2. **No customer can reach a checkout.** The production apex
+1. **The commerce client is live, but most catalog rendering is not.**
+   `app/pages/products.vue` imports the static `PRODUCTS` array from
+   `app/data/products.ts` — the listing page never calls the Storefront API.
+   `app/pages/product/[handle].vue` queries the live API but **falls back to the
+   same static array** on failure (`data.value?.product?.title ??
+   staticProduct.value?.name`). Only the cart
+   (`app/composables/cart.ts` → `useStorefront()`) and
+   `app/pages/collection/[handle].vue` are unconditional live reads.
+2. **The handles are placeholders, not Shopify ids.** `sku-001`, `sku-002`,
+   `sku-003` are local handles defined in `app/data/products.ts`, documented as
+   "must match Shopify product handle **when live**", with `imageSrc` still
+   `undefined` behind a `TODO (STI-318)`. A `200` from `/products` therefore
+   proves the static catalog rendered, **not** that live product data is being
+   served. Verified: the preview body contains `185` / `35` and zero
+   occurrences of `gid://shopify`.
+3. **No customer can reach a checkout.** The production apex
    `https://www.stitch-ash.com` still redirects to `/password`
    (HTTP 200, final URL `.../password`, body "Enter password" / "Protected").
 
-So "not mock" and "has revenue" are entirely different claims. The storefront
-reads live Shopify data, and still earns nothing, because the apex is walled.
-Reporting that distinction wrongly in either direction is the failure this
-record prevents.
+So "not mock", "serves live product data" and "has revenue" are three different
+claims. The storefront config points at the live API, most pages still render
+in-repo fixtures, and it earns nothing because the apex is walled. Reporting
+that distinction wrongly in **any** of the three directions is the failure this
+record prevents — including the optimistic direction, which this record
+originally made itself before it was corrected on review.
 
 The live `SHOPIFY_*` values live in nixlab IaC and are operator-owned. Their
 validity is **unverified by this role** and cannot be verified from the repo —
@@ -64,15 +78,20 @@ is `mock: false` (live). Zero revenue is currently reportable, and the reason is
 the apex gate — not mock commerce.**
 
 Agents must state which layer they are reporting on, and must never infer
-"revenue exists" from "the API is live" or "the API is mock" from "no revenue
-exists." The verified baseline as of 2026-09-27:
+"revenue exists" from "the API is live", "serves live product data" from
+"the page returned 200", or "the API is mock" from "no revenue exists." The
+verified baseline as of 2026-09-27:
 
 | Layer | State | How verified |
 |---|---|---|
-| Storefront client config | `mock: false` — live API client | `nuxt.config.ts:32` on `main` (`f3ac83d`) |
-| Product data path | Live, serves real SKU ids | `curl https://preview.stitch-ash.com/products` → HTTP 200, `sku-001..003` |
+| Storefront client config | `mock: false` — live API **client configured** | `nuxt.config.ts:32` on `main` (`f3ac83d`) |
+| Catalog listing `/products` | **Static in-repo catalog**, not a live-API read | `app/pages/products.vue` imports `PRODUCTS`; no Storefront call in the file |
+| PDP `/product/<handle>` | Live query **with static fallback** — a `200` does not prove the live path | `app/pages/product/[handle].vue:22` query, `:70-75` `?? staticProduct…` fallbacks |
+| Product handles | **Placeholders**, not Shopify ids | `app/data/products.ts:118+` "must match Shopify product handle when live"; `imageSrc: undefined`, `TODO (STI-318)` |
+| Preview `/products` render | `200`, body has `185`/`35`, **zero** `gid://shopify` | `curl -sSL https://preview.stitch-ash.com/products` |
+| Cart / `checkoutUrl` | Unconditional live Storefront API read | `app/composables/cart.ts:33,80` `useStorefront()` |
+| Live store credential valid | **Unverified** — operator-owned | not readable from the repo; `process.env` wire only, `?? ''` |
 | Customer-reachable checkout | **No** — apex password-walled | `curl -L https://www.stitch-ash.com` → final `/password` |
-| Live store credential valid | **Unverified** — operator-owned | not readable from the repo; `process.env` wire only |
 | **Observable real revenue** | **Zero** | apex gate blocks every customer path |
 
 Reporting rules that follow:
@@ -85,6 +104,11 @@ Reporting rules that follow:
   `mock` was set to `false`. Those are different events on different dates.
 - Nobody flips `mock` to satisfy a document. `mock: false` is the current,
   intended, live-commerce state.
+- A `200` from a storefront URL is evidence the page rendered. It is **not**
+  evidence that a live API responded, because the PDP and listing pages fall
+  back to in-repo fixtures. Any claim of live-served product data must cite a
+  live-specific marker (a `gid://shopify` id, an operator-confirmed credential,
+  or a storefront response log) — not an HTTP status.
 
 ## Alternatives considered
 
@@ -96,12 +120,19 @@ Reporting rules that follow:
   same class of self-serving edit the gate exists to prevent. The correction is
   routed to the operator for authorization instead.
 - **Assert "real commerce is live, so revenue data exists."** Rejected: it is
-  false. The apex gate means no customer reaches checkout, and the credential
-  is unverified. This is the optimistic error the provenance rule exists to
-  prevent, reached from the opposite direction.
+  false twice over. No customer reaches checkout while the apex is walled, and
+  the credential is unverified. Separately, most catalog rendering reads
+  in-repo fixtures, not the live API, so "the client is live" does not even
+  imply "product data comes from Shopify." This is the optimistic error the
+  provenance rule exists to prevent, reached from the opposite direction — and
+  the first draft of this record made it, which is why the distinction is now a
+  table row rather than a sentence.
 - **Assert "mock is true, therefore no data path exists."** Rejected as
   outdated — the flip landed in `f3ac83d` on 2026-08-18. This is the current
   stale claim, and it misdescribes the deployed system.
+- **Treat the stale `mock = true` parenthetical as a live-commerce signal and
+  flip `mock` to satisfy it.** Rejected outright. `mock: false` is the current,
+  intended state; the document is what is wrong, not the config.
 
 ## Consequences
 
@@ -113,6 +144,13 @@ Reporting rules that follow:
   here.
 - The credential check remains operator-owned by design. No secret value was
   read, requested, or referenced in producing this record.
+- Prices and handles shown to customers come from `app/data/products.ts`, not
+  from Shopify, until the PDP live query succeeds. Price and copy edits
+  therefore still have to be made in that file to be visible; a Shopify-side
+  change alone will not move the rendered price.
+- The static-catalog rows are a finding, not a defect report. Whether the
+  catalog should become live-sourced before the apex gate is lifted is a
+  commerce decision for the operator, out of scope for this record.
 - This record is a reporting baseline, not a commerce change. It edits no
   storefront code and requires no deploy.
 
