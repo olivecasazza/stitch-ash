@@ -157,8 +157,20 @@ jobs:
   # workflow on main equals main's current head. Any error reading that history
   # (first run after this change lands, API blip, missing permission) fails
   # OPEN and deploys, so the gate can never be the reason the site stays stale.
+  # STI-434: this job used to be gated `if: github.event_name == 'schedule'`.
+  # Because GitHub has never delivered a single schedule event to this repo
+  # (0 of 484 runs, verified through the raw API rather than the `gh run list
+  # --event` filter), that gate made the job permanently unreachable: it
+  # reported `skipped` on every run and its "fails open, so it can never be the
+  # reason the site stays stale" property was never once exercised.
+  #
+  # It now runs on EVERY event that can deploy, so the drift signal is actually
+  # observed and logged rather than being dead code. This is deliberately
+  # observation-only: the `deploy` job still consults `needed` only on the
+  # schedule path, so a push, a merge and a manual `gh workflow run` remain
+  # unconditional rebuilds of main. The check can report drift; it cannot stop
+  # a deploy.
   fresh-check:
-    if: ${{ github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     outputs:
       needed: ${{ steps.check.outputs.needed }}
@@ -174,23 +186,46 @@ jobs:
         run: |
           set -uo pipefail
           head_sha="$(git ls-remote "https://github.com/${REPO}.git" refs/heads/main | cut -f1)"
+
+          # Validate before the value is interpolated into the jq program below.
+          # A read failure must fail OPEN (deploy) rather than quietly build a
+          # filter that matches nothing and looks like drift forever.
+          if ! [[ "${head_sha}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Could not read main's head — failing OPEN and deploying."
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           echo "main head: ${head_sha}"
 
-          last_sha="$(gh api -X GET "repos/${REPO}/actions/workflows/deploy.yml/runs" \
+          # "Already live" == SOME recent successful run of this workflow
+          # published exactly main's current head.
+          #
+          # STI-434: the previous version took the newest successful run and
+          # filtered it to `head_branch == "main"`. That is correct for push,
+          # dispatch and schedule runs but silently ignores merge-triggered
+          # runs, which report `head_branch` as the PR's head branch
+          # (e.g. "docs/STI-434-trigger-proof") rather than "main" — even
+          # though the job checked out and published main via DEPLOY_REF. With
+          # the merge trigger now the primary path, that filter would make the
+          # newest successful deploys invisible and report phantom drift
+          # forever.
+          #
+          # A merge-triggered run records the PRE-merge PR head in head_sha,
+          # which can never equal the merge commit it published, so the test
+          # cannot simply be "does the newest run's head_sha match". Matching
+          # any recent successful run makes it order-independent and correct
+          # for all three shapes: push/dispatch/schedule runs record the commit
+          # they published, and a merge-triggered run's own push sibling records
+          # the same commit.
+          live="$(gh api -X GET "repos/${REPO}/actions/workflows/deploy.yml/runs" \
             -f status=success -f per_page=100 \
-            --jq '[.workflow_runs[] | select(.head_branch == "main") | .head_sha] | .[0] // empty' 2>&1)" || last_sha=""
+            --jq "[.workflow_runs[] | select(.head_sha == \"${head_sha}\") | .id] | .[0] // empty" 2>&1)" || live=""
 
-          if [ -z "${last_sha}" ]; then
-            echo "Could not read a prior successful deploy of main — failing OPEN and deploying."
+          if [ -z "${live}" ]; then
+            echo "No recent successful deploy published main ${head_sha} — deploying."
             echo "needed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          echo "last successful deploy head: ${last_sha}"
-          if [ "${last_sha}" = "${head_sha}" ]; then
-            echo "main is already live — nothing to deploy."
-            echo "needed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "main has moved since the last successful deploy — deploying."
-            echo "needed=true" >> "$GITHUB_OUTPUT"
-          fi
+          echo "run ${live} already published main ${head_sha} — nothing to deploy."
+          echo "needed=false" >> "$GITHUB_OUTPUT"

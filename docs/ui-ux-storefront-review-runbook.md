@@ -61,7 +61,9 @@ fails the PR when a step is claimed but absent.
 ### Step 2 — Design / plan, and the copy approval record
 
 - [ ] Visual or token changes reference `DESIGN.md` (canonical) — not
-      `UX_FRAMEWORK.md` (stale legacy; see § 5).
+      `UX_FRAMEWORK.md`, which is a non-canonical companion that covers
+      positioning, flows, voice and imagery only, and defers to `DESIGN.md`
+      for every style value ([STI-438](/STI/issues/STI-438)).
 - [ ] `blockedBy` dependencies are identified **before** implementation.
 - [ ] **Copy approval record exists.** Every customer-facing string the PR adds
       or changes is traceable to an approved string. An unapproved new string is

@@ -1,157 +1,168 @@
-# STITCH AND ASH: Design System and UX Framework
+# STITCH AND ASH: UX Framework (flows, copy, imagery, voice)
 
-## 1. Brand Style
+> **This file is not the design system.** `DESIGN.md` at the repo root is the
+> single source of truth for visual style — colour, type, spacing, radius,
+> elevation. Everything visual resolves there:
+> `DESIGN.md` → `app/assets/css/tokens.css` → components and pages. Nothing in
+> this file may contradict it, and if the two ever disagree, `DESIGN.md` wins
+> and this file is the bug.
+>
+> This file is a **non-canonical pointer and companion record**. It exists to
+> answer three questions `DESIGN.md` deliberately does not:
+>
+> 1. what the product is, in positioning terms ([§ 1](#1-brand-positioning));
+> 2. what the customer *does*, screen by screen ([§ 2](#2-customer-flows));
+> 3. what the brand *sounds* like, and what the imagery looks like
+>    ([§ 3](#3-voice-and-imagery)).
+>
+> Structural/UX guidance is retained in condensed form ([§ 4](#4-engineering-notes)).
+> The old style sections — display faces, palette, spacing scale, corner radius,
+> component styling — were removed when this file was rewritten against
+> `DESIGN.md` ([STI-438](/STI/issues/STI-438)); see
+> [`docs/decisions/2026-09-27-ux-framework-reduced-to-companion.md`](docs/decisions/2026-09-27-ux-framework-reduced-to-companion.md).
+> Nothing was lost: every removed value already lived in `DESIGN.md`.
 
-### Positioning
-STITCH AND ASH is a premium black-apparel label built around exclusively embroidered design. The brand should feel precise, restrained, textural, and collectible: less streetwear drop noise, more gallery object and atelier craft.
+## 1. Brand Positioning
 
-### Typography
-- Display headings: an elegant editorial serif such as Playfair Display, Cormorant Garamond, or Merriweather. Use for hero lines, product names, and campaign moments.
-- Body and interface: a clean grotesk/sans such as Inter, Neue Haas Grotesk, or Helvetica Neue. Use for navigation, pricing, forms, and product details.
-- Type behavior: tight heading line-height, generous letter spacing for labels, never more than two type families.
+STITCH AND ASH is a premium black-apparel label built around exclusively
+embroidered design. The brand should feel precise, restrained, textural, and
+collectible: less streetwear drop noise, more gallery object and atelier craft.
 
-### Color palette
-- Ink Black: #0B0B0B - primary ground, header, footer, product framing.
-- Charcoal: #1A1A1A - elevated panels, hover states, dark-section variation.
-- Bone: #F7F3EC - warm luxury background alternative to pure white.
-- Crisp White: #FFFFFF - product cards, form surfaces, contrast copy.
-- Ash Silver: #C0C0C0 - dividers, secondary text, metal-thread cue.
-- Thread Gold: #B08D57 - rare accent for limited badges, focus rings, order milestones.
-- Error Ember: #9F3A2F - validation and payment errors only.
+The product **is** the embroidery. The storefront is the mount, not the piece:
+it stays quiet so the garment carries the visual weight.
 
-### Spacing and layout
-- Use an 8px base grid.
-- Page gutters: 20px mobile, 40px tablet, 72px desktop.
-- Section spacing: 64px mobile, 96-128px desktop.
-- Product cards need breathing room; avoid dense merchandising grids.
-- Prefer thin dividers, large image blocks, and asymmetric editorial layouts.
+## 2. Customer Flows
 
-### Imagery direction
-- Macro embroidery detail is the signature image style.
-- Black garments should be photographed with side light so stitching and fabric texture remain visible.
-- Alternate model/lifestyle shots with close crop craft shots.
-- Backgrounds should be black, bone, concrete gray, or natural shadow; avoid bright color sets.
+Structural guidance from the original framework, condensed. Style — every
+colour, typeface, radius, and spacing value used below — is `DESIGN.md`'s to
+specify; do not derive one from the other.
 
-### Voice and tone
-- Sparse, confident, craft-led.
-- Use short declarative copy: "Black cotton. Silver thread. Built to endure."
-- Avoid hype language like "must-have," "fire," or "limited-time only" unless the release mechanic truly supports it.
-- Emphasize embroidery, hand feel, weight, edition, and provenance.
+### 2.1 Home
 
-## 2. Core Components
-
-### Header
-- Sticky but subtle; transparent over hero, black or bone after scroll.
-- Left: wordmark. Center/right: Shop, Story, Account, Cart.
-- Cart indicator should be numeric and quiet, not a large badge.
-
-### Buttons
-- Primary: black fill on light surfaces; white fill on black surfaces. Rectangular, 2px radius or no radius.
-- Secondary: outline with thin border.
-- Tertiary: text link with underline on hover.
-- Disabled: Ash Silver border/text, no fill.
-
-### Product card
-- Large image, product name, price, small material/embroidery note.
-- Hover: second image or macro detail; do not add aggressive shadows.
-- Quick add only if size selection can be handled cleanly.
-
-### Form fields
-- Tall fields, simple labels above inputs, clear inline validation.
-- Focus ring in Thread Gold for accessibility and brand consistency.
-
-### Badges
-- Use sparingly: "Embroidered," "Limited run," "Low stock," "Made to order."
-- Small uppercase labels with letter spacing.
-
-## 3. Core Store UX Flow
-
-### A. Home
 Goal: establish the brand and route shoppers into the first collection.
 
 Required sections:
-1. Hero: full-bleed editorial image or video with wordmark/tagline and primary CTA "Explore the Collection."
-2. Craft proof: macro embroidery strip with 2-3 short proof points: "Dense stitchwork," "Heavy black cotton," "Limited production."
-3. Featured collection: 3-4 products with strong product cards.
-4. Brand story preview: concise atelier/craft copy with link to Story.
+
+1. Hero: full-bleed editorial image or video with wordmark/tagline and the
+   primary CTA.
+2. Craft proof: macro embroidery strip with 2–3 short proof points —
+   dense stitchwork, heavy black cotton, limited production.
+3. Featured collection: 3–4 products with strong product cards.
+4. Brand story preview: concise atelier/craft copy with a link to the story page.
 5. Footer: email capture, social proof, shipping/returns links.
 
-Primary CTA: Explore the Collection.
-Secondary CTA: View the Stitch Detail.
+### 2.2 Product Detail
 
-### B. Product Detail
 Goal: make the embroidery, fit, and purchase decision clear.
 
-Layout:
-- Left/top: image gallery with macro zoom and model fit shots.
-- Right/below: product name, price, badge, description, size selector, size guide, add to cart.
-- Below: details accordion for Fabric, Embroidery, Fit, Care, Shipping and Returns.
+- Image gallery with macro zoom and model fit shots.
+- Product name, price, badge, description, size selector, size guide, add to cart.
+- Details accordion for Fabric, Embroidery, Fit, Care, Shipping and Returns.
 
-Important interactions:
+Interactions:
+
 - Size must be selected before add to cart.
-- Size guide opens in a lightweight modal or drawer.
-- Macro image zoom should be accessible by click/tap, not hover only.
+- The size guide opens in a lightweight modal or drawer.
+- Macro zoom must be reachable by click/tap, never hover-only.
 
-### C. Cart
+### 2.3 Cart
+
 Goal: confirm choices and move to checkout without friction.
 
-Preferred pattern: slide-out cart on add, with route fallback at /cart.
-Contents:
+- Preferred pattern: slide-out cart on add, with a `/cart` route fallback.
 - Item thumbnail, name, selected size, quantity controls, remove link.
-- Subtotal, shipping/tax note, checkout CTA.
-- Continue shopping link.
-- Optional free-shipping threshold only if true.
+- Subtotal, shipping/tax note, checkout CTA, continue-shopping link.
+- A free-shipping threshold only if it is actually true.
 
-### D. Checkout
-Goal: clean, trusted purchase flow with minimal distraction.
+### 2.4 Checkout
 
-Recommended flow:
+Goal: a clean, trusted purchase flow with minimal distraction.
+
 1. Contact and shipping.
 2. Delivery method.
 3. Payment.
 4. Review and place order.
 
-Design rules:
-- Keep header minimal; logo should link back but avoid full navigation.
-- Support accelerated payment if available.
-- Show secure payment and return policy notes near payment, not as a distracting banner.
-- Errors must be specific: "Enter a valid postal code" instead of "Invalid form."
+Rules:
 
-### E. Order Status / Confirmation
+- Keep the header minimal; the logo links back but full navigation does not.
+- Support accelerated payment if available.
+- Put secure-payment and return-policy notes next to payment, not in a
+  distracting banner.
+- Errors must be specific — "Enter a valid postal code", not "Invalid form".
+
+### 2.5 Order status and confirmation
+
 Goal: reassure the customer and set expectations.
 
 Confirmation page:
-- Strong headline: "Order received."
-- Order number, email receipt note, shipping estimate, product summary.
-- CTA: "Track order" when tracking exists, otherwise "Return to collection."
-- Include care teaser: "Preserve the stitchwork" with link to care instructions.
+
+- Strong headline, order number, email-receipt note, shipping estimate, and a
+  product summary.
+- A tracking CTA when tracking exists; otherwise a return-to-collection CTA.
+- A care teaser with a link to care instructions.
 
 Order status page:
+
 - Milestone tracker: Received, Preparing, Shipped, Delivered.
-- Shipping carrier and tracking link once available.
-- Support contact for delivery issues.
+- Carrier and tracking link once available, plus a support contact for
+  delivery issues.
 
-### F. Account
-Goal: make repeat purchases and order tracking feel exclusive, not administrative.
+### 2.6 Account
 
-Core screens:
-- Sign in / create account.
-- Orders list with status and detail link.
-- Saved addresses.
-- Early access preference or collection alerts.
+Goal: make repeat purchase and order tracking feel like an archive, not an
+administrative form.
 
-Tone:
-- Label account as "Archive" or "Client account" if the brand wants a more elevated feel, but keep standard terms available for clarity.
+Core screens: sign in / create account, orders list with status and detail link,
+saved addresses, and early-access or collection alerts.
 
-## 4. Accessibility and Responsive Requirements
-- Maintain WCAG AA contrast, especially silver text on black.
-- All CTAs need visible focus states.
-- Image galleries need alt text describing garment and embroidery, not generic filenames.
-- Product purchase path must be fully keyboard usable.
-- Mobile PDP should show image, title, price, size selector, and add-to-cart before long story content.
+## 3. Voice and Imagery
 
-## 5. SWE Implementation Notes
-- Expose design tokens as CSS custom properties: color, spacing, radius, type scale, shadow, transition.
-- Build reusable components before page assembly: Header, ProductCard, Button, Badge, SizeSelector, CartDrawer, CheckoutStep, OrderStatusTimeline.
-- Keep commerce integration abstracted behind product/cart/checkout services so Shopify can be swapped in natively. We are choosing Shopify to handle our operational tooling (order tracking, purchase/banking features, inventory management). All transactions and backend state will route through a Shopify account.
-- Initial preview can use static products if the purchase path is clearly wired to the selected commerce provider or a realistic checkout sandbox.
+These are the only parts of the old framework that were never a style
+contradiction. They stand as written.
+
+### 3.1 Voice and tone
+
+- Sparse, confident, craft-led.
+- Short declarative copy: "Black cotton. Silver thread. Built to endure."
+- Avoid hype — "must-have", "fire", "limited-time only" — unless the release
+  mechanic genuinely supports it.
+- Emphasise embroidery, hand feel, weight, edition, and provenance.
+
+Copy is the one place the mono voice is most audible, and the one place a
+reviewer is most likely to let a serif instinct back in. If a line reads
+"editorial", check the `typography` block in `DESIGN.md` before shipping it.
+
+### 3.2 Imagery direction
+
+- Macro embroidery detail is the signature image style.
+- Photograph black garments with side light so stitching and fabric texture stay
+  visible.
+- Alternate model/lifestyle shots with close craft crops.
+- Backgrounds stay achromatic — black, concrete grey, natural shadow. No
+  bright colour sets, and no warm-tinted grounds; see the `colors` block in
+  `DESIGN.md` for the permitted values.
+
+## 4. Engineering Notes
+
+- Expose design tokens as CSS custom properties. The authoritative list is the
+  `DESIGN.md` frontmatter, mirrored in `app/assets/css/tokens.css`; a property
+  in `tokens.css` that traces to no `DESIGN.md` token is a defect.
+- Build reusable components before page assembly: Header, ProductCard, Button,
+  Badge, SizeSelector, CartDrawer, CheckoutStep, OrderStatusTimeline.
+- Keep commerce integration behind product/cart/checkout services so Shopify
+  can be swapped in natively. Shopify is the chosen provider for order
+  tracking, purchasing/banking features, and inventory management; all
+  transactions and backend state route through it
+  (see [`docs/decisions/2026-07-21-shopify-as-system-of-record.md`](docs/decisions/2026-07-21-shopify-as-system-of-record.md)).
+- The initial preview may use static products provided the purchase path is
+  wired to the selected commerce provider or a realistic checkout sandbox.
+
+## Related
+
+- [`DESIGN.md`](DESIGN.md) — the canonical design system.
+- [`app/assets/css/tokens.css`](app/assets/css/tokens.css) — its build-time mirror.
+- [`docs/ui-ux-storefront-review-runbook.md`](docs/ui-ux-storefront-review-runbook.md)
+  — how a reviewer checks a UI change, including the three-viewport rule.
+- [`docs/qa-checklist.md`](docs/qa-checklist.md) — the reject-on-sight list.
+- [STI-438](/STI/issues/STI-438) — this rewrite.
