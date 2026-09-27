@@ -13,6 +13,7 @@
     "catalog:validate": "tsx scripts/catalog.ts validate",
     "catalog:plan": "tsx scripts/catalog.ts plan",
     "catalog:apply": "tsx scripts/catalog.ts apply",
+    "catalog:test": "node --import tsx --test tests/catalog-*.test.ts",
     "shopify:env": "tsx scripts/shopify-env.ts env-template",
     "shopify:doctor": "tsx scripts/shopify-env.ts doctor",
     "shopify:scopes": "tsx scripts/shopify-env.ts scopes",
