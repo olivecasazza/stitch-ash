@@ -1,6 +1,11 @@
 # 2026-09-27 — Data provenance baseline for reporting
 
-Status: Proposed. Awaiting operator review (see [STI-428](/STI/issues/STI-428)).
+Status: Accepted (merged to `main` as `371b629` via
+[#39](https://github.com/olivecasazza/stitch-ash/pull/39), 2026-09-27).
+Authorizes reporting provenance, not a code change. The companion correction to
+the stale `mock = true` parenthetical in the merch-lead agent instructions is
+operator-owned and tracked separately in
+[STI-398](/STI/issues/STI-398); this record does not self-authorize that edit.
 
 ## Context
 
@@ -156,8 +161,9 @@ Reporting rules that follow:
 
 ## Related
 
-- [STI-428](/STI/issues/STI-428) — this record; authorizing the instruction
-  correction.
+- [STI-428](/STI/issues/STI-428) — the record's authoring issue.
+- [STI-398](/STI/issues/STI-398) — operator-owned correction of the stale
+  `mock = true` parenthetical in the merch-lead agent instructions.
 - [STI-327](/STI/issues/STI-327) — production apex password gate; the reason
   revenue is unobservable.
 - [STI-319](/STI/issues/STI-319) — the change that set `mock: false`.
