@@ -150,8 +150,61 @@ reopened as STI-YYY`.
   serif on live storefront) **not reproducible** — closed as a false
   positive, evidence below. STI-309 (no product photography) remains
   real and stays blocked.
+- STI-404 — 2026-09-27 — standing pass, **non-visual gates all green,
+  graded visual gate UNVERIFIED**. Routes byte-identical to the
+  2026-09-26 cycle (`/` 22490 B, `/products` 20907 B,
+  `/product/sku-001` 31474 B, `/products/sku-001` → `308`,
+  `/contact` 19928 B); `POST /api/bug-report {}` → `400`,
+  `POST /api/checkout {}` → `400`, both Pages Functions answering.
+  Deploy provenance re-proved from the live site rather than CI:
+  `origin/main` HEAD `81b7b81` = `deploy.yml` run
+  [36272429407](https://github.com/olivecasazza/stitch-ash/actions/runs/36272429407)
+  = live `/_nuxt/builds/latest.json` id
+  `ec420c03-41f7-4b10-b966-5ba10018e642` @ `2026-09-26T21:18:08Z`.
+  `scripts/ci/no-internal-copy-in-storefront.sh` → passed, exit 0.
+  `npx @google/design.md lint DESIGN.md` → 0 errors, 0 warnings.
+  Nine PNGs captured across `1440x900` / `820x1180` / `390x844` and
+  attached to the issue, but **all nine failed vision grading** —
+  see the two method notes below. The pass is deliberately **not**
+  closed as all-green.
 
 ### Method notes worth keeping (learned the hard way this cycle)
+
+**HTTP 200 with an empty body is not a result — check the payload.**
+`auto/best-vision` answers `502` on a model the pool itself reports
+as `[401]: … not supported`, but `aug/claude-sonnet-4.6-thinking` and
+`aug/gpt-4o-mini` answer **`200` with `tokens-in: 0`, `tokens-out: 0`
+and `data: [DONE]`** — a successful-looking status carrying no
+verdict at all. A vision gate that only asserts on status codes will
+report "reviewed, looks fine" and hallucinate a layout judgement. Gate
+code must assert that content came back. This is
+[STI-226](/issues/STI-226)'s failure mode arriving through an
+infrastructure seam rather than through an agent's mouth, which makes
+it more dangerous, not less: the status code actively lies. Tracked
+as [STI-411](/issues/STI-411).
+
+**When the grader is down, decode the pixels — but only claim what
+pixels can prove.** With no vision route available, a 60-line pure-Python
+PNG decoder (`zlib` + `struct`, no deps) is enough to move the
+*colour* family of the gate off token arithmetic and onto measured
+rendering: histogram the decode, count exact matches for each forbidden
+hex, and bound-box a suspicious colour. That is how the 2026-09-27 pass
+established from real pixels that the ground really is
+`#000000` / `#1A1A1A` / `#0E0E0E` (the DESIGN.md greys, 78 % / 13 % /
+5 % of desktop pixels), that `#F7F3EC` / `#B08D57` / `#9F3A2F` occur
+**zero** times, and that the one `#FFFFFF` region on mobile is a solid
+~172×45 px plate — the `.signup button` waitlist CTA, which
+`global.css:337` fills with the documented `--white` token, i.e. the
+STI-395 fix rendering correctly, at 21:1.
+
+This substitution is **bounded**. It proves colour, contrast, palette
+and the presence or absence of a solid plate. It proves *nothing* about
+layout, spacing, type scale, overlap, clipped text, or whether copy
+reads well — those need the vision verdict and stay **unverified**.
+Resist the pull to call a partial pass green; the value of the
+substitution is that it converts *specific* claims from assumed to
+measured, not that it completes the gate.
+
 
 **A 200/202 status mismatch is not proof of deploy drift.** `/api/bug-report`
 returned `200` while `functions/api/bug-report.js` in `main` returns `202`.
