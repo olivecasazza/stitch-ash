@@ -164,16 +164,36 @@ function normalizeVariant(v: CatalogProduct["variants"][0]): string {
   });
 }
 
-function normalizeRemoteVariant(v: ShopifyVariant): string {
-  const byName: Record<string, string> = {};
-  for (const o of v.selectedOptions) byName[o.name] = o.value;
+/**
+ * Resolve a remote variant's option values by the product's DECLARED option
+ * order, not by a hardcoded option name.
+ *
+ * STI-432: this used to read `byName["Option1"] ?? byName["Title"]`, which
+ * only ever matched Shopify's default "Title" option. A product with a named
+ * option (`Size`) resolved every slot to `null`, so `"S" !== null` and the
+ * diff reported a change for every variant of an already-correct product —
+ * five phantom actions on a live store. The declared order comes from the
+ * remote product's own `options` list, so renaming an option in the catalog
+ * YAML needs no code change.
+ */
+function normalizeRemoteVariant(v: ShopifyVariant, optionNames: string[]): string {
+  const byName = new Map(v.selectedOptions.map(o => [o.name, o.value]));
+  const slot = (index: number): string | null => {
+    const name = optionNames[index];
+    // A slot with no declared option is null even when the payload carries a
+    // value there. An undeclared option is real drift, and diffProduct reports
+    // it explicitly as an option-shape change rather than hiding it.
+    if (!name) return null;
+    return byName.get(name) ?? null;
+  };
+
   return JSON.stringify({
     sku: v.sku,
     price: v.price,
-    option1: byName["Option1"] ?? byName["Title"] ?? null,
-    option2: byName["Option2"] ?? null,
-    option3: byName["Option3"] ?? null,
-    inventoryPolicy: v.inventory_policy ?? "CONTINUE",
+    option1: slot(0),
+    option2: slot(1),
+    option3: slot(2),
+    inventoryPolicy: v.inventoryPolicy ?? "CONTINUE",
   });
 }
 
@@ -195,15 +215,40 @@ export function diffProduct(product: CatalogProduct, remote: ShopifyProduct | nu
   if (product.productType !== (remote.productType ?? "")) actions.push(`set productType: "${remote.productType ?? ""}" -> "${product.productType ?? ""}"`);
   if (product.vendor !== (remote.vendor ?? "")) actions.push(`set vendor: "${remote.vendor ?? ""}" -> "${product.vendor ?? ""}"`);
 
+  // STI-432: option values are compared positionally, so the two sides must
+  // agree on the declared option order. Surface a mismatch explicitly instead
+  // of letting the positional compare silently mis-attribute every variant.
+  const remoteOptionNames = remote.options.map(o => o.name);
+  const catalogOptionNames = (product.options ?? []).map(o => o.name);
+  if (remoteOptionNames.join(" ") !== catalogOptionNames.join(" ")) {
+    actions.push(
+      `set options: [${remoteOptionNames.join(", ") || "(none)"}] -> [${catalogOptionNames.join(", ") || "(none)"}]`,
+    );
+  }
+
   const remoteVariants = new Map(remote.variants.map(v => [v.sku, v]));
   for (const variant of product.variants) {
     const rv = remoteVariants.get(variant.sku);
     if (!rv) {
       actions.push(`add variant ${variant.sku}`);
-    } else {
-      if (variant.price !== rv.price) actions.push(`update variant ${variant.sku} price: ${rv.price} -> ${variant.price}`);
-      if (variant.inventoryPolicy !== (rv.inventory_policy ?? "CONTINUE")) actions.push(`update variant ${variant.sku} inventoryPolicy: ${rv.inventory_policy ?? "CONTINUE"} -> ${variant.inventoryPolicy ?? "CONTINUE"}`);
-      if (normalizeVariant(variant) !== normalizeRemoteVariant(rv)) actions.push(`update variant ${variant.sku}`);
+      continue;
+    }
+
+    const before = actions.length;
+    if (variant.price !== rv.price) actions.push(`update variant ${variant.sku} price: ${rv.price} -> ${variant.price}`);
+    if ((variant.inventoryPolicy ?? "CONTINUE") !== (rv.inventoryPolicy ?? "CONTINUE")) {
+      actions.push(
+        `update variant ${variant.sku} inventoryPolicy: ${rv.inventoryPolicy ?? "CONTINUE"} -> ${variant.inventoryPolicy ?? "CONTINUE"}`,
+      );
+    }
+
+    // Catch-all for any field not covered above. It is labelled with the
+    // normalized values so an approver can see WHY it fired instead of
+    // getting a bare, unverifiable "update variant <sku>".
+    if (actions.length === before && normalizeVariant(variant) !== normalizeRemoteVariant(rv, remoteOptionNames)) {
+      actions.push(
+        `update variant ${variant.sku} (normalized mismatch: ${normalizeVariant(variant)} vs ${normalizeRemoteVariant(rv, remoteOptionNames)})`,
+      );
     }
   }
 

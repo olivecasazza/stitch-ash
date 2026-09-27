@@ -102,8 +102,14 @@ export interface ShopifyVariant {
   sku: string;
   price: string;
   selectedOptions: { name: string; value: string }[];
-  inventory_policy: string | null;
-  inventory_quantity: number | null;
+  // STI-432: these MUST match the field names selected in
+  // getProductByHandle's GraphQL query. They were previously declared
+  // snake_case (`inventory_policy` / `inventory_quantity`) while the query
+  // asked for camelCase, so every read of them was silently `undefined` and
+  // diffProduct's `?? "CONTINUE"` fallback masked it. Naming the interface after
+  // the wire format keeps the two in lockstep.
+  inventoryPolicy: string | null;
+  inventoryQuantity: number | null;
 }
 
 export interface TrackingInput {
