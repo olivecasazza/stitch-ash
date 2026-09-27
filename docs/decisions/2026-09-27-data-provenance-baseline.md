@@ -1,6 +1,11 @@
 # 2026-09-27 — Data provenance baseline for reporting
 
-Status: Proposed. Awaiting operator review (see [STI-428](/STI/issues/STI-428)).
+Status: Accepted (merged to `main` as `371b629` via
+[#39](https://github.com/olivecasazza/stitch-ash/pull/39), 2026-09-27).
+Authorizes reporting provenance, not a code change. The companion correction to
+the stale `mock = true` parenthetical in the merch-lead agent instructions is
+operator-owned and tracked separately in
+[STI-398](/STI/issues/STI-398); this record does not self-authorize that edit.
 
 ## Context
 
@@ -154,10 +159,20 @@ Reporting rules that follow:
 - This record is a reporting baseline, not a commerce change. It edits no
   storefront code and requires no deploy.
 
+## Re-verification log
+
+This record is a snapshot. Re-check it before relying on it; do not treat a row
+below as current just because it appears in this file.
+
+| Re-verified | `origin/main` | Result |
+|---|---|---|
+| 2026-09-27 | `931c178` | **All ten rows above re-verified true, unchanged.** `nuxt.config.ts:32` is still `mock: false,`; `app/pages/products.vue:2,18` still imports and renders the static `PRODUCTS`; `app/pages/product/[handle].vue:22` still runs a `useStorefrontData` query with `:70-75` static fallbacks; `app/data/products.ts:24,116,136` still carries the placeholder-handle comment, the `TODO (STI-318)`, and `imageSrc: undefined`; `app/composables/cart.ts:5` still calls `useStorefront()`. Live: `curl -sSL https://preview.stitch-ash.com/products` → `HTTP 200`, `20907` bytes, `<title>Shop — STITCH AND ASH</title>`, prices `185` and `35` present, `0` occurrences of `gid://shopify`. `curl -sSL https://www.stitch-ash.com` → `HTTP 200`, `103731` bytes, final `https://www.stitch-ash.com/password`. **Observable real revenue is still zero.** |
+
 ## Related
 
-- [STI-428](/STI/issues/STI-428) — this record; authorizing the instruction
-  correction.
+- [STI-428](/STI/issues/STI-428) — the record's authoring issue.
+- [STI-398](/STI/issues/STI-398) — operator-owned correction of the stale
+  `mock = true` parenthetical in the merch-lead agent instructions.
 - [STI-327](/STI/issues/STI-327) — production apex password gate; the reason
   revenue is unobservable.
 - [STI-319](/STI/issues/STI-319) — the change that set `mock: false`.
