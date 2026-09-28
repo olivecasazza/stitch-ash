@@ -42,7 +42,7 @@ is wrong, and restores `mock: true` to match it would **break the live
 Storefront API data path** — including the working cart and `checkoutUrl` that
 the [STI-327](/STI/issues/STI-327) audit verified against production.
 
-Three further facts are easy to conflate and must be kept separate:
+Four further facts are easy to conflate and must be kept separate:
 
 1. **The commerce client is live, but most catalog rendering is not.**
    `app/pages/products.vue` imports the static `PRODUCTS` array from
@@ -62,6 +62,15 @@ Three further facts are easy to conflate and must be kept separate:
 3. **No customer can reach a checkout.** The production apex
    `https://www.stitch-ash.com` still redirects to `/password`
    (HTTP 200, final URL `.../password`, body "Enter password" / "Protected").
+4. **The Shopify Admin API is locked, but the public Storefront path is not.**
+   As of 2026-09-28 the Admin GraphQL endpoint rejects queries with
+   `"Online Store channel is locked"` ([STI-457](/STI/issues/STI-457)). That
+   lock is **Admin-side only**. The public Storefront API — the path the
+   storefront actually uses — was verified working the same day: a `cartCreate`
+   mutation returned a real Shopify cart id and `checkoutUrl`. The lock is
+   therefore **not** a cause of zero revenue and must not be reported as one.
+   It is a separate operator action (trial/billing hold or unverified store),
+   and it may be *upstream* of the password gate rather than parallel to it.
 
 So "not mock", "serves live product data" and "has revenue" are three different
 claims. The storefront config points at the live API, most pages still render
@@ -69,6 +78,11 @@ in-repo fixtures, and it earns nothing because the apex is walled. Reporting
 that distinction wrongly in **any** of the three directions is the failure this
 record prevents — including the optimistic direction, which this record
 originally made itself before it was corrected on review.
+
+A fourth distinction is now required: **"the Admin API is locked" and "the
+storefront cannot read Shopify" are also different claims.** The first is true,
+the second is false. An agent that conflates them will report a broken data
+path that is not broken, and may "fix" a working Storefront client.
 
 The live `SHOPIFY_*` values live in nixlab IaC and are operator-owned. Their
 validity is **unverified by this role** and cannot be verified from the repo —
@@ -96,8 +110,11 @@ verified baseline as of 2026-09-27:
 | Preview `/products` render | `200`, body has `185`/`35`, **zero** `gid://shopify` | `curl -sSL https://preview.stitch-ash.com/products` |
 | Cart / `checkoutUrl` | Unconditional live Storefront API read | `app/composables/cart.ts:33,80` `useStorefront()` |
 | Live store credential valid | **Unverified** — operator-owned | not readable from the repo; `process.env` wire only, `?? ''` |
+| Collection `/collection/<handle>` | **Live read, no fallback** — a `200` here *is* proof of a live response | `app/pages/collection/[handle].vue:15` query; `:36-37` throws a fatal `404` on `!collection.value \|\| error.value`; prerender disabled in `nuxt.config.ts:41-42` `routeRules` |
+| Public Storefront API path | **Alive** — `cartCreate` returns a real cart id | `POST https://preview.stitch-ash.com/api/checkout` → `HTTP 200` with a `checkoutUrl` |
+| Shopify Admin API | **Locked** — `"Online Store channel is locked"` | Admin GraphQL query rejected, 2026-09-28 ([STI-457](/STI/issues/STI-457)) |
 | Customer-reachable checkout | **No** — apex password-walled | `curl -L https://www.stitch-ash.com` → final `/password` |
-| **Observable real revenue** | **Zero** | apex gate blocks every customer path |
+| **Observable real revenue** | **Zero** | apex gate blocks every customer path; the Admin lock is not a cause |
 
 Reporting rules that follow:
 
@@ -107,6 +124,12 @@ Reporting rules that follow:
   its source and its assumption basis. Estimates are never presented as actuals.
 - The 90-day KPI clock starts when the apex gate is lifted, **not** when
   `mock` was set to `false`. Those are different events on different dates.
+  **Amendment (2026-09-28):** lifting the gate is **necessary but no longer
+  sufficient on its own.** With the Online Store channel also locked, gate
+  removal may restore visibility without restoring a completable checkout. The
+  clock starts when a customer can complete a purchase, which requires a
+  confirmed un-gated apex **and** a confirmed payment path — not when either
+  one alone is fixed.
 - Nobody flips `mock` to satisfy a document. `mock: false` is the current,
   intended, live-commerce state.
 - A `200` from a storefront URL is evidence the page rendered. It is **not**
@@ -114,6 +137,13 @@ Reporting rules that follow:
   back to in-repo fixtures. Any claim of live-served product data must cite a
   live-specific marker (a `gid://shopify` id, an operator-confirmed credential,
   or a storefront response log) — not an HTTP status.
+  **Exception:** `/collection/<handle>` has no fallback — it throws a fatal `404`
+  when the live query fails or returns nothing, and prerendering is disabled, so
+  a `200` from that route **is** evidence of a successful live response. Do not
+  carry the "a 200 proves nothing" rule over to it.
+- A locked Admin API is **not** evidence of a broken Storefront path. Verify the
+  path the storefront actually uses (`cartCreate`, the collection query) before
+  reporting the data path as down.
 
 ## Alternatives considered
 
@@ -168,12 +198,15 @@ below as current just because it appears in this file.
 |---|---|---|
 | 2026-09-27 | `931c178` | **All ten rows above re-verified true, unchanged.** `nuxt.config.ts:32` is still `mock: false,`; `app/pages/products.vue:2,18` still imports and renders the static `PRODUCTS`; `app/pages/product/[handle].vue:22` still runs a `useStorefrontData` query with `:70-75` static fallbacks; `app/data/products.ts:24,116,136` still carries the placeholder-handle comment, the `TODO (STI-318)`, and `imageSrc: undefined`; `app/composables/cart.ts:5` still calls `useStorefront()`. Live: `curl -sSL https://preview.stitch-ash.com/products` → `HTTP 200`, `20907` bytes, `<title>Shop — STITCH AND ASH</title>`, prices `185` and `35` present, `0` occurrences of `gid://shopify`. `curl -sSL https://www.stitch-ash.com` → `HTTP 200`, `103731` bytes, final `https://www.stitch-ash.com/password`. **Observable real revenue is still zero.** |
 | 2026-09-28 | `7a39fe0` | **All ten rows above re-verified true, unchanged. Revenue still zero.** Read from a fresh `git fetch origin` in `$PAPERCLIP_WORKSPACE_CWD/stitch-ash` (remote `github.com/olivecasazza/stitch-ash`). Repo: `nuxt.config.ts:32` is `mock: false,` with `:33` `apiVersion: '2026-04',` and `:34` `publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? '',`; `app/pages/products.vue:2,18` still imports and renders the static `PRODUCTS` with no Storefront call in the file; `app/pages/product/[handle].vue:22` still runs the `useStorefrontData` query and `:70-75` still fall back to `staticProduct`; `app/pages/collection/[handle].vue:15` is still an unconditional `useStorefrontData` read; `app/composables/cart.ts:5` still calls `useStorefront()`; `app/data/products.ts:24` still says "must match Shopify product handle when live", `:116` still carries `TODO (STI-318)`, and `:136,149,162` are still `imageSrc: undefined`. Live, fetched 2026-09-28T01:07Z: `https://preview.stitch-ash.com/products` → `HTTP 200`, `20907` bytes, `<title>Shop — STITCH AND ASH</title>`, all three prices `185`/`35`/`15` present, `0` occurrences of `gid://shopify`; all three PDPs return `HTTP 200` with `0` `gid://shopify` each (`sku-001` `31474` bytes, `sku-002` `28036`, `sku-003` `27912`); `https://www.stitch-ash.com` → `HTTP 200`, `103731` bytes, final `https://www.stitch-ash.com/password`, body "Enter password" / "Protected". Re-verification only — no storefront code changed and no deploy was triggered by this entry. |
+| 2026-09-28 | `52b365c` | **All ten original rows re-verified true, unchanged. Revenue still zero. Three rows added this run.** Workspace guard passed: `$PAPERCLIP_WORKSPACE_CWD/stitch-ash` remote is `https://github.com/olivecasazza/stitch-ash.git`; `git ls-remote` → `52b365c2585b701f729d9da1bb4bd752a385d0d3`. Repo: `nuxt.config.ts:32` is `mock: false,` with `:33` `apiVersion: '2026-04',` and `:34` `publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? '',`; `app/pages/products.vue:2,18` still imports and renders the static `PRODUCTS` with no Storefront call in the file; `app/pages/product/[handle].vue:22` still runs the `useStorefrontData` query and `:70-75` still fall back to `staticProduct`; `app/pages/collection/[handle].vue:15` is still an unconditional `useStorefrontData` read; `app/composables/cart.ts:5` still calls `useStorefront()`; `app/data/products.ts:24` still says "must match Shopify product handle when live", `:116` still carries `TODO (STI-318)`, and `:136,149,162` are still `imageSrc: undefined`. Live, fetched 2026-09-28T05:4xZ: `https://preview.stitch-ash.com/` → `HTTP 200`, `22491` bytes; `/products` → `HTTP 200`, `20908` bytes, `<title>Shop — STITCH AND ASH</title>`, prices `185`/`35`/`15` present, `0` occurrences of `gid://shopify`; `/product/sku-001` → `HTTP 200`, `31474` bytes, `<title>Embroidered Hoodie — STITCH AND ASH</title>`, `0` `gid://shopify`; `/collection/featured` → `HTTP 200`, `19230` bytes, `<title>Featured | STITCH AND ASH</title>`. **New this run — the collection route is a live read with no fallback** (`app/pages/collection/[handle].vue:36-37` throws a fatal `404` when the query errors or returns nothing) and prerendering is disabled (`nuxt.config.ts:41-42` `routeRules` has the `prerender: true` entry commented out, STI-271), so that `200` is evidence of a successful live Storefront response, not a fixture. **New this run — the public Storefront path is alive:** `POST https://preview.stitch-ash.com/api/checkout` with one line → `HTTP 200` and a real Shopify `checkoutUrl` on `https://www.stitch-ash.com/cart/c/…`; following it → `HTTP 200`, `103731` bytes, final `https://www.stitch-ash.com/password`. This created an empty cart only — no order was placed and nothing was spent. **New this run — the Shopify Admin API is locked** (`"Online Store channel is locked"`, [STI-457](/STI/issues/STI-457)); it is Admin-side only and did **not** break the Storefront path proven above. Re-verification only — no storefront code changed and no deploy was triggered by this entry. |
 
 ## Related
 
 - [STI-428](/STI/issues/STI-428) — the record's authoring issue.
 - [STI-398](/STI/issues/STI-398) — operator-owned correction of the stale
   `mock = true` parenthetical in the merch-lead agent instructions.
+- [STI-457](/STI/issues/STI-457) — the locked Online Store channel; an operator
+  action, and a candidate root cause **upstream** of the password gate.
 - [STI-327](/STI/issues/STI-327) — production apex password gate; the reason
   revenue is unobservable.
 - [STI-319](/STI/issues/STI-319) — the change that set `mock: false`.
