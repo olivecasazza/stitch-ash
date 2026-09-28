@@ -84,13 +84,13 @@ useSeoMeta({
       </template>
       <template v-else>
         <form method="post" action="/api/checkout" class="stack">
-          <div>
+          <div class="signup__field">
             <label for="email">Email</label>
-            <input type="email" id="email" name="email" required autocomplete="email" placeholder="your@email.com" />
-          </div>
-          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-            <input type="hidden" name="intent" value="waitlist" />
-            <button type="submit">Join the waitlist</button>
+            <div class="signup__controls">
+              <input type="email" id="email" name="email" required autocomplete="email" placeholder="your@email.com" />
+              <input type="hidden" name="intent" value="waitlist" />
+              <button type="submit">Join the waitlist</button>
+            </div>
           </div>
           <p class="note">
             We'll notify you when the shop opens. No spam, ever.
