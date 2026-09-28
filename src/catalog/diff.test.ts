@@ -204,6 +204,62 @@ describe("diffProduct variant option resolution (STI-432)", () => {
     assert.deepEqual(result.actions, []);
   });
 
+  it("reports a tag drift that applyProduct would otherwise write silently", () => {
+    // applyProduct sends `tags: product.tags ?? []` on every productUpdate, so a
+    // tag removed in the store and still present in YAML is real drift. The
+    // catalog owns tags (they drive storefront filtering), and a silent
+    // tags:[] on apply would also wipe store-side tags nobody declared.
+    const product = catalog({
+      handle: "sku-002",
+      title: "Embroidered Lanyard",
+      productType: "Accessories",
+      tags: ["embroidered", "black-on-black"],
+      options: [{ name: "Title", values: ["Default Title"] }],
+      variants: [{ sku: "sku-002", price: "35.00", option1: "Default Title", inventoryPolicy: "CONTINUE" as const }],
+    });
+
+    const result = diffProduct(
+      product,
+      remote({
+        handle: "sku-002",
+        title: "Embroidered Lanyard",
+        productType: "Accessories",
+        tags: ["embroidered", "made-to-order"],
+        options: [{ name: "Title", values: ["Default Title"] }],
+        variants: [variant("sku-002", "35.00", [{ name: "Title", value: "Default Title" }])],
+      }),
+    );
+
+    assert.deepEqual(result.actions, [
+      "set tags: [embroidered,made-to-order] -> [black-on-black,embroidered]",
+    ]);
+  });
+
+  it("does not report a tag-order difference as drift", () => {
+    const product = catalog({
+      handle: "sku-002",
+      title: "Embroidered Lanyard",
+      productType: "Accessories",
+      tags: ["made-to-order", "embroidered"],
+      options: [{ name: "Title", values: ["Default Title"] }],
+      variants: [{ sku: "sku-002", price: "35.00", option1: "Default Title", inventoryPolicy: "CONTINUE" as const }],
+    });
+
+    const result = diffProduct(
+      product,
+      remote({
+        handle: "sku-002",
+        title: "Embroidered Lanyard",
+        productType: "Accessories",
+        tags: ["embroidered", "made-to-order"],
+        options: [{ name: "Title", values: ["Default Title"] }],
+        variants: [variant("sku-002", "35.00", [{ name: "Title", value: "Default Title" }])],
+      }),
+    );
+
+    assert.deepEqual(result.actions, []);
+  });
+
   it("reports a missing remote variant as an addition", () => {
     const product = catalog({
       options: [{ name: "Size", values: ["S", "M"] }],
