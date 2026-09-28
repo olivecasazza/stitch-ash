@@ -13,7 +13,13 @@ PROHIBITED=(
   "Buy Buttons or Storefront API can plug into Astro"
 )
 
-CUSTOMER_PATHS="app/pages app/components app/layouts app/assets nuxt.config.ts"
+# STI-437: `app/app.config.ts` (runtime app config surfaced in the UI) and
+# `app/error.vue` (the customer-facing 404 page) are customer-visible and are
+# listed in docs/ui-ux-storefront-review-runbook.md, but were not scanned, so an
+# internal advisory string dropped into either file passed CI. The two appended
+# paths bring this list back in line with the documented scope. Path list only —
+# PROHIBITED above is CTO-owned and is deliberately unchanged (STI-234 step 4).
+CUSTOMER_PATHS="app/pages app/components app/layouts app/assets nuxt.config.ts app/app.config.ts app/error.vue"
 
 FOUND=0
 for phrase in "${PROHIBITED[@]}"; do

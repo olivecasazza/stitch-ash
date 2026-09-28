@@ -1,6 +1,6 @@
 # Storefront Development Guide
 
-> All changes touching customer-visible paths (`app/pages/`, `app/components/`, `app/layouts/`, `app/assets/`, `nuxt.config.ts`) must follow this lifecycle. Internal-analysis and ops prose never belongs in those paths.
+> All changes touching customer-visible paths (`app/pages/`, `app/components/`, `app/layouts/`, `app/assets/`, `nuxt.config.ts`, `app/app.config.ts`, `app/error.vue`) must follow this lifecycle. Internal-analysis and ops prose never belongs in those paths. This list is the authoritative scope; `CUSTOMER_PATHS` in `scripts/ci/no-internal-copy-in-storefront.sh` is the gate's mirror of it and is kept in sync with it.
 
 ## Mandatory Development Lifecycle
 
