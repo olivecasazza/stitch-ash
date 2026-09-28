@@ -35,6 +35,22 @@ export const CatalogProductSchema = z.object({
 
 export type CatalogProduct = z.infer<typeof CatalogProductSchema>;
 
+/**
+ * STI-471: collection membership is part of the storefront, so it belongs in
+ * the same declarative catalog as product fields. `products` lists product
+ * HANDLES (not ids) so the YAML stays readable and a handle rename surfaces as
+ * one diff line instead of an opaque id mismatch.
+ */
+export const CatalogCollectionSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  handle: z.string(),
+  sortOrder: z.array(z.string()).optional(),
+  products: z.array(z.string()),
+});
+
+export type CatalogCollection = z.infer<typeof CatalogCollectionSchema>;
+
 export const ShippingRuleSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -82,6 +98,19 @@ export interface ProductDiff {
   product: CatalogProduct;
   remote: ShopifyProduct | null;
   actions: string[];
+}
+
+export interface CollectionDiff {
+  collection: CatalogCollection;
+  remote: ShopifyCollection | null;
+  actions: string[];
+}
+
+export interface ShopifyCollection {
+  id: string;
+  title: string;
+  handle: string;
+  productHandles: string[];
 }
 
 export interface ShopifyProduct {

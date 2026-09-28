@@ -1,12 +1,21 @@
 #!/usr/bin/env tsx
 import * as path from "node:path";
-import { loadCatalogDirectory } from "../src/catalog/load.ts";
+import { loadCatalogDirectory, loadCollectionDirectory } from "../src/catalog/load.ts";
 import { loadShippingPolicies, planShippingPolicies } from "../src/catalog/shipping.ts";
-import { applyProduct, createShopifyAdminClient, diffProduct, getProductByHandle } from "../src/catalog/shopify-admin.ts";
+import {
+  applyCollection,
+  applyProduct,
+  createShopifyAdminClient,
+  diffCollection,
+  diffProduct,
+  getCollectionByHandle,
+  getProductByHandle,
+} from "../src/catalog/shopify-admin.ts";
 
 const command = process.argv[2] ?? "validate";
 const root = process.cwd();
 const catalogDir = path.join(root, "catalog", "products");
+const collectionDir = path.join(root, "catalog", "collections");
 const shippingDir = path.join(root, "catalog", "shipping");
 
 function printUsage(): never {
@@ -18,9 +27,22 @@ async function main() {
   if (!["validate", "plan", "apply"].includes(command)) printUsage();
 
   const products = await loadCatalogDirectory(catalogDir);
+  const collections = await loadCollectionDirectory(collectionDir);
   const shippingPolicies = await loadShippingPolicies(shippingDir);
   console.log(`catalog: loaded ${products.length} products`);
+  console.log(`catalog: loaded ${collections.length} collections`);
   console.log(`catalog: loaded ${shippingPolicies.length} shipping policies`);
+
+  // STI-471: a collection may only name a product handle this catalog defines.
+  // Catching it at validate time keeps `apply` from ever sending a membership
+  // list containing an unresolvable id.
+  const knownHandles = new Set(products.map(p => p.handle));
+  const unknownRefs = collections.flatMap(c =>
+    c.products.filter(handle => !knownHandles.has(handle)).map(handle => `${c.id}: unknown product handle "${handle}"`),
+  );
+  if (unknownRefs.length > 0) {
+    throw new Error(`Catalog validation errors:\n${unknownRefs.join("\n")}`);
+  }
 
   if (command === "validate") {
     console.log("catalog: validation passed");
@@ -29,10 +51,18 @@ async function main() {
 
   const client = await createShopifyAdminClient();
   const diffs = [];
+  const productIdsByHandle = new Map<string, string>();
 
   for (const product of products) {
     const remote = await getProductByHandle(client, product.handle);
+    if (remote) productIdsByHandle.set(product.handle, remote.id);
     diffs.push(diffProduct(product, remote));
+  }
+
+  const collectionDiffs = [];
+  for (const collection of collections) {
+    const remote = await getCollectionByHandle(client, collection.handle);
+    collectionDiffs.push(diffCollection(collection, remote));
   }
 
   let changeCount = 0;
@@ -44,6 +74,19 @@ async function main() {
 
     changeCount += diff.actions.length;
     console.log(`${diff.product.id}:`);
+    for (const action of diff.actions) console.log(`  - ${action}`);
+  }
+
+  // STI-471: collection membership is storefront state, so it is planned and
+  // approved alongside product fields rather than silently drifting.
+  for (const diff of collectionDiffs) {
+    if (diff.actions.length === 0) {
+      console.log(`${diff.collection.id}: no changes`);
+      continue;
+    }
+
+    changeCount += diff.actions.length;
+    console.log(`${diff.collection.id}:`);
     for (const action of diff.actions) console.log(`  - ${action}`);
   }
 
@@ -63,6 +106,14 @@ async function main() {
     }
     const productId = await applyProduct(client, diff.product, diff.remote);
     console.log(`${diff.product.id}: applied ${productId}`);
+  }
+
+  // Applied after products so every referenced handle resolves to a fresh id
+  // even on a run that created them.
+  for (const diff of collectionDiffs) {
+    if (diff.actions.length === 0) continue;
+    const collectionId = await applyCollection(client, diff.collection, diff.remote, productIdsByHandle);
+    console.log(`${diff.collection.id}: applied ${collectionId}`);
   }
 
   console.log("catalog: apply complete");
