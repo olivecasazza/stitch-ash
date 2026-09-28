@@ -297,29 +297,6 @@ useSeoMeta({
     width: 100%;
   }
 
-  /* STI-501: the >=768px reset below only reached the parent. `.pdp__name`
-     and `.pdp__badges` hard-code centring, so the title and badge row stayed
-     centre-aligned while price/description/embroidery-note inherited
-     `text-align: left` — the column read as mis-aligned at 1440x900 and
-     820x1180. Reset the two children here so the whole column is left-aligned
-     at >=768px, which is the intent the comment above `.pdp__info` states.
-     Mobile (<768px) is untouched: centring remains the intended treatment. */
-  @media (min-width: 768px) {
-    .pdp__info {
-      align-items: stretch;
-      text-align: left;
-    }
-
-    .pdp__name {
-      margin-inline: 0;
-      text-align: left;
-    }
-
-    .pdp__badges {
-      justify-content: flex-start;
-    }
-  }
-
   .pdp__badges {
     display: flex;
     flex-wrap: wrap;
@@ -440,5 +417,37 @@ useSeoMeta({
 
   .pdp__accordion-wrap {
     margin-block-start: var(--space-sm);
+  }
+
+  /* Info panel at >=768px — left-align the whole column, so the price and
+     description read naturally, as the comment above `.pdp__info` states.
+
+     STI-501: this media query must stay LAST in this style block. It resets
+     `.pdp__info`, `.pdp__name` and `.pdp__badges`, but a media query adds no
+     specificity — `[data-v-*]` on all three rules is identical, so a base rule
+     for the same property that appears LATER in source order wins. The base
+     `.pdp__name` (margin-inline: auto, text-align: center) and `.pdp__badges`
+     (justify-content: center) rules are declared further up, so an override
+     placed beside `.pdp__info` was silently clobbered by them: the title and
+     badge row stayed centre-aligned at 1440x900 and 820x1180 while everything
+     else inherited `text-align: left`. Keep the overrides after every base
+     rule for the properties they set.
+
+     Mobile (<768px) is deliberately untouched: centring remains the intended
+     treatment there. */
+  @media (min-width: 768px) {
+    .pdp__info {
+      align-items: stretch;
+      text-align: left;
+    }
+
+    .pdp__name {
+      margin-inline: 0;
+      text-align: left;
+    }
+
+    .pdp__badges {
+      justify-content: flex-start;
+    }
   }
 </style>
