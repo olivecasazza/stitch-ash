@@ -64,7 +64,13 @@ watch(id, value => !value ? init().then(get) : get(), { immediate: true })
     font-weight: 500;
     font-size: clamp(4rem, 12vw, 8rem);
     line-height: 1;
-    color: var(--border-rule);
+    /* STI-444: was var(--border-rule), which tokens.css documents as
+       "dividers only, never a control boundary" and which measures 1.37:1 on
+       the --ink-black ground — the 404 was effectively invisible at every
+       viewport. --grey-400 is the secondary-text token already used by
+       .error-message below and measures 6.99:1, so this is a component-only
+       change with no tokens.css or DESIGN.md edit. */
+    color: var(--grey-400);
     letter-spacing: -0.03em;
 }
 
