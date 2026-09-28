@@ -82,6 +82,17 @@ jobs:
       - name: Run token drift gate
         run: ./scripts/ci/token-drift-gate.sh
 
+      # STI-516: the step above walks one edge of a three-node chain —
+      #   DESIGN.md -> tokens.css -> component CSS
+      # — and the second edge had no gate at all, which is how six selectors in
+      # STI-515 shipped `font-weight: 600` with CI green. This step walks
+      # component CSS and fails on a weight outside DESIGN.md's `typography:`
+      # ramp, with the six known ones held in a ratchet baseline that shrinks as
+      # STI-515 lands. No Node and no secrets: it reads only DESIGN.md,
+      # tokens.css and app/.
+      - name: Run component weight ramp gate
+        run: ./scripts/ci/component-weight-ramp-gate.sh
+
   # STI-517 (split out of STI-428): the storefront must stay on the live Shopify
   # data path. Three agents' AGENTS.md files asserted `mock = true` for weeks
   # after f3ac83d (STI-319) had set it to false, and the only thing standing
