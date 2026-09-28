@@ -1,0 +1,15 @@
+# STI-471: /collection/featured rendered "No products found." on a live store
+# where all 3 products were ACTIVE. Membership was invisible to the reconciler,
+# so catalog:plan reported 0 pending actions — the same false-green class as the
+# tags blind spot in PR #65. Declaring membership here makes it planned,
+# approved, and applied like any other storefront fact.
+#
+# `products` are product HANDLES from catalog/products/*.yaml, in the intended
+# curator order. Handles, not ids, so a handle rename reads as a real diff line.
+id: stitch-ash.collection.featured
+title: Featured
+handle: featured
+products:
+  - sku-001
+  - sku-002
+  - sku-003

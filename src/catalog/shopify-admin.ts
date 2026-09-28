@@ -1,4 +1,12 @@
-import type { CatalogProduct, ProductDiff, ShopifyProduct, ShopifyVariant } from "./schema.js";
+import type {
+  CatalogCollection,
+  CatalogProduct,
+  CollectionDiff,
+  ProductDiff,
+  ShopifyCollection,
+  ShopifyProduct,
+  ShopifyVariant,
+} from "./schema.js";
 
 export type AdminClient = { domain: string; token: string; source: "static" | "client_credentials" };
 
@@ -311,4 +319,133 @@ export async function applyProduct(
   }
 
   return result.product.id;
+}
+
+/**
+ * STI-471: collection read/diff/apply.
+ *
+ * Collections were previously invisible to the reconciler, so an empty
+ * `featured` collection on a live store produced a plan of "0 pending product
+ * actions" — the same false-green class as the tags blind spot (PR #65), one
+ * level up. The storefront queries collection(handle:...) and renders whatever
+ * the collection contains, so membership IS storefront state and belongs in
+ * the plan/apply approval gate.
+ */
+export async function getCollectionByHandle(client: AdminClient, handle: string): Promise<ShopifyCollection | null> {
+  // The Admin API's `collection` root field takes an `id`, not a `handle`
+  // (unlike the Storefront API), so membership is read via the searchable
+  // `collections(query:)` connection instead.
+  const query = `
+    query getCollectionByHandle($query: String!) {
+      collections(first: 1, query: $query) {
+        nodes {
+          id
+          title
+          handle
+          products(first: 100) { nodes { handle } }
+        }
+      }
+    }
+  `;
+
+  const data = await shopifyAdminFetch(client, query, { query: `handle:${handle}` }) as {
+    collections: {
+      nodes: { id: string; title: string; handle: string; products: { nodes: { handle: string }[] } }[];
+    };
+  };
+
+  const node = data.collections.nodes[0];
+  if (!node || node.handle !== handle) return null;
+
+  return {
+    id: node.id,
+    title: node.title,
+    handle: node.handle,
+    // Sorted because Shopify returns collection membership in curator order and
+    // a positional compare would report drift on every manual reorder.
+    productHandles: node.products.nodes.map(p => p.handle).sort(),
+  };
+}
+
+export function diffCollection(collection: CatalogCollection, remote: ShopifyCollection | null): CollectionDiff {
+  const actions: string[] = [];
+
+  if (!remote) {
+    actions.push(`create collection ${collection.id} (${collection.handle})`);
+    for (const handle of collection.products) actions.push(`  add ${handle} to ${collection.handle}`);
+    return { collection, remote: null, actions };
+  }
+
+  if (collection.title !== remote.title) actions.push(`set title: "${remote.title}" -> "${collection.title}"`);
+
+  const wanted = [...collection.products].sort();
+  const have = remote.productHandles;
+
+  // Symmetric set difference, reported as explicit add/remove lines so an
+  // approver sees exactly which SKUs move in each direction. Never a blind
+  // overwrite of the whole list: a collection emptied by an over-broad write is
+  // exactly the failure this issue is about.
+  const toAdd = wanted.filter(h => !have.includes(h));
+  const toRemove = have.filter(h => !wanted.includes(h));
+  for (const handle of toRemove) actions.push(`remove ${handle} from ${collection.handle}`);
+  for (const handle of toAdd) actions.push(`add ${handle} to ${collection.handle}`);
+
+  return { collection, remote, actions };
+}
+
+export async function applyCollection(
+  client: AdminClient,
+  collection: CatalogCollection,
+  remote: ShopifyCollection | null,
+  productIdsByHandle: Map<string, string>,
+): Promise<string> {
+  const resolve = (handle: string): string => {
+    const id = productIdsByHandle.get(handle);
+    if (!id) throw new Error(`Collection ${collection.id} references unknown product handle "${handle}"`);
+    return id;
+  };
+
+  const wantedIds = collection.products.map(resolve);
+  const mutation = remote
+    ? `
+      mutation updateCollection($input: CollectionInput!) {
+        collectionUpdate(input: $input) { collection { id } userErrors { field message } }
+      }
+    `
+    : `
+      mutation createCollection($input: CollectionInput!) {
+        collectionCreate(input: $input) { collection { id } userErrors { field message } }
+      }
+    `;
+
+  const input: Record<string, unknown> = {
+    title: collection.title,
+    handle: collection.handle,
+  };
+  if (remote) input.id = remote.id;
+  else input.products = wantedIds;
+
+  if (remote) {
+    // Only send membership when the plan found a difference, so a no-op apply
+    // cannot reorder or drop curator-positioned items.
+    const have = new Set(remote.productHandles);
+    const haveIds = remote.productHandles.map(h => productIdsByHandle.get(h)).filter((v): v is string => Boolean(v));
+    const changed =
+      wantedIds.length !== have.size || wantedIds.some(id => !haveIds.includes(id));
+    if (changed) input.products = wantedIds;
+  }
+
+  const data = await shopifyAdminFetch(client, mutation, { input }) as {
+    collectionCreate?: { collection: { id: string } | null; userErrors: { field: string; message: string }[] };
+    collectionUpdate?: { collection: { id: string } | null; userErrors: { field: string; message: string }[] };
+  };
+
+  const result = data.collectionCreate ?? data.collectionUpdate;
+  if (!result) throw new Error("No response from collection mutation");
+  if (result.userErrors?.length) {
+    throw new Error(`Shopify user errors: ${result.userErrors.map(e => `${e.field}: ${e.message}`).join(", ")}`);
+  }
+  if (!result.collection) throw new Error("Shopify collection mutation returned no collection");
+
+  return result.collection.id;
 }
