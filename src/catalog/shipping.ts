@@ -1,17 +1,35 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
-import type { ShippingPolicy } from "./schema.js";
+import { ShippingPolicySchema, type ShippingDiff, type ShippingPolicy, type ShopifyShippingProfile, type ShopifyShippingZone } from "./schema.js";
 
+/**
+ * STI-507: shipping YAML is validated with the same schema machinery as products
+ * and collections. It used to be `parseYaml(content) as ShippingPolicy`, an
+ * unchecked assertion, so a typo'd or structurally wrong shipping file passed
+ * `catalog:validate` and only surfaced later as an undefined field in plan
+ * output.
+ */
 export async function loadShippingPolicies(dir: string): Promise<ShippingPolicy[]> {
   const entries = await readdir(dir, { withFileTypes: true });
   const yamlFiles = entries.filter(e => e.isFile() && e.name.endsWith(".yaml"));
 
   const policies: ShippingPolicy[] = [];
+  const errors: string[] = [];
+
   for (const entry of yamlFiles) {
     const content = await readFile(join(dir, entry.name), "utf-8");
     const raw = parseYaml(content);
-    policies.push(raw as ShippingPolicy);
+    const result = ShippingPolicySchema.safeParse(raw);
+    if (!result.success) {
+      errors.push(`${entry.name}: ${result.error.message}`);
+      continue;
+    }
+    policies.push(result.data);
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Catalog validation errors:\n${errors.join("\n")}`);
   }
 
   return policies;
@@ -28,4 +46,147 @@ export function planShippingPolicies(policies: ShippingPolicy[]): string[] {
     }
   }
   return lines;
+}
+
+/**
+ * STI-507: normalize a declared price to a canonical decimal string so
+ * "0" and "0.00" compare equal while a real difference ("25.50" vs "25.00")
+ * does not get hidden by string formatting.
+ */
+export function normalizePrice(value: string): string | null {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  // `Number("")` and `Number(" ")` are both 0, which would silently turn a
+  // missing or blank declared price into a FREE rate and report it as
+  // matching the store. Reject anything that is not an actual number first.
+  if (trimmed === "" || !/^-?\d+(\.\d+)?$/.test(trimmed)) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return null;
+  return parsed.toFixed(2);
+}
+
+/**
+ * Decide whether a zone satisfies a rule's declared destination.
+ *
+ * A declared `US` is satisfied by a zone that explicitly contains US. A declared
+ * `REST_OF_WORLD` is satisfied by a zone flagged `restOfWorld`, and also by a
+ * zone that enumerates every country except the origin — which is how Shopify
+ * represents "the rest of the world" when it is materialized rather than
+ * flagged. Treating a mismatch as "not found" instead would be the same
+ * false-green failure this reconciler already had once.
+ */
+export function destinationMatches(ruleDestination: string, zone: ShopifyShippingZone, originCountryCode: string): boolean {
+  const declared = ruleDestination.trim().toUpperCase();
+  if (declared === "REST_OF_WORLD") {
+    if (zone.restOfWorld) return true;
+    return !zone.countryCodes.includes(originCountryCode.toUpperCase());
+  }
+  return zone.countryCodes.includes(declared);
+}
+
+/**
+ * STI-507: compare declared shipping rules against the store's live delivery
+ * profile.
+ *
+ * Shipping was previously restated and never compared, so any divergence
+ * between `catalog/shipping/*.yaml` and the real delivery profile was
+ * invisible in `catalog:plan`. That is the same false-green class as the tags
+ * blind spot (PR #65), collection membership (PR #72) and the shipping
+ * restatement itself (PR #82) — the difference here is that it is still open.
+ *
+ * These actions are reported but NOT applied: `catalog:apply` has never written
+ * a delivery profile, and it still does not. Shipping drift is surfaced for an
+ * operator decision rather than silently reconciled, because a rate change is
+ * a customer-visible, money-moving edit.
+ */
+export function diffShipping(policy: ShippingPolicy, remote: ShopifyShippingProfile | null): ShippingDiff {
+  const actions: string[] = [];
+  const notes: string[] = [];
+
+  if (!remote) {
+    actions.push(`shipping policy ${policy.id}: no delivery profile found on the store`);
+    notes.push("no remote delivery profile was returned by the Admin API");
+    return { policy, remote, actions, notes };
+  }
+
+  notes.push(`remote profile "${remote.profileName}" (default=${remote.isDefault}) covering ${remote.productHandles.length} product(s)`);
+
+  const declaredRules = policy.rules ?? [];
+  if (declaredRules.length === 0) {
+    notes.push("policy declares no rules, so there is nothing to compare");
+    return { policy, remote, actions, notes };
+  }
+
+  for (const rule of declaredRules) {
+    const zone = remote.zones.find(z => destinationMatches(rule.destination, z, policy.originCountryCode));
+
+    if (!zone) {
+      actions.push(`shipping rule ${rule.id}: declared destination ${rule.destination} has no matching zone on the store`);
+      continue;
+    }
+
+    const declaredPrice = normalizePrice(rule.price);
+    // Match on service name first, then fall back to the only active option in
+    // the zone. A store that renamed "Tracked domestic shipping" to "Standard"
+    // should report that honestly rather than silently reporting no drift.
+    const byName = zone.methods.find(m => m.name === rule.serviceName);
+    const activeMethods = zone.methods.filter(m => m.active);
+    const method = byName ?? (activeMethods.length === 1 ? activeMethods[0] : undefined);
+
+    if (!method) {
+      // Include the store's actual rates for this zone. Without them a renamed
+      // service hides the price comparison entirely, and the operator would
+      // have to re-derive by hand whether the declared amount is even charged.
+      const offered = zone.methods
+        .map(m => `"${m.name}"${m.active ? "" : " (inactive)"}=${m.price === null ? "derived/unknown" : `${m.price} ${m.currency ?? ""}`.trim()}`)
+        .join(", ");
+      actions.push(
+        `shipping rule ${rule.id}: declared service "${rule.serviceName}" (${rule.price} ${policy.currencyCode}, ${rule.destination}) ` +
+          `not found in zone "${zone.name}"; store offers: ${offered || "none"}`,
+      );
+      continue;
+    }
+
+    if (rule.serviceName !== method.name) {
+      actions.push(`shipping rule ${rule.id}: service renamed "${rule.serviceName}" -> "${method.name}" on the store`);
+    }
+
+    if (!method.active) {
+      actions.push(`shipping rule ${rule.id}: service "${method.name}" is INACTIVE on the store but declared in the catalog`);
+    }
+
+    if (method.price === null) {
+      // A rate-derived or carrier-calculated rate. Reporting a price here would
+      // mean inventing a number, and reporting nothing would let an unknown
+      // rate read as verified.
+      actions.push(
+        `shipping rule ${rule.id}: store service "${method.name}" has no fixed-fee price ` +
+          `(declared ${rule.price} ${policy.currencyCode}); rate is derived or carrier-calculated and cannot be verified`,
+      );
+      continue;
+    }
+
+    if (method.currency && method.currency !== policy.currencyCode) {
+      actions.push(`shipping rule ${rule.id}: store price currency ${method.currency} != declared ${policy.currencyCode}`);
+    }
+
+    if (declaredPrice === null) {
+      // The declared price is not a number. Skipping the comparison here would
+      // report "no changes" for a rate nobody can read, which is the exact
+      // false-green this function exists to remove.
+      actions.push(
+        `shipping rule ${rule.id}: declared price ${JSON.stringify(rule.price)} is not a valid number ` +
+          `(store has ${method.price} ${method.currency ?? policy.currencyCode}); cannot verify`,
+      );
+      continue;
+    }
+
+    if (declaredPrice !== normalizePrice(method.price)) {
+      actions.push(
+        `shipping rule ${rule.id}: declared ${rule.serviceName} ${rule.destination} at ${rule.price} ` +
+          `-> store ${method.price} ${method.currency ?? policy.currencyCode}`,
+      );
+    }
+  }
+
+  return { policy, remote, actions, notes };
 }

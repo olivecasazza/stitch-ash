@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 import * as path from "node:path";
 import { loadCatalogDirectory, loadCollectionDirectory } from "../src/catalog/load.ts";
-import { loadShippingPolicies, planShippingPolicies } from "../src/catalog/shipping.ts";
+import { diffShipping, loadShippingPolicies } from "../src/catalog/shipping.ts";
 import {
   applyCollection,
   applyProduct,
@@ -9,6 +9,7 @@ import {
   diffCollection,
   diffProduct,
   getCollectionByHandle,
+  getDeliveryProfiles,
   getProductByHandle,
 } from "../src/catalog/shopify-admin.ts";
 
@@ -90,21 +91,50 @@ async function main() {
     for (const action of diff.actions) console.log(`  - ${action}`);
   }
 
-  // Shipping is declared-only. `planShippingPolicies` restates the YAML; it
-  // never reads the remote delivery profile and `apply` never writes one, so
-  // these lines are not diff lines and must not sit in the same block as the
-  // action list that gates approval. Same false-green class as the tags blind
-  // spot (PR #65) and collection membership (PR #72): an unverified fact
-  // printed where an approved action looks like it is.
+  // Shipping is declared-only, and PR #82 stopped restating it inside the
+  // action block. STI-507 goes one step further and actually COMPARES the
+  // declared rules against the store's live delivery profile, because an
+  // unverified fact printed next to an approved action is how the tags blind
+  // spot (PR #65) and collection membership (PR #72) hid real drift.
+  //
+  // These actions are reported but never applied: `catalog:apply` does not
+  // write delivery profiles, so shipping drift is surfaced for an operator
+  // decision rather than silently reconciled. That keeps a customer-visible
+  // price change out of a run that was only ever approved for catalog edits.
+  const shippingDrift: string[] = [];
   if (shippingPolicies.length > 0) {
-    console.log("shipping (declared in catalog/shipping, NOT verified against the store, NOT applied):");
-    for (const line of planShippingPolicies(shippingPolicies)) {
-      console.log(`  ${line.replace(/^\s*- /, "· ")}`);
+    const profiles = await getDeliveryProfiles(client);
+    const liveProfile = profiles.find(p => p.isDefault) ?? profiles[0] ?? null;
+
+    if (profiles.length === 0) {
+      shippingDrift.push("shipping: store returned no delivery profiles");
+    } else {
+      for (const policy of shippingPolicies) {
+        const diff = diffShipping(policy, liveProfile);
+        for (const note of diff.notes) console.log(`shipping: ${note}`);
+        if (diff.actions.length === 0) {
+          console.log(`shipping: ${policy.id}: no changes`);
+          continue;
+        }
+        shippingDrift.push(...diff.actions.map(action => `shipping: ${action}`));
+      }
     }
   }
 
+  if (shippingDrift.length > 0) {
+    console.log("");
+    console.log(
+      `shipping: ${shippingDrift.length} declared-vs-store difference(s) found (reported only — catalog:apply does NOT write delivery profiles):`,
+    );
+    for (const line of shippingDrift) console.log(`  - ${line}`);
+  }
+
   if (command === "plan") {
-    console.log(`catalog: plan complete; ${changeCount} pending product actions`);
+    const shippingNote =
+      shippingDrift.length > 0
+        ? `; ${shippingDrift.length} shipping difference(s) reported (not applied)`
+        : "";
+    console.log(`catalog: plan complete; ${changeCount} pending product actions${shippingNote}`);
     return;
   }
 
