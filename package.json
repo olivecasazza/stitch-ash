@@ -10,6 +10,7 @@
     "preview": "nuxt preview",
     "prepare": "nuxt prepare",
     "typecheck": "nuxt typecheck",
+    "catalog:test": "node --import tsx --test src/**/*.test.ts",
     "catalog:validate": "tsx scripts/catalog.ts validate",
     "catalog:plan": "tsx scripts/catalog.ts plan",
     "catalog:apply": "tsx scripts/catalog.ts apply",
