@@ -63,7 +63,7 @@ const HOODIE_DETAILS: ProductAccordionSection[] = [
   },
   {
     label: "Shipping & Returns",
-    body: "Made to order — allow 3–5 weeks for production. Ships tracked. Returns accepted within 14 days of delivery if unworn and unaltered.",
+    body: "Made to order. Ships tracked. Returns accepted within 14 days of delivery if unworn and unaltered.",
   },
 ];
 
@@ -86,7 +86,7 @@ const LANYARD_DETAILS: ProductAccordionSection[] = [
   },
   {
     label: "Shipping & Returns",
-    body: "Made to order — allow 2–4 weeks for production. Ships tracked. All sales final on accessories.",
+    body: "Made to order. Ships tracked. All sales final on accessories.",
   },
 ];
 
@@ -109,7 +109,7 @@ const STICKER_DETAILS: ProductAccordionSection[] = [
   },
   {
     label: "Shipping & Returns",
-    body: "Made to order — allow 1–3 weeks. Ships tracked. All sales final.",
+    body: "Made to order. Ships tracked. All sales final.",
   },
 ];
 

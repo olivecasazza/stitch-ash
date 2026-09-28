@@ -1,8 +1,6 @@
 {
     "footer": {
-        "message": "Published under the MIT License.",
-        "github": "View on GitHub",
-        "country": "Select country and currency"
+        "message": "Stitch and Ash. Embroidered apparel, made to order."
     },
     "cart": {
         "title": "Cart",
@@ -35,10 +33,6 @@
         "collections": "Collections",
         "articles": "Articles"
     },
-    "account": {
-        "label": "Account",
-        "description": "Manage your account and orders"
-    },
     "pagination": {
         "previous": "Load previous",
         "next": "Load next"
@@ -66,12 +60,8 @@
         "title": "Filters",
         "clear": "Clear Filters"
     },
-    "home": {
-        "title": "Nuxt Shopify Demo Store",
-        "description": "This is a demo store built with Nuxt 4 and the Shopify Storefront API. It showcases how to build a fully functional e-commerce storefront with Nuxt UI."
-    },
     "seo": {
-        "description": "Welcome to our demo store! Explore our collections and find the perfect items for you. Enjoy a seamless shopping experience with Nuxt and Shopify."
+        "description": "Stitch and Ash — black-on-black embroidered apparel, made to order."
     },
     "error": {
         "home": "Back to Homepage",
