@@ -28,11 +28,28 @@ shell, not from CI. A green CI run is not a live deploy.
 | URL | Expected | Notes |
 | --- | --- | --- |
 | `https://preview.stitch-ash.com/` | `200` | Home |
-| `https://preview.stitch-ash.com/collections/<one>` | `200` | One collection page (pick a real handle) |
+| `https://preview.stitch-ash.com/products` | `200` | Collection page — the capsule listing. **Not** `/collections` |
+| `https://preview.stitch-ash.com/collection/<handle>` | `404` until catalog collection data exists | Shopify-handle route; a 404 here is a content gap, not a rendering defect |
 | `https://preview.stitch-ash.com/product/sku-001` | `200` | PDP (canonical path) |
 | `https://preview.stitch-ash.com/products/sku-001` | `301` or `308` → `/product/sku-001` | The `/products/` → `/product/` redirect must resolve before the PDP body loads |
-| `https://preview.stitch-ash.com/api/bug-report` | Pages Function responds (any 2xx/4xx JSON, not a CF 5xx) | POST handler reachable |
-| `https://preview.stitch-ash.com/api/checkout` | Pages Function responds (any 2xx/4xx JSON, not a CF 5xx) | POST handler reachable |
+| `https://preview.stitch-ash.com/api/bug-report` | `POST` → `200` + queue id | Field is `description` (≥10 chars), **not** `message` |
+| `https://preview.stitch-ash.com/api/checkout` | `POST` → `422` naming the merchandise id | A `422` quoting your own input *proves* catalog lookup was reached |
+
+> **There is no `/collections` route.** `/products` (singular collection
+> page, `app/pages/products.vue`) is the capsule listing and is the one
+> collection page in the standard pass. `/collections` returns a
+> well-formed Nitro 404 that is easy to mistake for a broken deploy —
+> it is simply not a route. The `/products/sku-001` → `/product/sku-001`
+> redirect and the `/products` listing are two different things and both
+> must be probed.
+
+Probe the two functions with a **real POST**, not a `GET`. A `GET`
+returns `400` with a well-formed error envelope that only proves the
+JSON parser ran. `POST /api/bug-report {"description":"…"}` returns
+`200` with a real id; `POST /api/checkout` with a bogus variant id
+returns `422` naming it. Both are passing results. The successful
+`/api/bug-report` POST **writes a real row to the human-admin feedback
+queue** — call that out in the pass log rather than leaving it unsaid.
 
 ### 2. Deploy provenance
 
@@ -40,7 +57,18 @@ CI green is necessary, never sufficient. Verify the deploy in this order:
 
 1. `git ls-remote origin main` → record the `main` HEAD SHA.
 2. `gh run list --workflow deploy.yml --branch main --limit 1 --json databaseId,conclusion,headSha,url` → must show a `success` run whose `headSha` matches the `main` HEAD from step 1. Older successful runs are stale and do not count.
-3. Re-fetch the live site (see § 1) and confirm the deploy-time HTML or asset version is consistent with `headSha`. The Cloudflare Pages build SHA is the cheapest signal — it is exposed in the response headers or the `/_nuxt/builds/meta/...` manifest.
+3. Re-fetch the live site (see § 1) and confirm the deploy-time HTML or asset version is consistent with `headSha`. The Cloudflare Pages build id is the cheapest signal — `GET /_nuxt/builds/latest.json` returns `{"id":"<uuid>","timestamp":<epoch_ms>}` for the build actually being served, and that timestamp must fall inside the successful run's window. Prefer this over CI alone: it is the only check in the chain that reads the deployed artefact rather than the pipeline's opinion of it.
+
+`main` being *ahead* of the deployed SHA is not automatically a
+defect. Record the gap, then `git diff --stat <deployedSha>..origin/main`
+and judge it by whether any **application** file is in the delta. A
+docs-only delta means the deployed build is byte-equivalent to `main`
+for every file a customer can load, the gap is not a freshness breach,
+and no redeploy is warranted — say exactly that rather than reporting
+a pass on "deployed commit == main HEAD", which would be false. If
+application source is in the delta, the gap is real: redeploy via
+`gh workflow run deploy.yml --ref main` (Rule 4), wait for
+conclusion, then re-verify § 1 from the live site.
 
 If the deploy run is `failure`, `cancelled`, or missing: do not sign off. File a defect on the deploy workflow issue, paste the run URL, and stop.
 
@@ -189,8 +217,195 @@ reopened as STI-YYY`.
   blocked; graded evidence was posted there rather than filed as a
   duplicate. Pass closed `done`. Dead `.rounded-*` utilities in the
   shipped CSS bundle remain an open footgun, still unapplied.
+- STI-424 — 2026-09-27 — **all green, visual gate graded and
+  adjudicated.** Routes byte-identical to the 2026-09-26/27 cycles
+  (`/` 22490 B, `/products` 20907 B, `/product/sku-001` 31474 B,
+  `/products/sku-001` → `308 → /product/sku-001`).
+  **Correction to this runbook: the collection page is `/products`,
+  not `/collections`.** `app/pages/products.vue` is the capsule
+  listing and `app/pages/collection/[handle].vue` is the
+  Shopify-handle route that 404s on this deploy for want of catalog
+  collection data. Probing `/collections` yields a 404 that is *not*
+  a defect; the previous cycles' route list was correct but the
+  mental model behind it was not written down, which invites the
+  same false positive next cycle. Both Pages Functions exercised with
+  real POSTs this cycle, not just GETs: `POST /api/bug-report`
+  `{"description":…}` → **`200`**
+  `{"destination":"human-admin-queue","id":"admin-feedback:…"}`, and
+  `POST /api/checkout` → `422` "The merchandise with id … does not
+  exist." (function live, validating against the catalog). A `400`
+  from either endpoint only proves the JSON parser ran.
+  Deploy provenance proved from the **live** site, not from CI:
+  `/_nuxt/builds/latest.json` → id
+  `ec420c03-41f7-4b10-b966-5ba10018e642` @ `2026-09-26T21:18:08Z`,
+  which is `deploy.yml` run
+  [36272429407](https://github.com/olivecasazza/stitch-ash/actions/runs/36272429407)
+  (`conclusion: success`, `headSha 81b7b81`). **`origin/main` HEAD is
+  now `fb284c4`, one commit ahead of the deployed `81b7b81`** — a
+  11 h 17 m gap, inside the 24 h threshold, and `git diff --stat`
+  shows the delta is `docs/qa-checklist.md` only (+186 lines, zero
+  application source). So the deployed build is byte-equivalent to
+  `main` in every file a customer can load; no redeploy warranted and
+  none performed. `scripts/ci/no-internal-copy-in-storefront.sh` →
+  passed, exit 0. `/ops-platform` → `404`. `npx @google/design.md
+  lint DESIGN.md` → 0 errors, 0 warnings, exit 0.
+  3-viewport graded visual gate: `visual_review.py --full` at
+  `1440x900` / `820x1180` / `390x844` over `/`, `/products`,
+  `/product/sku-001` → **`9 capture(s), 0 failure(s)`** on
+  `openrouter/qwen/qwen3-vl-235b-a22b-instruct`, all nine PNGs
+  attached to [STI-424](/issues/STI-424). ~45 graded lines,
+  adjudicated against the **shipped CSS bundle** rather than by eye:
+  - *"text color of product descriptions appears to be `#C0C000`"*,
+    *"must use `#FFFFFF` or `#F7F3EC`"* and *"failing WCAG AA
+    contrast on `#0B0B0B`"* — **disproven**. The live bundle
+    (`/_nuxt/entry.*.css`, 212 KB) contains **exactly nine** hex
+    literals, `#000000 #ffffff #e8e8e8 #cfcfcf #9a9a9a #5c5c5c
+    #2a2a2a #1a1a1a #0e0e0e` — the DESIGN.md set, nothing else. No
+    `#0B0B0B` and no `#C0C000` exist in the stylesheet at all, and
+    the prescribed fix `#F7F3EC` is a QR-1 regression by Rule 8.
+  - *"body text uses a serif font"* / *"editorial serif for display,
+    grotesk for UI"* — **disproven, and inverted**. The bundle
+    declares only `JetBrains Mono` and its local fallbacks;
+    `--font-display: var(--font-mono)`. DESIGN.md mandates mono and
+    bans editorial serif. The grader was reasoning from a house spec
+    that no longer exists.
+  - *"size selector / ADD TO CART buttons use rounded corners
+    (≈8px)"*, *"CART 0 badge uses rounded corners"* — **disproven**.
+    All four `border-radius` declarations in app source are `0` or
+    `var(--radius-none)` (`Header.vue:103,134`, `SizeSelector.vue:98`,
+    `product/[handle].vue:388`, `global.css:350`); `--radius-sm/md/
+    lg/none` are all `0`; and **zero** `rounded-*` utility classes
+    appear in the rendered DOM of any of the four customer pages.
+    The bundle does carry 15 non-zero `border-radius` declarations,
+    all of them dead Tailwind v4 utilities (`.rounded`,
+    `.rounded-sm/md/lg/xl/xs`, `.rounded-full`, `.prose :where(kbd)`)
+    resolving against `--ui-radius: .25rem`, which **is not defined
+    anywhere in `app/`** — a vendored-framework value, not a brand
+    token. See the footgun note above; it is now characterised
+    precisely enough to close out.
+  - *"material description text appears clipped or truncated"* —
+    **disproven**; no `overflow`/`text-overflow`/`truncate` on the
+    card-note class, and the full sentence is present in the served
+    markup.
+  - *"aggressive shadows implied by card borders"* — **disproven**;
+    the only `box-shadow` values are Tailwind's all-zero
+    `--tw-inset-shadow`/`--tw-inset-ring-shadow` reset vars.
+  - *"`PHOTOGRAPH PENDING` placeholder art"*, `high`, **9/9
+    viewports** — the only reproducible graded line, and again
+    **already owned by [STI-309](/issues/STI-309)**, which stays
+    open and blocked. It is in fact the DESIGN.md-sanctioned
+    `grey-950` "image fallback plate" (`app/components/ProductCard.vue:49`,
+    `app/pages/product/[handle].vue:147`), shipped deliberately by the
+    STI-395 fix (81b7b81). Not re-filed; no duplicate.
+  - Remaining lines (grid density, letter-spacing, footer alignment,
+  orphaned words) discarded as aesthetic opinion — the skill's
+    triage rule 2/3, none reproducible against a stated house rule.
+
+  Re-tested previously-closed defects, all **PASS, no regressions**:
+  [STI-310](/issues/STI-310) accordion copy `--bone #E8E8E8` on
+  `--charcoal #0E0E0E` = **15.76:1** (was the reported failure) and
+  selected size tile is white fill / `--ink-black` text = **21:1**,
+  not white-on-white; [STI-308](/issues/STI-308) PDP CTA reads
+  **"Add to cart"** (not "Made to Order — Coming Soon") and
+  `.pdp__atc-btn--primary` is `--white` fill / `--ink-black` text;
+  [STI-313](/issues/STI-313) no serif anywhere; [STI-241](/issues/STI-241)
+  `/products` 200 with all three SKUs; [STI-278](/issues/STI-278)
+  superseded by the intentional fallback plates;
+  [STI-393](/issues/STI-393) named radius/serif findings **not
+  reproducible**; [STI-309](/issues/STI-309) still real, stays
+  blocked, not re-filed. Pass closed `done`.
+
+- STI-424 — 2026-09-28 ~07:22Z — **routes green, visual gate
+  UNVERIFIED, one defect filed ([STI-472](/issues/STI-472)).**
+  `origin/main` HEAD `acb9803e` = `headSha` of successful `deploy.yml`
+  run
+  [36391004816](https://github.com/olivecasazza/stitch-ash/actions/runs/36391004816),
+  and the live build manifest `/_nuxt/builds/latest.json` reports
+  `{"id":"03152ef3-…","timestamp":1790579985419}` =
+  `2026-09-28T07:19:45.419Z`, **inside** that run's `07:19:03Z +1m35s`
+  window. Provenance read from the deployed artefact, not from CI.
+  The deploy-freshness regression recorded on
+  [STI-465](/issues/STI-465) earlier the same day is **no longer
+  present** at this deploy. HTTP 200: `/`, `/products` (all 3 SKUs),
+  `/product/sku-001..003`, `/contact`; `/products/sku-001` → `308` →
+  `/product/sku-001`.
+  All four Pages Function branches exercised with real POSTs:
+  `bug-report` → `200 {"destination":"human-admin-queue","id":"admin-feedback:1790580418361:…"}`
+  (**writes a real row to the human feedback queue**);
+  `checkout {items:[{variantId}]}` (bogus id) → `422` naming the
+  merchandise id, i.e. the Storefront API lookup was reached;
+  `checkout {intent:"waitlist"}` → `200 {"ok":true,"id":"waitlist:1790580429724:…"}`.
+  Repo gate: `scripts/ci/no-internal-copy-in-storefront.sh` →
+  `passed`. No credentials, hostnames or ops copy on any customer
+  page. The one hit is the known `PHOTOGRAPH PENDING` plate caption
+  (`/` ×3, `/product/sku-001` ×1), already in flight on
+  [STI-439](/issues/STI-439) — not re-filed.
+
+  **Two findings worth carrying forward.**
+
+  **(a) `/collection/featured` is now a soft 404, not a 404.**
+  The runbook above predicts a `404` for `/collection/<handle>` while
+  catalog collection data is absent. At this deploy it returns
+  `200` with a branded page reading `No products found.` and zero
+  product links, while `/products` on the same build shows all three
+  SKUs — so the store is not empty, this route is. Filed as
+  [STI-472](/issues/STI-472). Worth noting for the fix: `app/pages/index.vue`
+  renders from a static local import (`import { PRODUCTS } from
+  '~/data/products'`) while `app/pages/collection/[handle].vue` queries
+  Shopify live GraphQL. Two different data sources, so "home looks
+  stocked" is not evidence that the catalog is stocked.
+
+  **(b) The visual gate did not run; do not inherit last cycle's
+  green.** All three captures succeeded
+  (`1440x900` 45501 B, `820x1180` 60461 B, `390x844` 29853 B) and
+  the PNGs are attached to
+  [STI-424](/issues/STI-424), but every review returned
+  `REVIEW FAILED: HTTP Error 429: Too Many Requests` from the
+  OmniRoute vision pool — four attempts across two URLs, then
+  stopped. Per HARD RULES 7/8 the layout, spacing, type-scale and
+  mobile claims for this cycle are reported **unverified**, not
+  passed, and the 2026-09-26/27 "visually green" verdicts must not be
+  carried forward. This is the same vision-pool exhaustion recorded
+  on [STI-411](/issues/STI-411) / [STI-422](/issues/STI-422), now
+  arriving as `429` rather than `502`/empty-200.
+
+  **What the built CSS does prove this cycle** (markup, not pixels):
+  the STI-402 zero-radius bridge still holds at this SHA.
+  `/_nuxt/entry.BJQf7ECB.css` has exactly two `--ui-radius`
+  declarations — `.25rem` at brace depth 2 inside `@layer theme`
+  (vendor) and `0` at brace depth 1 inside `@layer utilities` (app) —
+  and the declared layer order is `properties → theme → base →
+  utilities → components`, so the app's `0` wins. Every `rounded-*`
+  utility resolves through `--ui-radius`
+  (`calc(var(--ui-radius)*1.5)` etc.) and the app's own
+  `--radius-none/sm/md/lg` are all `0`. The only literal non-zero
+  radii left are vendor/typography escapes (`.prose :where(kbd)`,
+  `.prose :where(pre)`, `.rounded`, `.rounded-full`) that carry the
+  Tailwind `3.40282e+38px` sentinel; exactly one `rounded-*` class
+  appears in live customer HTML — a `rounded-md` on
+  `/collection/featured`'s empty-state button — and it compiles to
+  `calc(var(--ui-radius)*1.5)`, i.e. `0`. Rejected palette: warm
+  bone `#F7F3EC` 0 hits, thread-gold `#B08D57` 0, error-ember
+  `#9F3A2F` 0, ash-silver `#C0C0C0` 0, `Playfair` 0.
+
+  **Also re-proved:** `POST /api/checkout` with an `items` array
+  whose entries lack `variantId` (`{"items":[{"sku":"sku-001","quantity":1}]}`
+  or `{"items":[{}]}`) returns **`502` `text/plain`**, while
+  `{"items":[{"variantId":…}]}` returns the proper `422` JSON
+  envelope. The STI-468 defect is still live on the current deploy
+  and is now narrowed to the missing-`variantId` path.
 
 ### Method notes worth keeping (learned the hard way this cycle)
+
+**A skill can be registered and still not be loadable.** The
+`visual-review` skill appears in `GET /api/companies/<id>/skills` and
+its script is on disk at
+`/paperclip/instances/default/skills/<companyId>/visual-review/scripts/visual_review.py`,
+but `Skill("visual-review")` returns *not found* against the runtime
+skill registry. "The skill is installed" and "the agent can invoke
+the skill" are different claims. When HARD RULES 7/8 depend on the
+skill, check that the **script path resolves**, and run the script
+directly if the registry does not list it.
 
 **HTTP 200 with an empty body is not a result — check the payload.**
 `auto/best-vision` answers `502` on a model the pool itself reports
@@ -237,6 +452,61 @@ four fallbacks. The gate ran 9/9 clean. I had guessed a model list out
 of `/v1/models` (787 entries) and missed the one that works. The
 gateway was broken in exactly the way the skill said it was, and the
 skill had already routed around it.
+
+**Disprove a style finding by enumerating the shipped stylesheet, not
+by re-deriving it from the rubric.** The pixel-decode trick above
+answers *colour*. Its markup twin is cheaper and sharper for STYLE
+claims: pull the live CSS bundles, then enumerate the *entire* literal
+set the page can possibly paint from, and compare that set to
+DESIGN.md. On 2026-09-27 the concatenation of the served
+`/_nuxt/*.css` (212 KB) contains **exactly nine** hex literals, and
+they are precisely the nine DESIGN.md colour tokens. That single
+observation disproves, at once and without argument, every graded
+line that named an off-token colour (`#0B0B0B`, `#C0C000`) and every
+line that named a forbidden token (`#F7F3EC`, `#B08D57`, `#9F3A2F`,
+`#C0C0C0`) — including lines whose *prescribed fix* was itself a QR-1
+auto-reject. The same trick settles radius: enumerate every
+`border-radius` in the bundle, resolve its custom property against
+`app/`, and then confirm whether any of those selectors is actually
+reachable — here 15 non-zero declarations existed but all were dead
+Tailwind utilities keyed to a `--ui-radius` that `app/` never
+defines, and zero `rounded-*` classes appear in the served DOM. A
+dead-CSS hit and a rendered hit are different findings, and only one
+of them is a defect. Corollary worth keeping: **grep the app source
+for the custom property before blaming it on the brand.** `--ui-radius`
+looks like a brand token until you notice it is not in `app/` at all.
+
+**Token arithmetic has a known blind spot: a token can pass every
+ratio and still be unreachable.** `primary` (`#5C5C5C`) measures
+**3.14:1** on `ink` and **2.89:1** on `charcoal` — below WCAG AA 4.5:1
+for body text. DESIGN.md scopes it to "muted strokes and the brand
+surface", and the live pages exercise it for neither: no secondary
+button renders on any customer page (the only buttons in the served
+DOM are `.cart-pill` and `.pdp__atc-btn--primary`, the latter white
+fill on black at 21:1). So it is **not** a live defect and was not
+filed — but if anyone ships the DESIGN.md "Secondary" button
+(transparent fill, `primary` text) on `ink` or `charcoal`, it becomes
+a hard AA failure at 13 px mono, and the numeric margin is already
+known. Carry this number forward rather than re-deriving it; it is a
+latent risk, not a finding, and the distinction should survive the
+heartbeat that noticed it.
+
+**Probe the endpoint the way a customer does, not the way a scanner
+does.** `GET` on either Pages Function returns `400` with a
+well-formed Nitro error envelope, which is enough to look like a
+passing health check and is not: it only proves the JSON parser ran.
+`POST /api/bug-report` with a `description` of ≥10 characters returns
+**`200`** and a real queue id, and `POST /api/checkout` returns
+**`422`** naming the offending merchandise id — the second is a
+*passing* result, because a validation error quoting your own input
+proves the function reached catalog lookup. Note the field name is
+`description`, not `message`; `message` yields a confident-looking
+`400 "Please describe the bug in at least 10 characters."` that reads
+like a server fault and is actually a client-side schema miss. Also
+record what a probe writes: this cycle's successful
+`/api/bug-report` POST persisted a real row to the human-admin
+feedback queue, which is a side effect a health check should not
+leave behind unremarked.
 
 **A vision finding is a hypothesis, and some of them prescribe the
 regression you are hunting.** The first fully-graded run produced ~50
