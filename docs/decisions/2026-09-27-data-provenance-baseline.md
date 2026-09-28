@@ -169,6 +169,48 @@ Reporting rules that follow:
   flip `mock` to satisfy it.** Rejected outright. `mock: false` is the current,
   intended state; the document is what is wrong, not the config.
 
+## Scope correction (2026-09-28): three instruction files, not one
+
+The original framing of this record scoped the stale `mock = true` claim to the
+**merch/GTM role only**. That understates the blast radius. A read of every agent
+instructions file in the company on 2026-09-28 finds the same false claim in
+**three** files, and the two newly-named ones are materially more dangerous than
+the one this record was written about, because each one *assigns the fixing of
+the flag to an agent*:
+
+| Agent | File | Stale text | Why it is more dangerous than the merch/GTM one |
+|---|---|---|---|
+| `merch-lead` (`c53c70a2`) | `agents/c53c70a2-…/instructions/AGENTS.md` L7-13 | "while the storefront runs mock commerce (`clients.storefront.mock = true`) there is NO real revenue data" | Reporting-only. Names no file and assigns no fix. Worst case is a misattributed cause in a KPI report. |
+| `ash-gm` (`00a7c44f`) | `agents/00a7c44f-…/instructions/AGENTS.md` L6-8 | "The storefront client currently runs MOCK commerce (runtimeConfig shopify clients.storefront.mock = true) — treat go-live as the company's standing top priority." | Pairs the false claim with **"standing top priority"**, manufacturing pressure to act on a false premise. |
+| `commerce-eng` (`7fe07aa9`) | `agents/7fe07aa9-…/instructions/AGENTS.md` L4-5 | "the storefront UI runs mock data (clients.storefront.mock = true in nuxt.config.ts). **You own closing that gap.**" | **Highest risk.** Names the exact file and line, asserts it is true, and assigns ownership of the fix to the one agent who already authored `f3ac83d` — the commit that set `mock: false`. |
+
+The `commerce-eng` entry is the concrete prod-break vector this record exists to
+prevent. That agent is instructed that `nuxt.config.ts` line 32 reads
+`mock: true` and that closing that gap is their job; the file in fact reads
+`mock: false`, and it is correct. Reverting it would break the live Storefront
+API data path — real `cartCreate`, real `checkoutUrl`, real PDP pricing — that
+[STI-327](/STI/issues/STI-327) verified. Note that this is the *same* failure
+mode this record's own rejected-options list anticipated:
+
+> flip `mock` to satisfy it. Rejected outright.
+
+The earlier framing also implied the operator correction was a single-file edit.
+It is a three-file edit, and none of the three files may be self-edited by the
+agent that reads them: the edit is operator-owned under the escalation rule, and
+is still open in [STI-398](/STI/issues/STI-398) as board approval
+`f4a5765d-3226-4a41-91fe-f4634a0a60fb` (raised 2026-09-26, still `pending` as of
+this entry).
+
+**Corrected scope of the operator ask:** correct all three files, or state
+explicitly that the parenthetical is intentionally left standing. What must not
+happen is leaving one of them, because the one left behind is sufficient to
+cause the incident.
+
+Guard-post as of this entry: `mock: false` is still intact at `origin/main`
+`7a62fc5`, and **no commit since `81b7b81` has touched `nuxt.config.ts`**. The
+break is latent, not realized. This entry changes no storefront code and
+requires no deploy.
+
 ## Consequences
 
 - KPI reporting cites this record instead of an instruction parenthetical.
@@ -197,6 +239,7 @@ below as current just because it appears in this file.
 | Re-verified | `origin/main` | Result |
 |---|---|---|
 | 2026-09-27 | `931c178` | **All ten rows above re-verified true, unchanged.** `nuxt.config.ts:32` is still `mock: false,`; `app/pages/products.vue:2,18` still imports and renders the static `PRODUCTS`; `app/pages/product/[handle].vue:22` still runs a `useStorefrontData` query with `:70-75` static fallbacks; `app/data/products.ts:24,116,136` still carries the placeholder-handle comment, the `TODO (STI-318)`, and `imageSrc: undefined`; `app/composables/cart.ts:5` still calls `useStorefront()`. Live: `curl -sSL https://preview.stitch-ash.com/products` → `HTTP 200`, `20907` bytes, `<title>Shop — STITCH AND ASH</title>`, prices `185` and `35` present, `0` occurrences of `gid://shopify`. `curl -sSL https://www.stitch-ash.com` → `HTTP 200`, `103731` bytes, final `https://www.stitch-ash.com/password`. **Observable real revenue is still zero.** |
+| 2026-09-28 | `7a62fc5` | **All ten rows above re-verified true, unchanged. Revenue still zero.** Read from a fresh `git fetch origin` in `$PAPERCLIP_WORKSPACE_CWD/stitch-ash` (remote `github.com/olivecasazza/stitch-ash`, workspace guard PASS). Repo: `nuxt.config.ts:32` is `mock: false,` with `:33` `apiVersion: '2026-04',` and `:34` `publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? ''`; `git log --oneline 81b7b81..origin/main -- nuxt.config.ts` is **empty** — no commit since `81b7b81` has touched the storefront client config. Live, fetched 2026-09-28T07:5xZ: `https://preview.stitch-ash.com/products` → `HTTP 200`, `20908` bytes, `<title>Shop — STITCH AND ASH</title>`, all three prices `185`/`35`/`15` present, `0` occurrences of `gid://shopify`, `mock:false` present in the served payload; `https://www.stitch-ash.com` → `HTTP 200`, `103731` bytes, final `https://www.stitch-ash.com/password`, body "Enter password" / "Protected". **Observable real revenue is still zero.** Re-verification only — no storefront code changed and no deploy was triggered by this entry. |
 | 2026-09-28 | `7a39fe0` | **All ten rows above re-verified true, unchanged. Revenue still zero.** Read from a fresh `git fetch origin` in `$PAPERCLIP_WORKSPACE_CWD/stitch-ash` (remote `github.com/olivecasazza/stitch-ash`). Repo: `nuxt.config.ts:32` is `mock: false,` with `:33` `apiVersion: '2026-04',` and `:34` `publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? '',`; `app/pages/products.vue:2,18` still imports and renders the static `PRODUCTS` with no Storefront call in the file; `app/pages/product/[handle].vue:22` still runs the `useStorefrontData` query and `:70-75` still fall back to `staticProduct`; `app/pages/collection/[handle].vue:15` is still an unconditional `useStorefrontData` read; `app/composables/cart.ts:5` still calls `useStorefront()`; `app/data/products.ts:24` still says "must match Shopify product handle when live", `:116` still carries `TODO (STI-318)`, and `:136,149,162` are still `imageSrc: undefined`. Live, fetched 2026-09-28T01:07Z: `https://preview.stitch-ash.com/products` → `HTTP 200`, `20907` bytes, `<title>Shop — STITCH AND ASH</title>`, all three prices `185`/`35`/`15` present, `0` occurrences of `gid://shopify`; all three PDPs return `HTTP 200` with `0` `gid://shopify` each (`sku-001` `31474` bytes, `sku-002` `28036`, `sku-003` `27912`); `https://www.stitch-ash.com` → `HTTP 200`, `103731` bytes, final `https://www.stitch-ash.com/password`, body "Enter password" / "Protected". Re-verification only — no storefront code changed and no deploy was triggered by this entry. |
 | 2026-09-28 | `52b365c` | **All ten original rows re-verified true, unchanged. Revenue still zero. Three rows added this run.** Workspace guard passed: `$PAPERCLIP_WORKSPACE_CWD/stitch-ash` remote is `https://github.com/olivecasazza/stitch-ash.git`; `git ls-remote` → `52b365c2585b701f729d9da1bb4bd752a385d0d3`. Repo: `nuxt.config.ts:32` is `mock: false,` with `:33` `apiVersion: '2026-04',` and `:34` `publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? '',`; `app/pages/products.vue:2,18` still imports and renders the static `PRODUCTS` with no Storefront call in the file; `app/pages/product/[handle].vue:22` still runs the `useStorefrontData` query and `:70-75` still fall back to `staticProduct`; `app/pages/collection/[handle].vue:15` is still an unconditional `useStorefrontData` read; `app/composables/cart.ts:5` still calls `useStorefront()`; `app/data/products.ts:24` still says "must match Shopify product handle when live", `:116` still carries `TODO (STI-318)`, and `:136,149,162` are still `imageSrc: undefined`. Live, fetched 2026-09-28T05:4xZ: `https://preview.stitch-ash.com/` → `HTTP 200`, `22491` bytes; `/products` → `HTTP 200`, `20908` bytes, `<title>Shop — STITCH AND ASH</title>`, prices `185`/`35`/`15` present, `0` occurrences of `gid://shopify`; `/product/sku-001` → `HTTP 200`, `31474` bytes, `<title>Embroidered Hoodie — STITCH AND ASH</title>`, `0` `gid://shopify`; `/collection/featured` → `HTTP 200`, `19230` bytes, `<title>Featured | STITCH AND ASH</title>`. **New this run — the collection route is a live read with no fallback** (`app/pages/collection/[handle].vue:36-37` throws a fatal `404` when the query errors or returns nothing) and prerendering is disabled (`nuxt.config.ts:41-42` `routeRules` has the `prerender: true` entry commented out, STI-271), so that `200` is evidence of a successful live Storefront response, not a fixture. **New this run — the public Storefront path is alive:** `POST https://preview.stitch-ash.com/api/checkout` with one line → `HTTP 200` and a real Shopify `checkoutUrl` on `https://www.stitch-ash.com/cart/c/…`; following it → `HTTP 200`, `103731` bytes, final `https://www.stitch-ash.com/password`. This created an empty cart only — no order was placed and nothing was spent. **New this run — the Shopify Admin API is locked** (`"Online Store channel is locked"`, [STI-457](/STI/issues/STI-457)); it is Admin-side only and did **not** break the Storefront path proven above. Re-verification only — no storefront code changed and no deploy was triggered by this entry. |
 
