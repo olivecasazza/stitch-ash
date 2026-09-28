@@ -216,7 +216,9 @@ async function onSubmit() {
   width: 100%;
   background: var(--charcoal);
   color: var(--bone);
-  border: 1px solid var(--border-rule);
+  /* outline, not border-rule: the boundary of an input is not a divider
+     and SC 1.4.11 does not exempt it. 3.02:1 on charcoal. */
+  border: 1px solid var(--outline);
   border-radius: 0;
   padding: var(--space-md) var(--space-lg);
   font: inherit;

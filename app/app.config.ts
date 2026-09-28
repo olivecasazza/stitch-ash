@@ -58,19 +58,19 @@ export default defineAppConfig({
 
         input: {
             slots: {
-                base: 'bg-[var(--ink-black)] border-[var(--border-rule)] text-[var(--bone)] placeholder:text-[var(--grey-400)] focus:border-[var(--bone)]',
+                base: 'bg-[var(--ink-black)] border-[var(--outline)] text-[var(--bone)] placeholder:text-[var(--grey-400)] focus:border-[var(--bone)]',
             },
         },
 
         inputNumber: {
             slots: {
-                base: 'bg-[var(--ink-black)] border-[var(--border-rule)] text-[var(--bone)] focus:border-[var(--bone)]',
+                base: 'bg-[var(--ink-black)] border-[var(--outline)] text-[var(--bone)] focus:border-[var(--bone)]',
             },
         },
 
         select: {
             slots: {
-                base: 'bg-[var(--ink-black)] border-[var(--border-rule)] text-[var(--bone)] focus:border-[var(--bone)]',
+                base: 'bg-[var(--ink-black)] border-[var(--outline)] text-[var(--bone)] focus:border-[var(--bone)]',
             },
         },
     },

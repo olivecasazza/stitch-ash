@@ -83,7 +83,10 @@ const finalImageAlt = computed(() => props.imageAlt || props.name)
 }
 .product-card__plate-mark {
   fill: none;
-  stroke: var(--primary);
+  /* grey-400, not primary (2.60:1 on grey-950): the 2px mark is a meaningful
+     glyph and SC 1.4.11 requires 3:1. The aria-hidden SVG is paired with a
+     grey-400 caption that already reads at 6.19:1. */
+  stroke: var(--grey-400);
   stroke-width: 2;
 }
 .product-card__plate-caption {

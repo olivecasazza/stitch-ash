@@ -11,6 +11,7 @@ colors:
   bone: "#E8E8E8"
   white: "#FFFFFF"
   border-rule: "#2A2A2A"
+  outline: "#5F5F5F"
   focus: "#FFFFFF"
 typography:
   h1: { fontFamily: "JetBrains Mono", fontWeight: 500, fontSize: "2.5rem", lineHeight: 1.05, letterSpacing: "-0.02em" }
@@ -166,7 +167,16 @@ on the grey ramp from #0E0E0E to #FFFFFF.
 - **grey-950 (#1A1A1A)** — tertiary surface, hover wells, image fallback
   plates.
 - **border-rule (#2A2A2A)** — mid-dark; the single hairline/divider value
-  and the disabled-control fill.
+  and the disabled-control fill. **Dividers only.** A decorative hairline
+  is exempt from WCAG SC 1.4.11; a control boundary is not, so this
+  value is never a control border. See `outline`.
+- **outline (#5F5F5F)** — the boundary colour for form controls: inputs,
+  textareas, selects, quantity steppers. Chosen as the first step on the
+  grey ramp that clears SC 1.4.11 **3:1** against every surface a control
+  is filled with — 3.02:1 on `charcoal`, 3.29:1 on `ink` (fill controls
+  on `ink`/`charcoal` only; it is 2.89:1 on `grey-950`). `border-rule`
+  (1.34:1) and `primary` (2.89:1) both fail 3:1 on `charcoal`, so
+  neither can carry this role.
 - **primary (#5C5C5C)** — muted strokes and the brand surface for
   low-emphasis interactive elements.
 - **grey-400 (#9A9A9A)** — secondary text, captions, metadata, timestamps,
@@ -310,7 +320,9 @@ feeding the linter a value it cannot represent.
 arrives only through:
 
 1. **1px hairline borders** (color: `border-rule` #2A2A2A) between
-   sections and at the edge of every elevated surface.
+   sections and at the edge of every elevated surface. Form controls are
+   the one exception: they take `outline` (#5F5F5F) so the
+   boundary clears SC 1.4.11 3:1.
 2. **Surface tint shift** — `ink` → `charcoal` → `grey-950`, each
    distinguishable only by a hairline, never by shadow or glow.
 3. **Weight and underline in type** — never shadow or blur.
@@ -319,10 +331,10 @@ The one allowed "depth" is the 1px hairline, and it counts as a border,
 not as a shadow. If a design choice needs an actual shadow to read, the
 design is wrong; rework it.
 
-### Hairline rules (`--rule`, `--rule-light`)
+### Hairline rules (`--rule`, `--rule-light`, `--rule-control`)
 
-Two named shorthands, both 1px, both in `border-rule` (#2A2A2A). They exist
-so a divider is never typed as a raw `border` declaration at the call site:
+Three named shorthands, all 1px. They exist so a border is never typed as a
+raw `border` declaration at the call site:
 
 - `rule` — `1px solid var(--border-rule)`. The standard divider: table rows,
   accordion edges, section breaks.
@@ -330,9 +342,15 @@ so a divider is never typed as a raw `border` declaration at the call site:
   `color-mix(in srgb, var(--border-rule) 100%, transparent)`. At 100% it
   renders identically to `rule`; the explicit form is what stops a future
   edit from quietly making a rule translucent without anyone deciding to.
+- `rule-control` — `1px solid var(--outline)`. The form-control boundary, and
+  the only shorthand not in `border-rule`. A decorative hairline is exempt
+  from WCAG SC 1.4.11; the boundary of an input is not, so a control boundary
+  has to clear **3:1** and `border-rule` (1.34:1) does not. Traces to
+  `colors.outline`.
 
-Neither is a Dimension, so neither can be a frontmatter key — see the note in
-the frontmatter. Both trace to `colors.border-rule`.
+None of the three is a Dimension, so none can be a frontmatter key — see the
+note in the frontmatter. `rule` and `rule-light` trace to
+`colors.border-rule`; `rule-control` traces to `colors.outline`.
 
 ## Shapes
 
@@ -371,8 +389,11 @@ has no place in a square-edged system.
 - **Disabled** — `primary` border, `grey-400` text, no fill.
 
 ### Forms
-- **Input** — charcoal background, hairline border, label-shadowed body
-  typography. Active field is distinguished by the underline (grey-400
+- **Input** — charcoal background, `outline` (#5F5F5F) 1px
+  boundary, body typography. `outline` is the control-boundary
+  token and is the minimum that clears SC 1.4.11 3:1 on the control's
+  own fill; `border-rule` is a divider token and is not a substitute.
+  Active field is distinguished by the underline (grey-400
   bottom edge), never by a box-shadow ring.
 - Labels sit above inputs in `label` typography.
 - Validation messages use grey-400 weight plus underline; never red text.
@@ -446,5 +467,7 @@ has no place in a square-edged system.
 - Don't ship large blocks of prose copy. Headlines ≤ 6 words, body
   sentences ≤ 16 words, microcopy ≤ 40 chars.
 - Don't use color to convey state. Weight + underline + border only.
+- Don't use `border-rule` as a form-control boundary. It is a divider
+  token; SC 1.4.11 exempts dividers, not the boundary of an input.
 - Don't fork the file into a per-page or per-section variant. The single
   `DESIGN.md` is the contract; component code consumes tokens by name.

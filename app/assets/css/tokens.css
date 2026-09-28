@@ -18,7 +18,11 @@
   --ink-black:    #000000; /* colors.ink */
   --charcoal:     #0E0E0E; /* colors.charcoal */
   --grey-950:     #1A1A1A; /* colors.grey-950 */
-  --border-rule:  #2A2A2A; /* colors.border-rule */
+  --border-rule:  #2A2A2A; /* colors.border-rule — dividers only, never a control boundary */
+  --outline:      #5F5F5F; /* colors.outline — form-control boundary. First grey step clearing
+                               WCAG SC 1.4.11 3:1 on every surface a control is filled with
+                               (3.02:1 on charcoal, 3.29:1 on ink). border-rule (1.34:1) and
+                               primary (2.89:1) both fail on charcoal, so neither can carry it. */
 
   /* Grey ramp — every value achromatic. */
   --primary:      #5C5C5C; /* colors.primary */
@@ -112,4 +116,7 @@
   --rule-light:  1px solid color-mix(in srgb, var(--border-rule) 100%, transparent);
                  /* rule-light — same hairline, explicit colour, colors.border-rule.
                     A shorthand border is not a Dimension, so it has no frontmatter key. */
+  --rule-control: 1px solid var(--outline);   /* rule-control — the form-control boundary,
+                    colors.outline. The one exception to the border-rule rule: a control
+                    boundary is not a decorative hairline, so SC 1.4.11 3:1 applies. */
 }
