@@ -323,7 +323,7 @@ body {
   flex: 1 1 14rem;
   min-width: 0;
   background: transparent;
-  border: 1px solid var(--border-rule);
+  border: 1px solid var(--outline);
   color: var(--bone);
   font: inherit;
   font-size: var(--text-lg);
