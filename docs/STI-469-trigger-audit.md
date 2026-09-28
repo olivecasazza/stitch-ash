@@ -104,6 +104,52 @@ over a longer window, which is a measurement, not a conclusion.
 `2026-09-28T01:55:20Z`, run `36367814346`. Both the number and the
 "all time" framing are corrected in `deploy.yml` by this PR.
 
+## 2a. Second firing: the backstop is load-bearing, measured
+
+Re-measured 2026-09-28T08:53Z, after §2 above was first written. A second
+schedule event has since been delivered, and it is the one that settles the
+question this file was written to leave open.
+
+```
+$ gh api "repos/olivecasazza/stitch-ash/actions/workflows/deploy.yml/runs?event=schedule" \
+    --jq '.workflow_runs[] | "\(.created_at) \(.conclusion) \(.head_sha[0:7]) run=\(.id)"'
+2026-09-28T08:31:30Z success fb5fe11 run=36397871109
+2026-09-28T01:55:20Z success 7e3c263 run=36367814346
+```
+
+Both are successful **deploys**, not no-op firings. The second one is
+attributable to no human or agent:
+
+```
+$ gh pr view 72 --json mergedAt,mergedBy,mergeCommit
+merged 2026-09-28T08:31:19Z by app/github-actions -> fb5fe11
+
+$ gh api "repos/olivecasazza/stitch-ash/actions/runs?head_sha=fb5fe1158..." \
+    --jq '.workflow_runs[] | "\(.created_at) \(.event) \(.name)"'
+2026-09-28T08:31:30Z schedule         Deploy to Cloudflare Pages
+2026-09-28T08:44:10Z workflow_run      Auto-merge
+```
+
+There is no `workflow_dispatch` run carrying `fb5fe11`, and the only deploy
+runs in 08:20Z–08:50Z are that cron and a later hand-dispatch of a different
+SHA (`b8bd6f2`). The cron picked up a GITHUB_TOKEN merge 11 seconds after it
+landed and published it unattended. That is precisely the case the backstop
+was added for, working.
+
+**What this changes, and what it does not.** The GM audit's claim that `on:
+schedule` is not honoured is falsified for the second time, with a stronger
+counter-example than the first. It does not establish a delivery *rate* — two
+observed firings against roughly twenty expected on the `*/30` cadence is still
+a small sample, and the un-attributable-cause caveat in §2 stands. What is no
+longer open is whether the mechanism works. It does.
+
+**Correction to §1's "auto coverage is 0 of 10".** Still true as measured at
+07:33Z, because every one of those deploys was hand-dispatched or deployed a
+SHA already 6 commits stale. It is no longer a statement about the pipeline's
+capability. The 08:31:30Z firing is the first deploy in the window that was
+neither hand-dispatched nor wasted, and it is the first datapoint for a
+coverage rate that will only become meaningful over the next day or two.
+
 ## 3. Answer to the question actually asked: do not plumb `repository_dispatch`
 
 The audit offers two routes. Both are declined, and a third is chosen.

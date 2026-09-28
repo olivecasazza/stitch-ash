@@ -73,10 +73,28 @@ on:
   #   * `on: pull_request: closed` — SUPPRESSED for a GITHUB_TOKEN merge. (PR
   #     #51, above.) Kept below because it does work for PAT merges, but it is
   #     not a bot-merge fix.
-  #   * `on: schedule` — 1 firing, measured 2026-09-28T07:33Z (run 36367814346,
-  #     01:55:20Z, head 7e3c263). STI-469 corrected the "0 firings, all time"
-  #     claim this line used to carry, which was wrong on both counts: the cron
-  #     is only 9.5h old, and it has fired. Not load-bearing — see below.
+  #   * `on: schedule` — 2 firings, both successful DEPLOYS of a bot-merge,
+  #     measured 2026-09-28T08:53Z: 01:55:20Z (run 36367814346, head 7e3c263)
+  #     and 08:31:30Z (run 36397871109, head fb5fe11). STI-469 corrected the
+  #     "0 firings, all time" claim this line used to carry, which was wrong on
+  #     both counts: the cron is only ~11h old, and it has fired.
+  #
+  #     The 08:31:30Z firing is the one that settles the question. It deployed
+  #     fb5fe11, which PR #72 merged at 08:31:19Z — ELEVEN SECONDS earlier, by
+  #     app/github-actions. `fb5fe11` has no workflow_dispatch run at all; the
+  #     only two runs carrying that head are this schedule run and the
+  #     Auto-merge workflow_run. Between 08:20Z and 08:50Z the sole deploy runs
+  #     are this cron and a later hand-dispatch of a different SHA (b8bd6f2).
+  #     So an unattended GITHUB_TOKEN merge was picked up and published with no
+  #     human or agent dispatching anything. The backstop is load-bearing for
+  #     exactly the case it was added for.
+  #
+  #     What remains unproven is DELIVERY reliability, not function: 2 observed
+  #     firings against ~20 expected on the */30 cadence. A cron that finds
+  #     nothing to do does still leave a run in history (`fresh-check` skips the
+  #     deploy, the run does not disappear), so absent runs are a real signal
+  #     here — but the sample is too small to attribute a cause, and the
+  #     GitHub API exposes none. Best-effort self-heal, not a guarantee.
   #   * `repository_dispatch` — the only untested mechanism, and the only one
   #     not suppressed for a GITHUB_TOKEN actor (nor is `workflow_dispatch`).
   #     NOTE: it does NOT require auto-merge.yml to replace native auto-merge.
@@ -98,12 +116,11 @@ on:
   # unbounded drift of a schedule that never fires at all.
   #
   # STI-469: the "never fires at all" in the line above is not supported by the
-  # record. One firing has been observed, 2026-09-28T01:55:20Z (run
-  # 36367814346). What is actually unproven is whether crons that find nothing
-  # to do still leave a run in history: `fresh-check` skips the deploy when main
-  # is already live, so a healed repo and a dropped cron are indistinguishable
-  # from `gh run list` alone. treat this as a best-effort self-heal of unproven
-  # reliability, not as a guarantee. See docs/STI-469-trigger-audit.md §2.
+  # record. Two firings have been observed, 2026-09-28T01:55:20Z (run
+  # 36367814346) and 2026-09-28T08:31:30Z (run 36397871109), and the second
+  # one deployed a bot-merge unattended — see the trigger list above. What is
+  # still unproven is the delivery rate, not the mechanism. See
+  # docs/STI-469-trigger-audit.md §2.
   schedule:
     - cron: '*/30 * * * *'
   workflow_dispatch: {}
@@ -204,9 +221,12 @@ jobs:
   # `skipped` on every run and its "fails open, so it can never be the reason
   # the site stays stale" property was never once exercised.
   #
-  # STI-469: that measurement is corrected in one place. One schedule event
-  # HAS been delivered, 2026-09-28T01:55:20Z (run 36367814346), and it did
-  # reach this job.
+  # STI-469: that measurement is corrected in one place. Two schedule events
+  # HAVE been delivered, 2026-09-28T01:55:20Z (run 36367814346) and
+  # 2026-09-28T08:31:30Z (run 36397871109), and both reached this job. The
+  # second is the important one: it ran `needed=true` and deployed a bot-merge
+  # that no dispatch had requested, which is the first time this gate's
+  # "fails open" property was exercised on a real unattended merge.
   #
   # It now runs on EVERY event that can deploy, so the drift signal is actually
   # observed and logged rather than being dead code. This is deliberately
