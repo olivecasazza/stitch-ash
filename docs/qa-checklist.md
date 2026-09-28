@@ -53,10 +53,12 @@ deployed preview in § 1 because the prohibited-string list may have
 changed since the last smoke cycle.
 
 `CUSTOMER_PATHS` (mirrored from the script — do not diverge without filing
-a Paperclip issue parented on [STI-232](/issues/STI-232)):
+a Paperclip issue parented on [STI-232](/issues/STI-232); the
+`app/app.config.ts` and `app/error.vue` entries were added by
+[STI-437](/issues/STI-437)):
 
 ```
-app/pages app/components app/layouts app/assets nuxt.config.ts
+app/pages app/components app/layouts app/assets nuxt.config.ts app/app.config.ts app/error.vue
 ```
 
 If the gate flags something on the live site, it is a regression and is
@@ -328,8 +330,9 @@ below.
    description — read it as the customer would, not as the author.
 2. **Confirm the file is in `CUSTOMER_PATHS`.** The allowed paths are
    `app/pages`, `app/components`, `app/layouts`, `app/assets`,
-   `nuxt.config.ts`. If the hit is in `app/server/`, `scripts/`, `src/`,
-   `docs/`, `app/middleware/`, or anywhere else, the gate was wrong:
+   `nuxt.config.ts`, `app/app.config.ts`, `app/error.vue`. If the hit is
+   in `app/server/`, `scripts/`, `src/`, `docs/`,
+   `app/middleware/`, or anywhere else, the gate was wrong:
    skip the bounce and file a Paperclip issue parented on
    [STI-232](/issues/STI-232) with the pattern description so the
    script can be tightened. **Do not patch the script in the same

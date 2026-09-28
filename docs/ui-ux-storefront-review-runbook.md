@@ -179,13 +179,16 @@ whose prescribed fix was itself a QR-1 regression.
      exact phrase and the justification; the CTO owns the catalog.
    - Bounce the PR until the CTO rules.
 
-> **Verified gap, 2026-09-27.** `scripts/ci/no-internal-copy-in-storefront.sh`
-> sets `CUSTOMER_PATHS="app/pages app/components app/layouts app/assets
-> nuxt.config.ts"`. It does **not** cover `app/app.config.ts` or `app/error.vue`,
-> both of which are customer-visible and both of which are in this runbook's
-> trigger list. The `DEVELOPING-storefront.md` scope line and the gate's actual
-> surface have therefore drifted. A fix PR is filed as a follow-up; until it
-> lands, the reviewer greps those two paths by hand during 6a.
+> **Gap closed, 2026-09-28 ([STI-437](/issues/STI-437)).** This runbook previously
+> recorded a verified gap: `scripts/ci/no-internal-copy-in-storefront.sh` set
+> `CUSTOMER_PATHS="app/pages app/components app/layouts app/assets
+> nuxt.config.ts"` and therefore did **not** cover `app/app.config.ts` or
+> `app/error.vue`, even though both are customer-visible and both are in the
+> trigger list above. STI-437 appended both paths, so the gate's surface and the
+> documented scope now match. **The hand-grep workaround during 6a is no longer
+> required** — the gate covers them. A leak in either file is now a real gate
+> failure, not a scope gap, and is triaged as case 1 above. The `PROHIBITED`
+> catalog was not touched by that change and remains CTO-owned.
 
 ## Quick-reference decision tree
 
