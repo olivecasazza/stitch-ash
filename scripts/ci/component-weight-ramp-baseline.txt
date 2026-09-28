@@ -1,0 +1,50 @@
+# scripts/ci/component-weight-ramp-baseline.txt
+#
+# The known-open violations of scripts/ci/component-weight-ramp-gate.sh, one
+# per line, as `path::selector::property::value`.
+#
+# This is a RATCHET, not an allowlist. It records what is already broken so the
+# gate can land green and still fail the PR that introduces the NEXT violation.
+# An entry is deleted in the same PR that fixes the violation; the gate errors
+# if an entry stops matching anything, so this file cannot quietly become a
+# graveyard. Widening it to make a new violation pass is the thing it exists to
+# prevent — a legitimate new weight goes into DESIGN.md's `typography:` first,
+# which is design-lead's call, not this file's.
+#
+# Every entry below is owned by STI-515. None of them are fixed by STI-516,
+# because a new CI gate and a batch of visual edits must not land in one PR.
+#
+# SCOPE, stated honestly so nobody assumes coverage that does not exist. This
+# gate is TIER 1 of the three STI-516 describes, and it is the only tier that
+# ships. It is green iff the weight ramp is respected.
+#
+#   Tier 1 (SHIPPED HERE) — a literal `font-weight` / weight-leading `font:`
+#                         shorthand outside DESIGN.md's `typography:` ramp.
+#   Tier 2 (DEFERRED)    — raw literals on the 4px grid or the type steps,
+#                         e.g. `font-size: 0.7rem` on `.cart-pill__count`, or a
+#                         raw `padding: 12px` where a `--space-*` step exists.
+#                         Needs an allowlist for genuinely one-off values, or it
+#                         produces false positives.
+#   Tier 3 (DEFERRED)    — selector -> `components:` token diffing. Would have
+#                         caught STI-486's F1 and F3, a `transparent` background
+#                         where `components.input.backgroundColor` declares
+#                         charcoal. Needs a hand-maintained mapping file.
+#
+# Also NOT covered, deliberately: `font-weight="600"` as an SVG presentation
+# attribute on a <text> element. That is markup, not a CSS declaration. The
+# gate prints those as an ADVISORY on every run so they stay visible, and two
+# exist today (Header.vue, index.vue). `bolder` / `lighter` are relative
+# weights and cannot be checked against a closed set, so they are not checked.
+
+# --- STI-515, item 1: components.price maps to typography.numeric / text-xl ---
+app/pages/product/[handle].vue::.pdp__price::font-weight::600
+# --- STI-515, item 2: components.button-primary maps to typography.label ---
+app/pages/product/[handle].vue::.pdp__atc-btn::font-weight::600
+# --- STI-515, item 3: components.badge maps to typography.label (500) ---
+app/components/Badge.vue::.badge::font-weight::600
+# --- STI-515, item 3, second declaration: the cascade decides, so both must go ---
+app/assets/css/global.css::.badge::font-weight::600
+# --- STI-515, item 4: .accordion__summary needs a design-lead token decision ---
+app/components/DetailsAccordion.vue::.accordion__summary::font-weight::600
+# --- STI-515, item 5: .cart-pill__count traces to no DESIGN.md token at all ---
+app/components/Header.vue::.cart-pill__count::font-weight::600
