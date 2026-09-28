@@ -12,6 +12,12 @@ filled report existed.
 > the two open operator asks, and the two reporting dependencies now cite the
 > issues that actually track them. **No number, measurement, or attribution in
 > this report changed** — every figure below is as originally published.
+>
+> **Second pointer correction, same day.** The Section 6 `og:image` row labelled
+> [STI-439](/STI/issues/STI-439) `closed`; that ticket is `in_progress`. Only its
+> `og:image` item is resolved — the same ticket also carries the photography
+> and lead-time items, which are open. Again a status label, again no number
+> changed. Both corrections are re-fetched against the API on 2026-09-28.
 
 Structure and the binding provenance rules are defined in
 `docs/merch/2026-09-27-kpi-report-template.md` and are not restated here.
@@ -218,9 +224,9 @@ Verified state as of 2026-09-28.
 | Admin channel lock (blocks reporting) | OPEN | [STI-457](/STI/issues/STI-457) | operator |
 | No Admin read path for the KPI (blocks reporting) | OPEN | [STI-418](/STI/issues/STI-418) `in_review` | operator, via GM |
 | **Product photography missing, all 3 SKUs** | **OPEN** | `featuredImage` absent from live Storefront data; PDP renders an SVG mark (`aria-label="Embroidered Hoodie"`), **zero `<img>` elements** | design-lead — [STI-309](/STI/issues/STI-309) |
-| Hoodie landed-cost quote outstanding | OPEN — hoodie pricing provisional | ceiling $86.83 vs $75 base estimate | merch-lead / supplier |
+| Hoodie landed-cost quote outstanding | OPEN — hoodie pricing provisional | ceiling $86.83 vs $75 base estimate | supplier via operator ask — [STI-418](/STI/issues/STI-418) |
 | No analytics tag before launch traffic | OPEN | [STI-419](/STI/issues/STI-419) | storefront-lead |
-| ~~`og:image` served a third-party demo logo~~ | **RESOLVED this period** | `og:image` → `https://preview.stitch-ash.com/og-brand-card.png` on `/` and on PDP; asset fetches `HTTP 200`, `20987` bytes, `image/png` | closed ([STI-439](/STI/issues/STI-439)) |
+| ~~`og:image` served a third-party demo logo~~ | **RESOLVED this period** | `og:image` → `https://preview.stitch-ash.com/og-brand-card.png` on `/` and on PDP; asset fetches `HTTP 200`, `20987` bytes, `image/png` | og:image item resolved; [STI-439](/STI/issues/STI-439) `in_progress` for the remaining items (photography, lead-time) |
 
 Photography is worth restating as a **conversion** risk rather than a
 cosmetic one. A brand selling a $185 garment that has never been photographed
