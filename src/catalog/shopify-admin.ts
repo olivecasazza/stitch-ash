@@ -5,6 +5,8 @@ import type {
   ProductDiff,
   ShopifyCollection,
   ShopifyProduct,
+  ShopifyShippingProfile,
+  ShopifyShippingZone,
   ShopifyVariant,
 } from "./schema.js";
 
@@ -448,4 +450,118 @@ export async function applyCollection(
   if (!result.collection) throw new Error("Shopify collection mutation returned no collection");
 
   return result.collection.id;
+}
+
+/**
+ * STI-507: read the store's live delivery profile.
+ *
+ * Field shapes here were discovered from the 2026-04 schema rather than
+ * assumed, because the obvious guess is wrong in four separate ways:
+ * `DeliveryProfile` has no `active` field, `profileItems` is a connection
+ * rather than a list, `DeliveryCountryCodeOrRestOfWorld` has no scalar `code`,
+ * and the fixed fee lives on the `DeliveryRateProvider` union under the
+ * `DeliveryParticipant` member (selections cannot be made directly on the
+ * union). A wrong guess here returns HTTP 200 with a GraphQL `errors` payload
+ * — which is exactly the silent-failure shape that STI-484 fixed for orders.
+ *
+ * A rate with no fixed fee (rate-derived or carrier-calculated) is reported as
+ * `price: null`. It is deliberately NOT reported as "0.00".
+ */
+export const DELIVERY_PROFILE_QUERY = `
+  query getDeliveryProfiles {
+    deliveryProfiles(first: 10) {
+      nodes {
+        id
+        name
+        default
+        profileItems(first: 50) { nodes { product { handle } } }
+        profileLocationGroups {
+          locationGroup { id }
+          locationGroupZones(first: 50) {
+            nodes {
+              zone {
+                name
+                countries { code { countryCode restOfWorld } }
+              }
+              methodDefinitions(first: 20) {
+                nodes {
+                  id
+                  name
+                  active
+                  rateProvider {
+                    ... on DeliveryParticipant {
+                      fixedFee { amount currencyCode }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+export async function getDeliveryProfiles(client: AdminClient): Promise<ShopifyShippingProfile[]> {
+  const data = await shopifyAdminFetch(client, DELIVERY_PROFILE_QUERY) as {
+    deliveryProfiles: {
+      nodes: {
+        id: string;
+        name: string;
+        default: boolean;
+        profileItems: { nodes: { product: { handle: string } }[] };
+        profileLocationGroups: {
+          locationGroup: { id: string };
+          locationGroupZones: {
+            nodes: {
+              zone: { name: string; countries: { code: { countryCode: string | null; restOfWorld: boolean } }[] };
+              methodDefinitions: {
+                nodes: {
+                  id: string;
+                  name: string;
+                  active: boolean;
+                  rateProvider?: { fixedFee?: { amount: string; currencyCode: string } | null } | null;
+                }[];
+              };
+            }[];
+          };
+        }[];
+      }[];
+    };
+  };
+
+  return data.deliveryProfiles.nodes.map(node => {
+    const zones: ShopifyShippingZone[] = [];
+    for (const group of node.profileLocationGroups) {
+      for (const zoneNode of group.locationGroupZones.nodes) {
+        const countryCodes: string[] = [];
+        let restOfWorld = false;
+        for (const country of zoneNode.zone.countries) {
+          if (country.code.countryCode) countryCodes.push(country.code.countryCode);
+          if (country.code.restOfWorld) restOfWorld = true;
+        }
+        zones.push({
+          name: zoneNode.zone.name,
+          countryCodes,
+          restOfWorld,
+          methods: zoneNode.methodDefinitions.nodes.map(method => ({
+            name: method.name,
+            active: method.active,
+            // A derived/carrier-calculated rate has no fixedFee. Reporting
+            // null keeps "unknown" distinguishable from "free".
+            price: method.rateProvider?.fixedFee?.amount ?? null,
+            currency: method.rateProvider?.fixedFee?.currencyCode ?? null,
+          })),
+        });
+      }
+    }
+
+    return {
+      profileName: node.name,
+      isDefault: node.default,
+      productHandles: node.profileItems.nodes.map(item => item.product.handle).sort(),
+      zones,
+    };
+  });
 }

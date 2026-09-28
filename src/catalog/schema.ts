@@ -100,6 +100,37 @@ export interface ProductDiff {
   actions: string[];
 }
 
+/**
+ * STI-507: the store's live delivery profile, as read from the Admin API.
+ *
+ * `methods` is the set of delivery options actually offered in a zone. A
+ * `null` price means the rate is not a fixed fee the Admin API will report
+ * (rate-derived or carrier-calculated); it is NOT the same as "0.00", and
+ * diffShipping keeps the two distinguishable so a derived rate can never be
+ * mistaken for a free one.
+ */
+export interface ShopifyShippingZone {
+  name: string;
+  countryCodes: string[];
+  restOfWorld: boolean;
+  methods: { name: string; active: boolean; price: string | null; currency: string | null }[];
+}
+
+export interface ShopifyShippingProfile {
+  profileName: string;
+  isDefault: boolean;
+  productHandles: string[];
+  zones: ShopifyShippingZone[];
+}
+
+export interface ShippingDiff {
+  policy: ShippingPolicy;
+  remote: ShopifyShippingProfile | null;
+  actions: string[];
+  /** Human-readable record of what was actually compared, for the plan body. */
+  notes: string[];
+}
+
 export interface CollectionDiff {
   collection: CatalogCollection;
   remote: ShopifyCollection | null;
