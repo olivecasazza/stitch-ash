@@ -29,6 +29,11 @@ export default defineNuxtConfig({
 
             clients: {
                 storefront: {
+                    // STI-319 / STI-428: mock MUST stay false. The storefront
+                    // serves live Shopify data through the public Storefront
+                    // token. Do NOT "restore" mock: true to match a document —
+                    // that breaks the live data path and the working cart.
+                    // See docs/decisions/2026-09-27-data-provenance-baseline.md.
                     mock: false,
                     apiVersion: '2026-04',
                     publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? '',
