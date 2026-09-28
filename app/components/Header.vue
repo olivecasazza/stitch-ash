@@ -120,13 +120,29 @@ const { quantity, open } = useCart()
   outline: none;
 }
 
-  /* typography.numeric — tabular figures on every count. Shipped 0.7rem (a
-     literal that traces to no type step) and 600 (a weight the ramp never
-     declares). Stepped down to --text-xs (11px) so the numeral stays on the
-     ramp: --text-base (13px, the token's own size) is taller than the 1.4em
-     box it sits in. DESIGN.md declares no components: token for this count
-     chip and the class is not minted in tokens.css, so no mirror ships here;
-     design-lead's token decision is tracked on STI-521. */
+  /* components.cart-pill-count — backgroundColor colors.ink, textColor
+     colors.bone, typography.numeric (500 / 0.8125rem / 1.4 / 0em / 'tnum' 1),
+     rounded.none (STI-521).
+
+     `numeric` and not `label` because a bare integer must be tabular or the
+     digit jitters as it changes between 9 and 10.
+
+     The full 13px step is used here, NOT the 11px STI-515 shipped. That
+     change stepped the size DOWN to fit `min-width: 1.4em` / `height: 1.4em`,
+     which is not a fixed box: `em` resolves against the chip's own font-size,
+     so the box scales with the type and stays valid at any step. The step down
+     was solving a non-problem, and it had the side effect of putting the
+     numeral on `label`'s size while keeping `numeric`'s tabular figures —
+     the worst of both. `--text-base` is the size `typography.numeric` actually
+     declares.
+
+     Shipped before either: a `0.7rem` literal tracing to no type step at all,
+     and a weight of 600, which the ramp never declares (400 or 500, nothing
+     else). Deliberately described in prose rather than as a property/value
+     pair: STI-515's definition of done asks for a raw grep of app/ for
+     off-ramp weight literals to return zero hits, and a comment that quotes
+     the old declaration would read as a live violation to anyone running that
+     sweep by hand. */
   .cart-pill__count {
     display: inline-flex;
     align-items: center;
@@ -134,7 +150,7 @@ const { quantity, open } = useCart()
     min-width: 1.4em;
     height: 1.4em;
     padding-inline: 4px;
-    font-size: var(--text-xs);
+    font-size: var(--text-base);
     font-weight: 500;
     font-feature-settings: "tnum" 1;
     background: var(--ink-black);

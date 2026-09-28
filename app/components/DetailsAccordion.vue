@@ -38,14 +38,31 @@ defineProps<{
     margin-top: 0;
   }
 
-  /* components.accordion-body declares typography.body-sm for the panel; the
-     <summary> is a different element and DESIGN.md gives it no token of its
-     own. typography.body-sm is used here — the nearest declared ramp step
-     for 12px tracked copy — rather than editing DESIGN.md from the component
-     side (STI-515 F4). Shipped 600 / 0.08em: 600 is a weight the ramp never
-     declares (400 or 500, nothing else). design-lead owns the question of
-     whether the summary wants its own components: entry or is covered by
-     accordion-body; tracked on STI-521. */
+  /* components.accordion-summary — textColor colors.bone, typography.label
+     (JetBrains Mono 500 / 0.6875rem / 1.3 / 0.12em), rounded.none (STI-521).
+
+     The <summary> is a DISCLOSURE CONTROL, not body copy, and is deliberately
+     NOT covered by components.accordion-body. The panel it opens is body-sm at
+     400; a 400-weight trigger under a 400-weight panel means the panel
+     outweighs its own trigger, so the trigger has to be the heavier of the
+     two. That is the same control-voice step badges, buttons and form labels
+     use.
+
+     Supersedes STI-515, which landed this on typography.body-sm (400 /
+     0.75rem / 0.02em) as a temporary nearest-step landing while DESIGN.md had
+     no token for the element at all. That guess was wrong on both axes —
+     weight and size — and design-lead declared the real one.
+
+     `font-size` therefore narrows from --text-sm (12px) to --text-xs (11px).
+     That is intended: controls are 11px tracked uppercase in this system. It
+     is still a visible change, so it is called out for the three-viewport
+     visual review rather than left to be noticed later.
+
+     `color: var(--bone)` is now on-token via accordion-summary.textColor;
+     it was already correct and only gained a citation.
+
+     Shipped before both: 600 / 0.08em — 600 is a weight the ramp never
+     declares (400 or 500, nothing else). */
   .accordion__summary {
     display: flex;
     align-items: center;
@@ -54,10 +71,10 @@ defineProps<{
     padding-block: var(--space-md);
     cursor: pointer;
     list-style: none;
-    font-size: var(--text-sm);
-    line-height: 1.5;
-    font-weight: 400;
-    letter-spacing: 0.02em;
+    font-size: var(--text-xs);
+    line-height: 1.3;
+    font-weight: 500;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--bone);
     transition: color var(--transition-base);
