@@ -66,6 +66,12 @@ jobs:
   # weeks — caught by the STI-423 daily drift run, but nothing prevented them.
   # This gate makes the top-down chain mechanical: every property in tokens.css
   # must name a token DESIGN.md really declares, and DESIGN.md must lint clean.
+  #
+  # STI-459: the gate above proves a property is *documented*. This step proves
+  # the mirrored *value* still equals the DESIGN.md value, by mutating a copy
+  # of the tree into a known drift and asserting the gate rejects it. Without
+  # it, a check that silently compared nothing would look identical to a clean
+  # run — the STI-450 defect.
   token-drift-gate:
     runs-on: ubuntu-latest
     permissions:
@@ -81,3 +87,6 @@ jobs:
 
       - name: Run token drift gate
         run: ./scripts/ci/token-drift-gate.sh
+
+      - name: Prove the drift gate detects a value divergence
+        run: ./scripts/ci/token-drift-gate-test.sh
