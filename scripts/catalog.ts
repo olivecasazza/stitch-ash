@@ -110,7 +110,11 @@ async function main() {
       shippingDrift.push("shipping: store returned no delivery profiles");
     } else {
       for (const policy of shippingPolicies) {
-        const diff = diffShipping(policy, liveProfile);
+        // The catalog's own handles are passed in so a product that is in no
+        // delivery profile is reported. Comparing only the profile's zones
+        // cannot see that gap, and an unbuyable product is worse drift than a
+        // mispriced rate.
+        const diff = diffShipping(policy, liveProfile, products.map(p => p.handle));
         for (const note of diff.notes) console.log(`shipping: ${note}`);
         if (diff.actions.length === 0) {
           console.log(`shipping: ${policy.id}: no changes`);
