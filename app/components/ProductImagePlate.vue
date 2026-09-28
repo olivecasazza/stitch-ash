@@ -22,6 +22,16 @@ import { resolveProductMark, type ProductMark } from '~/utils/product-mark'
  * When real photography lands, `src` is populated and this component stops
  * rendering at all — the same single place decides, not a check per route.
  *
+ * STI-547. There is exactly ONE caption on this plate: the house line. A second
+ * sub-caption, announcing that product photography was still pending, shipped on
+ * every card and every PDP — production-pipeline status rendered as
+ * customer-facing text next to a price, which is what the no-internal-copy gate
+ * exists to prevent. That the photography is missing is real, but it is true of
+ * the whole catalog and belongs to
+ * `docs/decisions/2026-09-27-data-provenance-baseline.md`, not on a product card.
+ * The plate plus its one line is what DESIGN.md specifies; do not add a second
+ * line back without a DESIGN.md change to sanction it.
+ *
  * Per product, not one art for all: `mark` picks the silhouette, so a Lanyard
  * card can never picture a hoodie.
  */
@@ -106,7 +116,6 @@ const resolvedMark = computed(() => resolveProductMark(props.mark, props.name, p
       </g>
 
       <text x="300" y="640" class="product-plate__caption">EMBROIDERY, NOT PRINT</text>
-      <text x="300" y="694" class="product-plate__caption product-plate__caption--sub">PHOTOGRAPHY IN PROGRESS</text>
     </svg>
   </div>
 </template>
@@ -158,12 +167,5 @@ const resolvedMark = computed(() => resolveProductMark(props.mark, props.name, p
   font-size: 20px;
   letter-spacing: 0.12em;
   text-anchor: middle;
-}
-/* components.badge — typography.label (500 / 0.6875rem / 1.3 / 0.12em), so
-   the sub-caption is a tracked uppercase label step down from the house line. */
-.product-plate__caption--sub {
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
 }
 </style>
