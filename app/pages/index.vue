@@ -30,7 +30,7 @@ useSeoMeta({
             font-family="'JetBrains Mono', monospace"
             font-size="76"
             letter-spacing="4"
-            font-weight="600"
+            font-weight="500"
           >STITCH &amp; ASH</text>
         </svg>
       </h1>

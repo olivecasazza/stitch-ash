@@ -323,12 +323,21 @@ useSeoMeta({
     text-wrap: balance;
   }
 
+  /* components.price — textColor colors.grey-200, typography.numeric
+     (500 / 0.8125rem / 1.4 / 0em / 'tnum' 1) with the --text-xl step (500 /
+     1.25rem / 1.15 / 0em) for the PDP's display-sized price. Shipped 600,
+     --bone and 0.03em: 600 is a weight the ramp never declares (400 or 500,
+     nothing else), --bone is components.card.textColor, and 0.03em is on no
+     step (STI-515 F1). STI-486 recorded this selector as card-only; the split
+     "$" span was the only card defect that happened not to be a defect here,
+     so the token drift on this element was never fixed. */
   .pdp__price {
     margin: 0;
     font-size: var(--text-xl);
-    font-weight: 600;
-    color: var(--bone);
-    letter-spacing: 0.03em;
+    line-height: 1.15;
+    font-weight: 500;
+    color: var(--grey-200);
+    letter-spacing: 0em;
     font-feature-settings: "tnum" 1;
   }
 
@@ -367,14 +376,24 @@ useSeoMeta({
     margin-inline-end: 0.5ch;
   }
 
+  /* components.button-primary / components.button-disabled — white fill, ink
+     text, typography.label (500 / 0.6875rem / 1.3 / 0.12em), rounded.none,
+     padding 12px 16px. Shipped 600 / 0.08em, the same pair STI-486 fixed on
+     .btn-primary and .signup button; this button was missed because the
+     primary-CTA style is not in global.css (STI-515 F2). The page's body
+     stylesheet sets `font: inherit`, so without the label step the button
+     inherited the PDP's base weight and size — both off-token. */
   .pdp__atc-btn {
     width: 100%;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     font: inherit;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    line-height: 1.3;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     padding: var(--space-md) var(--space-lg);
     cursor: pointer;
