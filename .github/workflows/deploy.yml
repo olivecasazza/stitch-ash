@@ -73,15 +73,19 @@ on:
   #   * `on: pull_request: closed` — SUPPRESSED for a GITHUB_TOKEN merge. (PR
   #     #51, above.) Kept below because it does work for PAT merges, but it is
   #     not a bot-merge fix.
-  #   * `on: schedule` — 0 firings, all time, before and after coarsening to
-  #     */30. Not load-bearing; see below.
-  #   * `repository_dispatch` — the only untested mechanism, and now the only
-  #     candidate, because it is NOT suppressed for a GITHUB_TOKEN actor (nor is
-  #     `workflow_dispatch`). It requires auto-merge.yml to perform the merge
-  #     itself via the contents API rather than arming native auto-merge, so that
-  #     a dispatch carrying the real merge SHA can be issued after the merge
-  #     commit exists. That changes how merges happen on this repo and needs a
-  #     reviewer's decision; it is deliberately NOT implemented unilaterally.
+  #   * `on: schedule` — 1 firing, measured 2026-09-28T07:33Z (run 36367814346,
+  #     01:55:20Z, head 7e3c263). STI-469 corrected the "0 firings, all time"
+  #     claim this line used to carry, which was wrong on both counts: the cron
+  #     is only 9.5h old, and it has fired. Not load-bearing — see below.
+  #   * `repository_dispatch` — the only untested mechanism, and the only one
+  #     not suppressed for a GITHUB_TOKEN actor (nor is `workflow_dispatch`).
+  #     NOTE: it does NOT require auto-merge.yml to replace native auto-merge.
+  #     STI-469 evaluated that variant and declined it: the native merge can
+  #     stay exactly as it is, and auto-merge.yml can dispatch the post-merge
+  #     SHA once the merge commit exists. Keeping the merge and adding the
+  #     dispatch is strictly less work than taking the merge over. Tracked in
+  #     docs/STI-469-trigger-audit.md §3; the plumbing is deliberately NOT
+  #     implemented unilaterally because it changes merge automation repo-wide.
   pull_request:
     types: [closed]
   # The schedule is a BACKSTOP, not the primary trigger. STI-434 measured zero
@@ -92,6 +96,14 @@ on:
   # Coarsened to */30 because high-frequency crons are the ones GitHub drops
   # under load; a bounded 30-minute self-heal is strictly better than the
   # unbounded drift of a schedule that never fires at all.
+  #
+  # STI-469: the "never fires at all" in the line above is not supported by the
+  # record. One firing has been observed, 2026-09-28T01:55:20Z (run
+  # 36367814346). What is actually unproven is whether crons that find nothing
+  # to do still leave a run in history: `fresh-check` skips the deploy when main
+  # is already live, so a healed repo and a dropped cron are indistinguishable
+  # from `gh run list` alone. treat this as a best-effort self-heal of unproven
+  # reliability, not as a guarantee. See docs/STI-469-trigger-audit.md §2.
   schedule:
     - cron: '*/30 * * * *'
   workflow_dispatch: {}
@@ -186,11 +198,15 @@ jobs:
   # (first run after this change lands, API blip, missing permission) fails
   # OPEN and deploys, so the gate can never be the reason the site stays stale.
   # STI-434: this job used to be gated `if: github.event_name == 'schedule'`.
-  # Because GitHub has never delivered a single schedule event to this repo
-  # (0 of 484 runs, verified through the raw API rather than the `gh run list
-  # --event` filter), that gate made the job permanently unreachable: it
-  # reported `skipped` on every run and its "fails open, so it can never be the
-  # reason the site stays stale" property was never once exercised.
+  # Because GitHub had delivered no schedule event to this repo at the time
+  # (verified through the raw API rather than the `gh run list --event`
+  # filter), that gate made the job permanently unreachable: it reported
+  # `skipped` on every run and its "fails open, so it can never be the reason
+  # the site stays stale" property was never once exercised.
+  #
+  # STI-469: that measurement is corrected in one place. One schedule event
+  # HAS been delivered, 2026-09-28T01:55:20Z (run 36367814346), and it did
+  # reach this job.
   #
   # It now runs on EVERY event that can deploy, so the drift signal is actually
   # observed and logged rather than being dead code. This is deliberately
