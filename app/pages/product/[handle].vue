@@ -128,25 +128,13 @@ useSeoMeta({
           :selected-variant="selectedVariant"
           :thumbnails="true"
         />
-        <div v-else class="pdp__image-fallback">
-          <svg
-            viewBox="0 0 600 750"
-            xmlns="http://www.w3.org/2000/svg"
-            :aria-label="`${displayName} — product photograph not yet available`"
-            role="img"
-            class="pdp__fallback-svg"
-          >
-            <rect width="600" height="750" class="pdp__plate-bg" />
-            <rect x="1" y="1" width="598" height="748" class="pdp__plate-hairline" />
-            <g class="pdp__plate-mark">
-              <path d="M232 214 L300 178 L368 214 L344 246 L300 222 L256 246 Z" />
-              <path d="M232 214 L214 250 L214 566 L386 566 L386 250 L368 214 L344 246 L300 222 L256 246 Z" />
-              <path d="M214 300 L140 340 L140 470 L196 452 L196 560 L214 566 Z" />
-              <path d="M386 300 L460 340 L460 470 L404 452 L404 560 L386 566 Z" />
-            </g>
-            <text x="300" y="640" class="pdp__plate-caption">EMBROIDERY, NOT PRINT</text>
-          </svg>
-        </div>
+        <ProductImagePlate
+          v-else
+          :alt="`${displayName}`"
+          :mark="staticProduct?.mark"
+          :name="displayName"
+          :handle="staticProduct?.handle"
+        />
       </div>
 
       <!-- RIGHT: Product info + checkout/waitlist -->
@@ -242,42 +230,10 @@ useSeoMeta({
     max-width: 36rem;
   }
 
-  .pdp__image-fallback {
-    position: relative;
-    aspect-ratio: 4 / 5;
-    overflow: hidden;
-    background: var(--ink-black);
-  }
-
-  .pdp__fallback-svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-
-  /* Fallback plate. DESIGN.md grey-950 is the documented "image fallback plate"
-     tone; the hairline is border-rule. Values live here rather than as SVG
-     attributes so the plate cannot drift off-token. */
-  .pdp__plate-bg {
-    fill: var(--grey-950);
-  }
-  .pdp__plate-hairline {
-    fill: none;
-    stroke: var(--border-rule);
-    stroke-width: 1;
-  }
-  .pdp__plate-mark {
-    fill: none;
-    stroke: var(--primary);
-    stroke-width: 2;
-  }
-  .pdp__plate-caption {
-    fill: var(--grey-400);
-    font-family: var(--font-mono);
-    font-size: 20px;
-    letter-spacing: 0.12em;
-    text-anchor: middle;
-  }
+  /* STI-541: `.pdp__image-fallback`, `.pdp__fallback-svg` and the
+     `.pdp__plate-*` rules were this page's private copy of the product image
+     plate. The plate is app/components/ProductImagePlate.vue now, so a PDP can
+     no longer ship different art from the product card beside it. */
 
   /* Info panel — center title and supporting text on mobile,
      switch to left-align on desktop so the price/description read naturally. */

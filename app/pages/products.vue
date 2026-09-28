@@ -23,6 +23,8 @@ useSeoMeta({
           :note="p.embroideryCopy"
           :image-src="p.imageSrc"
           :image-alt="p.imageAlt"
+          :mark="p.mark"
+          :handle="p.handle"
         />
       </div>
     </section>

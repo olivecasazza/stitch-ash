@@ -89,6 +89,7 @@ const { data: products } = await useStorefrontData(key, `#graphql
             :price="product.priceRange?.minVariantPrice?.amount ?? ''"
             :image-src="product.featuredImage?.url"
             :image-alt="product.featuredImage?.altText ?? product.title"
+            :handle="product.handle"
             :loading="index < 3 ? props.loading : 'lazy'"
         />
     </UCarousel>

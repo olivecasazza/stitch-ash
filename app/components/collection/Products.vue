@@ -131,6 +131,7 @@ watch(() => collection.value?.products.pageInfo, async () => await nextTick().th
                     :price="product.priceRange?.minVariantPrice?.amount ?? ''"
                     :image-src="product.featuredImage?.url"
                     :image-alt="product.featuredImage?.altText ?? product.title"
+                    :handle="product.handle"
                     class="pb-14 border-b border-b-default"
                     :loading="index < 3 ? 'eager' : 'lazy'"
                 />
