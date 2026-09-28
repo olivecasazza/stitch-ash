@@ -223,17 +223,11 @@ body {
   opacity: 1;
 }
 
-.product-card__image-fallback {
-  position: absolute;
-  inset: 0;
-  background: var(--ink-black);
-}
-
-.product-card__fallback-svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
+/* STI-541: the product image plate moved to app/components/ProductImagePlate.vue.
+   The `.product-card__image-fallback` / `__fallback-svg` / `__plate-*` rules
+   that used to live here were the card's private copy of that art. They are
+   deleted, not relocated: the plate is one component now, so a card cannot
+   drift from the PDP again. */
 
 .product-card__body {
   display: flex;
