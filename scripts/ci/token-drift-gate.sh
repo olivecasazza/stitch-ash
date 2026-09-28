@@ -189,15 +189,31 @@ fm = m.group(1) if m else ""
 def section_values(name):
     """key -> raw scalar value for a top-level `name:` block in the frontmatter.
 
-    Returns only keys whose value is a plain scalar (`key: "value"`). Keys
-    holding an inline map — the `typography:` roles and every `components:`
-    entry — are not literal values and are not comparable this way.
+    Returns only keys whose value is a plain scalar (`key: "value"`) and which
+    sit at the section's top level. Keys holding an inline map — the
+    `typography:` roles and every `components:` entry — are not literal values
+    and are not comparable this way.
+
+    The indent is captured in the pattern and back-referenced, so a nested
+    member is not mistaken for a top-level key. Without this, `components:`
+    yields the bogus keys backgroundColor/textColor/typography/rounded/padding
+    (STI-462 finding 5): harmless only because `components` happens to be
+    excluded from COMPARABLE_SECTIONS, which is a trap for whoever adds it.
     """
     out = {}
-    m = re.search(rf"^{re.escape(name)}:\n((?:[ \t]+.*\n?|\n)*)", fm, re.M)
+    m = re.search(rf"^{re.escape(name)}:\n((?P<body>(?:[ \t]+.*\n?|\n)*))", fm, re.M)
     if not m:
         return out
-    for line in m.group(1).splitlines():
+    body = m.group("body")
+    km = re.match(r"^(?P<i>[ \t]+)", body.splitlines()[0] if body.splitlines() else "")
+    if not km:
+        return out
+    indent = km.group("i")
+    for line in body.splitlines():
+        # Same indent as the section's first child => a direct child key.
+        im = re.match(r"^([ \t]+)", line)
+        if not im or im.group(1) != indent:
+            continue
         km = re.match(r'^[ \t]+([A-Za-z0-9_"\'-]+):[ \t]+("[^"]*"|\'[^\']*\'|[^,{\s]+)[ \t]*$', line)
         if km:
             out[km.group(1).strip('"\'')] = km.group(2).strip('"\'')
@@ -273,10 +289,8 @@ for mm in re.finditer(r"--([A-Za-z0-9_-]+)\s*:\s*([^;{}]*);", masked):
 # --text-display is deliberately absent: it is a clamp() with no typography:
 # key, and is covered by the explicit skip list below.
 FONT_SIZE_KEYS = [
-    ("text-xs", "0.6875rem"), ("text-sm", "0.75rem"),
-    ("text-base", "0.8125rem"), ("text-lg", "0.9375rem"),
-    ("text-xl", "1.25rem"), ("text-2xl", "1.75rem"),
-    ("text-3xl", "2.5rem"),
+    "text-xs", "text-sm", "text-base", "text-lg",
+    "text-xl", "text-2xl", "text-3xl",
 ]
 
 
@@ -301,22 +315,25 @@ skipped = []
 mismatches = []
 
 _typography = typography_font_sizes()
-# Fall back to the documented values if the regex above ever stops matching,
-# and fail loudly rather than quietly comparing nothing.
+# No fallback exists, deliberately: if the typography parse stops matching, the
+# type scale would be silently uncompared while the gate still printed
+# "passed", so the only safe response is to refuse. The comment here used to
+# claim it would "fall back to the documented values" while the code hard-exited
+# (STI-462 finding 3).
 if not _typography:
     print("ERROR: could not read any typography: fontSize values from DESIGN.md.")
     print("Refusing to pass: the type scale would be uncompared, not clean.")
     sys.exit(1)
-for _key, _expected in FONT_SIZE_KEYS:
+for _key in FONT_SIZE_KEYS:
     if _key not in _typography:
         print(f"ERROR: typography.{_key} is missing from DESIGN.md frontmatter.")
         print("Refusing to pass: the type scale would be partially uncompared.")
         sys.exit(1)
 
-# Only these two sections carry literal values a CSS declaration can equal.
-# typography: is a set of inline maps and rounded: is uniformly "0px" whose
-# CSS side is written as a bare `0`; both are handled by the explicit path
-# below rather than being compared generically.
+# These three sections carry literal values a CSS declaration can equal.
+# typography: is a set of inline maps and is compared by the dedicated
+# fontSize path above; components: is a set of nested entries and is compared
+# by the REFERENCE_PAIRS path further below.
 COMPARABLE_SECTIONS = ("colors", "spacing", "rounded")
 
 for section in COMPARABLE_SECTIONS:
@@ -344,7 +361,8 @@ for section in COMPARABLE_SECTIONS:
             mismatches.append((f"{section}.{key}", f"--{css_name}", design_value, css_value))
 
 # The --text-* type-scale steps, compared against typography:<key> fontSize.
-for key, css_name in [(k, k) for k, _ in FONT_SIZE_KEYS]:
+for key in FONT_SIZE_KEYS:
+    css_name = key
     design_value = _typography[key]
     if css_name not in css_values:
         mismatches.append((f"typography.{key}", f"--{css_name}", design_value,
@@ -357,13 +375,108 @@ for key, css_name in [(k, k) for k, _ in FONT_SIZE_KEYS]:
         mismatches.append((f"typography.{key}", f"--{css_name}", design_value,
                            css_values[css_name]))
 
+# ---------------------------------------------------------------------------
+# Reference comparison (STI-462 finding 1)
+# ---------------------------------------------------------------------------
+# The five properties QA moved out of the skip list. Each tokens.css value is a
+# var() alias and each DESIGN.md value is a {section.key} reference, so both
+# sides name a target and the targets can be compared for identity.
+#
+# CSS property -> (DESIGN.md reference, the property that reference resolves to)
+# The right-hand side is the custom property DESIGN.md's `{section.key}` names,
+# after the section's own CSS name mapping.
+REFERENCE_PAIRS = [
+    ("accordion-body-bg", "components.accordion-body.backgroundColor", "charcoal"),
+    ("accordion-body-text", "components.accordion-body.textColor", "bone"),
+    ("accordion-icon", "components.accordion-icon.textColor", "grey-400"),
+    # --font-display / --font-body both alias the single brand face, which is
+    # --font-mono. That stack is @nuxt/fonts-rewritten and stays skipped, so
+    # these are verified as *aliases* — that they point at the mono stack at
+    # all — rather than as literal values.
+    ("font-display", '"Mono fallback stack" (Typography)', "font-mono"),
+    ("font-body", '"Mono fallback stack" (Typography)', "font-mono"),
+]
+
+for css_name, design_ref, expected_target in REFERENCE_PAIRS:
+    if css_name not in css_values:
+        mismatches.append((design_ref, f"--{css_name}", expected_target,
+                           "ABSENT from tokens.css"))
+        continue
+
+    final_name, final_value, depth = tvc.resolve_reference(css_name, css_values)
+
+    if final_name != expected_target:
+        mismatches.append(
+            (design_ref, f"--{css_name}", f"var(--{expected_target})",
+             f"var(--{final_name}) -> {final_value!r}")
+        )
+        continue
+
+    # The alias points at the right token. If that token is itself
+    # non-comparable (--font-mono), say so rather than implying its value was
+    # verified.
+    if final_name in tvc.SKIP_REASONS:
+        skipped.append(
+            (f"--{css_name}",
+             f"verified to alias --{final_name}, whose own value is not comparable "
+             f"({tvc.SKIP_REASONS[final_name]})")
+        )
+    else:
+        compared.append((design_ref, f"--{css_name}",
+                         f"var(--{expected_target})", f"var(--{final_name})"))
+
 # The explicit skip list is also applied to properties outside the comparable
 # sections, so a token the schema cannot type is reported as skipped-with-a-
 # reason rather than being absent from the report. This is the STI-450 lesson:
 # silence is not a pass.
+#
+# A skip entry that names a property handled above (the REFERENCE_PAIRS path, or
+# a comparable section) would double-count it and let the coverage equality
+# below fire for the wrong reason. Dedupe on the CSS property name rather than
+# on a suffix match: the previous guard here was
+# `not any(s[0].endswith(f".{css_name}"))`, which is dead in exactly the case it
+# was written for — the already-skipped entry is `spacing.4xl`, and
+# `.endswith(".space-4xl")` is False, so the property was only caught by a count
+# coincidence and the error then said "unaccounted" and listed nothing
+# (STI-462 finding 2). Entries here are stored as `--<css-name>`, so compare on
+# the CSS name directly.
+_accounted_names = {p.lstrip("-") for _, p, _, _ in compared} | {
+    s[0].lstrip("-") for s in skipped if s[0].startswith("--")
+}
 for css_name, reason in sorted(tvc.SKIP_REASONS.items()):
-    if css_name in css_values and not any(s[0].endswith(f".{css_name}") for s in skipped):
+    if css_name in css_values and css_name not in _accounted_names:
         skipped.append((f"--{css_name}", reason))
+        _accounted_names.add(css_name)
+
+# And the inverse tripwire, stated directly: a property that is genuinely
+# comparable must not be listed as non-comparable. A skip entry covering a
+# compared property would suppress the check the comparison performs, which is
+# the STI-450 defect wearing a different hat.
+#
+# The check has to be independent of the order the loops above ran in. The
+# comparable-section path consults SKIP_REASONS itself and routes the property
+# into `skipped`, so by the time this runs a covered property is no longer in
+# `compared` at all. Deriving the comparable set from the frontmatter instead
+# of from `compared` is what makes this work: the frontmatter is the source of
+# truth for what is comparable, and it is stable regardless of the path taken.
+_comparable_names = set()
+for _section in COMPARABLE_SECTIONS:
+    for _key in values[_section]:
+        _comparable_names.add(resolve_css_name(_section, _key, css_values))
+_comparable_names.update(FONT_SIZE_KEYS)
+_comparable_names.update(name for name, _, _ in REFERENCE_PAIRS)
+
+_overlap = sorted(
+    n for n in set(tvc.SKIP_REASONS) & _comparable_names if n in css_values
+)
+if _overlap:
+    print("ERROR: the token value skip list names properties that are also compared:")
+    for name in _overlap:
+        print(f"  --{name}: listed as non-comparable, yet DESIGN.md declares a comparable value for it")
+    print("")
+    print("A skip entry that overlaps a comparison silently disables that check.")
+    print("Remove the skip entry, or stop comparing the property. Fail closed.")
+    sys.exit(1)
 
 # A stale skip entry is a defect in the skip list itself: it would suppress a
 # comparison that is now perfectly possible (e.g. someone gives --gutter a

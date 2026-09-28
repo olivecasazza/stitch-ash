@@ -233,6 +233,149 @@ differ_case "real time"   "120ms" "350ms"
 echo
 
 # ---------------------------------------------------------------------------
+# AC5 — STI-462 finding 1: reference tokens are compared, not skipped
+# ---------------------------------------------------------------------------
+# QA demonstrated a false negative on the pre-fix gate:
+#   tokens.css: --accordion-body-bg: var(--grey-950);
+#   DESIGN.md:  components.accordion-body.backgroundColor: "{colors.charcoal}"
+#   -> "Token drift gate: passed"  EXIT=0
+# Swapping an accordion surface to a different *declared* token passed. The
+# reason text claimed the comparison was impossible, which was not true. These
+# cases pin that closed.
+echo "AC5  reference tokens (var() vs {section.key}) are compared, not skipped"
+
+# mutate_css <scratch-dir> <python-body operating on `s` and `p`>
+mutate_css() {
+  python3 - "$1" <<PY
+import re, sys
+p = "$1/app/assets/css/tokens.css"
+s = open(p, encoding="utf-8").read()
+$2
+open(p, "w", encoding="utf-8").write(s)
+PY
+}
+
+ref_case() {
+  local label="$1" prop="$2" expr="$3" needle="$4"
+  local dir; dir="$(make_scratch "$WORK/ac5-$prop")"
+  mutate_css "$dir" "$expr"
+  local out; out="$(run_gate "$dir")"
+  if printf '%s' "$out" | grep -q "drifted from their DESIGN.md values" \
+     && printf '%s' "$out" | grep -q -- "$needle"; then
+    ok "AC5 $label: --$prop retargeted is caught"
+  else
+    bad "AC5 $label: --$prop retarget was NOT caught"
+    printf '%s\n' "$out" | sed 's/^/        /'
+  fi
+}
+
+ref_case "accordion surface swapped to another declared colour" accordion-body-bg \
+  's2,n=re.subn(r"(--accordion-body-bg:\s*)var\(--charcoal\)", r"\g<1>var(--grey-950)", s); assert n==1, n; s=s2' \
+  'components.accordion-body.backgroundColor'
+
+ref_case "accordion text colour swapped" accordion-body-text \
+  's2,n=re.subn(r"(--accordion-body-text:\s*)var\(--bone\)", r"\g<1>var(--white)", s); assert n==1, n; s=s2' \
+  'components.accordion-body.textColor'
+
+ref_case "accordion icon colour swapped" accordion-icon \
+  's2,n=re.subn(r"(--accordion-icon:\s*)var\(--grey-400\)", r"\g<1>var(--grey-200)", s); assert n==1, n; s=s2' \
+  'components.accordion-icon.textColor'
+
+ref_case "font-display no longer aliases the mono stack" font-display \
+  's2,n=re.subn(r"(--font-display:\s*)var\(--font-mono\)", r"\g<1>var(--grey-400)", s); assert n==1, n; s=s2' \
+  'Mono fallback stack'
+
+ref_case "font-body no longer aliases the mono stack" font-body \
+  's2,n=re.subn(r"(--font-body:\s*)var\(--font-mono\)", r"\g<1>var(--grey-400)", s); assert n==1, n; s=s2' \
+  'Mono fallback stack'
+
+# The five must no longer be listed as plain skips. --font-display/--font-body
+# are still skipped, but because their *target* is non-comparable, and they say
+# so — they must not be silently unverified.
+if printf '%s' "$OUT_CLEAN" | grep -q "not a literal design token value"; then
+  bad "AC5 a reference token is still skipped with the old impossible-value reason"
+else
+  ok "AC5 no reference token carries the old 'not a literal value' skip reason"
+fi
+if printf '%s' "$OUT_CLEAN" | grep -qE -- "--font-display +verified to alias --font-mono"; then
+  ok "AC5 --font-display skip states the alias was verified and why it stops there"
+else
+  bad "AC5 --font-display skip does not state that the alias was verified"
+  printf '%s\n' "$OUT_CLEAN" | sed 's/^/        /'
+fi
+echo
+
+# ---------------------------------------------------------------------------
+# AC6 — STI-462 finding 2: a skip entry overlapping a comparison fails closed
+# ---------------------------------------------------------------------------
+# The pre-fix guard was `not any(s[0].endswith(f".{css_name}"))`, dead for the
+# space-prefixed case it was written for. It still failed closed, but only via a
+# count coincidence, and reported "unaccounted" while listing nothing.
+echo "AC6  a skip entry naming a comparable property fails closed, with a real reason"
+
+S6="$(make_scratch "$WORK/ac6")"
+python3 - "$S6/scripts/ci/token-value-compare.py" <<'PY'
+import sys
+p = sys.argv[1]
+src = open(p).read()
+src = src.replace('SKIP_REASONS = {',
+                  'SKIP_REASONS = {\n    "space-4xl": "injected overlap for the STI-462 finding 2 test",', 1)
+open(p, "w").write(src)
+PY
+OUT6="$(run_gate "$S6")"
+if printf '%s' "$OUT6" | grep -q "skip list names properties that are also compared" \
+   && printf '%s' "$OUT6" | grep -q -- "--space-4xl"; then
+  ok "AC6 overlap rejected with a named property and an explicit reason"
+else
+  bad "AC6 overlap was not rejected clearly"; printf '%s\n' "$OUT6" | sed 's/^/        /'
+fi
+# The old behaviour said "unaccounted" and listed nothing; assert we do not
+# regress into that misleading message.
+if printf '%s' "$OUT6" | grep -q "neither compared nor skipped"; then
+  bad "AC6 still reports the misleading 'unaccounted' message with an empty list"
+else
+  ok "AC6 no misleading 'unaccounted' message"
+fi
+echo
+
+# ---------------------------------------------------------------------------
+# AC7 — STI-462 finding 5: section_values() must not read nested keys
+# ---------------------------------------------------------------------------
+echo "AC7  section_values() does not mistake nested component members for keys"
+
+COMP_KEYS="$(python3 - "$REPO_ROOT/DESIGN.md" <<'PY'
+import re, sys
+fm = re.match(r"\A---\n(.*?)\n---\n", open(sys.argv[1], encoding="utf-8").read(), re.S).group(1)
+# Mirrors the gate's fixed section_values() exactly, including its requirement
+# that the value be a plain scalar.
+m = re.search(r"^components:\n((?P<body>(?:[ \t]+.*\n?|\n)*))", fm, re.M)
+body = m.group("body"); lines = body.splitlines()
+km = re.match(r"^(?P<i>[ \t]+)", lines[0] if lines else "")
+if not km:
+    print(""); raise SystemExit(0)
+indent = km.group("i")
+out = set()
+for line in lines:
+    im = re.match(r"^([ \t]+)", line)
+    if not im or im.group(1) != indent:
+        continue
+    k = re.match(r'^[ \t]+([A-Za-z0-9_"\'-]+):[ \t]+("[^"]*"|\'[^\']*\'|[^,{\s]+)[ \t]*$', line)
+    if k:
+        out.add(k.group(1).strip('"\''))
+print(",".join(sorted(out)))
+PY
+)"
+# Before the fix this returned the five nested members of every component entry.
+# Component names themselves carry no scalar, so the correct answer is empty.
+if [ -n "$COMP_KEYS" ]; then
+  bad "AC7 components: section_values() returns keys it should not: $COMP_KEYS"
+  printf '        expected empty; nested members leaked through the indent check\n'
+else
+  ok "AC7 components: section_values() returns no keys (nested members no longer leak)"
+fi
+echo
+
+# ---------------------------------------------------------------------------
 # Final — the honest-tree check, in the real repo
 # ---------------------------------------------------------------------------
 echo "AC0  the unmodified repository passes"

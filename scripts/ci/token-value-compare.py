@@ -43,15 +43,11 @@ SKIP_REASONS = {
     # @nuxt/fonts rewrites this stack at build time, so the stylesheet value
     # never reaches production verbatim.
     "font-mono": "@nuxt/fonts rewrites the font stack at build time; the authored value is not what ships",
-    # Indirection: the value is a var() reference, and equality would be
-    # trivially true against any token, which proves nothing about drift.
-    "font-body": "var() alias of another token, not a literal value; equality would be trivially true",
-    "font-display": "var() alias of another token, not a literal value; equality would be trivially true",
-    # Component properties resolve through {colors.*} / {typography.*}
-    # references; the component's own literal is a colour name, not a value.
-    "accordion-body-bg": "component token resolving {colors.charcoal}; not a literal design token value",
-    "accordion-body-text": "component token resolving {colors.bone}; not a literal design token value",
-    "accordion-icon": "component token resolving {colors.grey-400}; not a literal design token value",
+    # Indirection: the value is a var() reference. The target is still checked
+    # (see resolve_reference), so these are compared, not skipped — STI-462
+    # finding 1 caught them being skipped and pointed out that the reason text
+    # ("not a literal design token value") implied an impossibility that did
+    # not actually hold.
 }
 
 
@@ -118,3 +114,52 @@ def normalise(value):
 def values_match(design_value, css_value):
     """True when a DESIGN.md value and a tokens.css value are the same value."""
     return normalise(design_value) == normalise(css_value)
+
+
+# ---------------------------------------------------------------------------
+# Reference comparison (STI-462 finding 1)
+# ---------------------------------------------------------------------------
+# Some tokens.css values are not literals but references:
+#     --accordion-body-bg: var(--charcoal)
+#     --font-display:      var(--font-mono)
+# and DESIGN.md states the same token by reference:
+#     components.accordion-body.backgroundColor: "{colors.charcoal}"
+#     (--font-display / --font-body alias the "Mono fallback stack")
+#
+# These were previously skipped as "not a literal value", which was wrong: both
+# sides name the same target, so equality IS checkable. QA demonstrated a false
+# negative -- swapping an accordion surface to a different declared token
+# (`var(--grey-950)`) passed the gate with EXIT=0. Silently-passing is exactly
+# what this gate must not do, so these are now compared rather than skipped.
+#
+# An alias is resolved transitively: var(--font-display) -> var(--font-mono) is
+# the same token, and --font-mono is itself non-comparable, so a chain that ends
+# at a skipped property is reported as an alias rather than a mismatch.
+
+_VAR_RE = re.compile(r"^var\(\s*--([A-Za-z0-9_-]+)\s*\)$")
+
+
+def var_target(css_value):
+    """The custom property a `var(--x)` value points at, or None."""
+    m = _VAR_RE.match(css_value.strip())
+    return m.group(1) if m else None
+
+
+def resolve_reference(css_name, css_values, _seen=None):
+    """Follow a var() alias chain to the property actually supplying the value.
+
+    Returns (final_css_name, final_value, depth). If the property is not a
+    var() alias, it is returned unchanged at depth 0.
+    """
+    seen = _seen if _seen is not None else set()
+    if css_name in seen:
+        # A cycle is a defect in tokens.css, not a comparison result.
+        return css_name, css_values.get(css_name, ""), 0
+    seen.add(css_name)
+
+    value = css_values.get(css_name, "")
+    target = var_target(value)
+    if target is None or target not in css_values:
+        return css_name, value, 0
+    final_name, final_value, depth = resolve_reference(target, css_values, seen)
+    return final_name, final_value, depth + 1
