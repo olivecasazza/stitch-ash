@@ -271,10 +271,16 @@ body {
   line-height: 1.4;
 }
 
+/* components.price — textColor colors.grey-200, typography.numeric
+   (JetBrains Mono 500, 0.8125rem/1.4, 'tnum'). The currency glyph and the
+   digits are one text run in one colour, so the whole price sits in a single
+   tabular box. This was --bone, which is components.card.textColor, and the
+   split "$" span added a second grey on top of it (STI-486 F1). */
 .product-card__price {
   margin: 0;
   font-size: var(--text-base);
-  color: var(--bone);
+  line-height: 1.4;
+  color: var(--grey-200);
   font-weight: 500;
   font-feature-settings: "tnum" 1;
 }
@@ -313,35 +319,62 @@ body {
 }
 .signup label {
   display: block;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
+  font-weight: 500;
   color: var(--grey-400);
   margin-block-end: var(--space-sm);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
 }
+/* components.input — backgroundColor colors.charcoal, textColor colors.bone,
+   typography.body (0.8125rem/1.55, weight 400), rounded none, padding
+   10px 12px. Shipped as `background: transparent` on --text-lg with 12px 16px
+   padding, i.e. every field of the token off except textColor and the
+   boundary (STI-486 F3). `font: inherit` already carries the body line-height
+   (1.55) and the body face. */
 .signup input[type="email"] {
   flex: 1 1 14rem;
   min-width: 0;
-  background: transparent;
+  background: var(--charcoal);
   border: 1px solid var(--outline);
+  border-radius: var(--radius-none);
   color: var(--bone);
   font: inherit;
-  font-size: var(--text-lg);
-  padding: var(--space-md) var(--space-lg);
+  font-size: var(--text-base);
+  padding: 10px 12px;
+}
+/* One height for the waitlist pair. components.input and
+   components.button-primary declare different paddings (10px 12px vs
+   12px 16px) and different typographies (body 13px vs label 11px), so their
+   natural border-box heights are 42.15px and 43.05px — unequal, and neither
+   on the 4px grid. 44px is the smallest grid step that contains both, and it
+   is what makes the field and the CTA read as one control row. It is a layout
+   equaliser, not a new token: both component tokens stay as DESIGN.md
+   declares them (STI-486 F3). */
+.signup input[type="email"],
+.signup button {
+  min-height: 44px;
 }
 .signup input[type="email"]:focus-visible {
   outline: none;
   border-color: var(--bone);
 }
+/* components.button-primary / components.button-disabled —
+   backgroundColor colors.white, textColor colors.ink, typography.label
+   (JetBrains Mono 500, 0.6875rem/1.3, 0.12em), rounded none, padding
+   12px 16px. Shipped at --text-sm / weight 600 / 0.08em; 600 is a weight the
+   type ramp never declares, which is 400 or 500 and nothing else
+   (STI-486 F2). */
 .signup button,
 .btn-primary {
   background: var(--white);
   color: var(--ink-black);
   border: 1px solid var(--white);
   font: inherit;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   padding: var(--space-md) var(--space-lg);
   cursor: pointer;

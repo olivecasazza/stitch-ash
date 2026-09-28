@@ -57,19 +57,15 @@ const finalImageAlt = computed(() => props.imageAlt || props.name)
         <Badge v-if="badge" :variant="badge" />
       </div>
       <p v-if="note" class="product-card__note">{{ note }}</p>
-      <p class="product-card__price">
-        <span class="product-card__currency">$</span>{{ price }}
-      </p>
+      <!-- components.price: one textColor (colors.grey-200) and one numeric run
+           for the whole string. The symbol stays inside the run, so the
+           currency glyph and the digits share one tabular box (STI-486 F1). -->
+      <p class="product-card__price">${{ price }}</p>
     </div>
   </NuxtLink>
 </template>
 
 <style scoped>
-.product-card__currency {
-  color: var(--grey-400);
-  margin-right: 0.05em;
-}
-
 /* Fallback plate. DESIGN.md grey-950 is the documented "image fallback plate"
    tone; the hairline is border-rule. Values live here rather than as SVG
    attributes so the plate cannot drift off-token. */
