@@ -94,10 +94,17 @@ components:
     rounded:          "{rounded.none}"
     padding:          "10px 12px"
   badge:
+    backgroundColor:  "transparent"
     textColor:        "{colors.grey-400}"
     typography:       "{typography.label}"
     rounded:          "{rounded.none}"
     padding:          "2px 6px"
+  # `borderColor` is deliberately absent above. The badge boundary is the
+  # 1px `primary` hairline, and the schema's valid component sub-tokens are
+  # backgroundColor / textColor / typography / rounded / padding / size /
+  # height / width — `borderColor` is a `broken-ref` warning, so the
+  # boundary is stated in prose under "Badges" with `rule` / `rule-control`
+  # rather than forced into a key the linter would reject.
   surface-well:
     backgroundColor: "{colors.grey-950}"
   divider:
@@ -119,6 +126,35 @@ components:
     textColor:       "{colors.bone}"
     typography:      "{typography.body-sm}"
     padding:         "4px 12px 16px"
+  # The `<summary>` is a DISCLOSURE CONTROL, not body copy, and is
+  # deliberately NOT covered by `accordion-body` (STI-521). It reads
+  # uppercase with an icon, sits next to a panel of 400-weight `body-sm`
+  # copy, and must be the heavier of the two or the panel it opens
+  # outweighs its own trigger. It is declared on `label` (500 / 11px /
+  # 0.12em), the system's control-voice step — the same step badges,
+  # buttons and form labels use — and NOT on `body-sm`. STI-515 shipped
+  # it on `body-sm` (400) as a temporary landing on the nearest declared
+  # step; that is superseded here. `label` is 11px, so this narrows the
+  # rendered size from the 12px `text-sm` the selector was reading.
+  accordion-summary:
+    textColor:       "{colors.bone}"
+    typography:      "{typography.label}"
+    rounded:         "{rounded.none}"
+  # The header cart count chip. `numeric` is the system's count step and
+  # carries `fontFeature: "'tnum' 1"`, which is the actual reason this is
+  # `numeric` and not `label`: a bare integer must be tabular or the
+  # digit jitters as it changes between 9 and 10 (STI-521).
+  #
+  # The `1.4em` min-width/height box is NOT the constraint — it is
+  # expressed in `em` of the chip's own font-size, so it scales with the
+  # type and stays valid at any step. STI-515 stepped the size DOWN to
+  # 11px to fit a fixed box that was never fixed. Use the full
+  # `numeric` 13px / 0.8125rem; the box follows it.
+  cart-pill-count:
+    backgroundColor: "{colors.ink}"
+    textColor:       "{colors.bone}"
+    typography:      "{typography.numeric}"
+    rounded:         "{rounded.none}"
   accordion-icon:
     textColor: "{colors.grey-400}"
   # ── Hairline rules (STI-446) ────────────────────────────────────────────────
@@ -416,11 +452,42 @@ has no place in a square-edged system.
 - Transparent fill, hairline `primary` border, tracked-uppercase `label`
   typography. Used for `EMBROIDERED`, `LIMITED RUN`, `LOW STOCK`,
   `MADE TO ORDER`.
+- The boundary is `1px solid var(--primary)` — the `rule` shorthand's
+  colour, not `rule-control`. `rule-control` is reserved for form
+  controls that must clear SC 1.4.11 3:1; a badge is a decorative
+  surface, so it takes the brand hairline. `borderColor` is not a
+  declared sub-token (see the frontmatter note), so the boundary is
+  stated here rather than in a key.
+- **One declaration site.** `.badge` is styled in
+  `app/components/Badge.vue` only. The unlayered copy in
+  `app/assets/css/global.css` is a stale duplicate that disagrees on
+  `background` (`grey-950`) and `border` (`border-rule`) and must be
+  deleted, not reconciled — two declarations of the same class that
+  disagree is a defect regardless of which one wins the cascade.
+
+### Accordion
+- The `<summary>` is a disclosure control, not body copy. It is declared
+  on `components.accordion-summary` → `typography.label` (500 / 11px /
+  0.12em), the system's control-voice step, and is deliberately **not**
+  covered by `components.accordion-body`. The panel it opens is
+  `body-sm` at 400; a 400-weight trigger under a 400-weight panel reads
+  as body copy and the panel outweighs its own trigger.
+- `label` is 11px, so the summary renders one step narrower than the
+  12px `text-sm` it was reading. That is intended: the summary is a
+  control, and controls are 11px tracked uppercase in this system.
+- Hover/focus moves the summary to `grey-400`; the focus ring is the
+  standard 2px `bone` square.
 
 ### Header
 - Sticky but subtle; transparent over hero, ink-black after scroll.
 - Left: wordmark. Right: Shop, Story, Account, Cart.
 - Cart indicator should be numeric and quiet, not a large badge.
+- The count chip is `components.cart-pill-count` → `typography.numeric`
+  (13px / 500 / tabular). It is `numeric` and not `label` because a
+  bare integer must be tabular — proportional figures jitter between
+  `9` and `10`. The `1.4em` box is `em`-relative to the chip's own
+  font-size, so it scales with the type and is not a reason to step the
+  size down.
 
 ## Do's and Don'ts
 
