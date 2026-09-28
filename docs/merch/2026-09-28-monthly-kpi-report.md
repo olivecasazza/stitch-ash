@@ -5,6 +5,14 @@
 period, not a close). **Status:** First report. Prior state: template only, no
 filled report existed.
 
+> **Amendment 2026-09-28 (review pass, no metric changed).** Blocker
+> *pointers* were corrected after the report was merged. The first draft cited
+> [STI-327](/STI/issues/STI-327) as the open revenue blocker; that issue is
+> `done`, so the citation sent a reader to a closed ticket. It now points at
+> the two open operator asks, and the two reporting dependencies now cite the
+> issues that actually track them. **No number, measurement, or attribution in
+> this report changed** — every figure below is as originally published.
+
 Structure and the binding provenance rules are defined in
 `docs/merch/2026-09-27-kpi-report-template.md` and are not restated here.
 
@@ -57,8 +65,8 @@ estimate has been written into a results cell.
 | Gate state | `www.stitch-ash.com` → `/password`, `HTTP 200`, `104906` bytes | MEASURED | `curl -sSL -w '%{url_effective}'`, 2026-09-28 |
 | Storefront data path | Working — real product, real variant, real cart URL | MEASURED | [STI-545](/STI/issues/STI-545), 2026-09-28 |
 | Shopify Admin API | Locked — no order export available | MEASURED | [STI-457](/STI/issues/STI-457) |
-| Blocker A (revenue) | Apex password gate + payment provider | Open | [STI-327](/STI/issues/STI-327), approval `45b0b09e` |
-| Blocker B (reporting) | Online Store channel lock — blocks Sections 1 & 3 | Open | [STI-457](/STI/issues/STI-457) |
+| Blocker A (revenue) | Apex password gate | Open | [STI-492](/STI/issues/STI-492) `todo`, [STI-519](/STI/issues/STI-519) `blocked` — both operator-owned |
+| Blocker B (reporting) | Online Store channel lock + no Admin read path — blocks Sections 1 & 3 | Open | [STI-457](/STI/issues/STI-457), [STI-418](/STI/issues/STI-418) `in_review` |
 
 Week 0 remains "first real order", not "password removed": removing the gate
 makes checkout *possible*; revenue data does not exist until an order completes.
@@ -101,7 +109,8 @@ estimates, ESTIMATE, author merch-lead, confidence low.** The hoodie carries
 the exposure: the 50% contribution-margin ceiling is **$86.83** landed, only
 $11.83 above the base estimate, and the top of the cost band ($95) breaks it.
 Until a written quote exists, hoodie pricing is provisional and the first
-month of real COGS is what replaces these numbers.
+month of real COGS is what replaces these numbers. The quote is tracked on
+[STI-418](/STI/issues/STI-418).
 
 ---
 
@@ -180,6 +189,14 @@ secret value into an issue). Independently, the Online Store channel is
 **locked**, so Admin reads return `"Online Store channel is locked"`
 ([STI-457](/STI/issues/STI-457)).
 
+**Where this dependency is tracked:** [STI-418](/STI/issues/STI-418) —
+`[OPERATOR] Landed cost per SKU + working Shopify Admin read — gross-margin KPI
+has no data path`, `in_review` with the GM for escalation. It was raised by the
+prior monthly report ([STI-417](/STI/issues/STI-417)) and covers both halves of
+this dependency: the Admin read path **and** the landed cost per SKU that the
+per-SKU "No data" column above is waiting on. It is not re-raised here; this
+report cites it so the dependency is traceable to its owner.
+
 Consequence, stated plainly: **Sections 1 and 3 stay `UNKNOWN`-by-construction
 the moment the gate lifts**, until an operator-run snapshot or a provisioned
 read-only token exists. This is a reporting-infrastructure dependency and it
@@ -197,8 +214,9 @@ Verified state as of 2026-09-28.
 
 | Risk | State | Evidence (this run) | Owner |
 |---|---|---|---|
-| **Customers cannot purchase** | **OPEN — the only revenue blocker** | `www.stitch-ash.com` → `/password`, `Enter password` / `Protected` | operator — [STI-327](/STI/issues/STI-327), approval `45b0b09e` |
+| **Customers cannot purchase** | **OPEN — the only revenue blocker** | `www.stitch-ash.com` → `/password`, `Enter password` / `Protected` | operator — [STI-492](/STI/issues/STI-492) `todo`, [STI-519](/STI/issues/STI-519) `blocked` |
 | Admin channel lock (blocks reporting) | OPEN | [STI-457](/STI/issues/STI-457) | operator |
+| No Admin read path for the KPI (blocks reporting) | OPEN | [STI-418](/STI/issues/STI-418) `in_review` | operator, via GM |
 | **Product photography missing, all 3 SKUs** | **OPEN** | `featuredImage` absent from live Storefront data; PDP renders an SVG mark (`aria-label="Embroidered Hoodie"`), **zero `<img>` elements** | design-lead — [STI-309](/STI/issues/STI-309) |
 | Hoodie landed-cost quote outstanding | OPEN — hoodie pricing provisional | ceiling $86.83 vs $75 base estimate | merch-lead / supplier |
 | No analytics tag before launch traffic | OPEN | [STI-419](/STI/issues/STI-419) | storefront-lead |
@@ -246,6 +264,8 @@ framing is that **there is no trend to report**.
 - `docs/merch/2026-09-27-social-plan.md` — the post-gate posting sequence
 - `docs/decisions/2026-09-27-data-provenance-baseline.md` — per-layer data-path provenance
 - [STI-328](/STI/issues/STI-328) — GTM readiness package
-- [STI-327](/STI/issues/STI-327) — apex password gate (the revenue blocker)
-- [STI-457](/STI/issues/STI-457) — locked Online Store channel (the reporting blocker)
+- [STI-492](/STI/issues/STI-492) — apex password gate, the live operator ask (revenue blocker)
+- [STI-519](/STI/issues/STI-519) — GM operator ask on the same gate
+- [STI-457](/STI/issues/STI-457) — locked Online Store channel (a reporting blocker)
+- [STI-418](/STI/issues/STI-418) — operator ask: Shopify Admin read + landed cost per SKU (a reporting blocker)
 - [STI-419](/STI/issues/STI-419) — analytics tag, required before the first real session
