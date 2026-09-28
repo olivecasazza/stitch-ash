@@ -42,6 +42,10 @@ export interface StaticProduct {
   imageSrc?: string;
   /** Optional alt text for product image. */
   imageAlt?: string;
+  /** Silhouette for the product image plate, per SKU. STI-541: the storefront
+   *  shipped one generic hoodie outline for every product, so the Lanyard and
+   *  Sticker cards pictured a hoodie. Declared per SKU so this cannot recur. */
+  mark: ProductMark;
 }
 
 const HOODIE_DETAILS: ProductAccordionSection[] = [
@@ -113,9 +117,19 @@ const STICKER_DETAILS: ProductAccordionSection[] = [
   },
 ];
 
+import { type ProductMark } from "~/utils/product-mark";
+
 // TODO (STI-318): Replace imageSrc values with real Shopify CDN URLs once commerce-eng
 // uploads product photography. Expected format:
 // https://cdn.shopify.com/s/files/{product-id}/{image-id}.{ext}
+//
+// STI-541 measured this on the live storefront rather than assuming it. The
+// Storefront read behind /collection/featured returns real products —
+// gid://shopify/Product/15107230335021, availableForSale true, price 185.0 —
+// with `featuredImage: null` and `images.edges: []`. The catalog has no
+// photography to serve, so the image plate is the honest customer-facing state
+// until commerce-eng uploads it. Do not read `imageSrc: undefined` as a bug
+// local to this file: it mirrors the catalog.
 const PRODUCTS_DATA: StaticProduct[] = [
   {
     handle: "sku-001",
@@ -133,6 +147,7 @@ const PRODUCTS_DATA: StaticProduct[] = [
       { label: "XXL", value: "XXL" },
     ],
     details: HOODIE_DETAILS,
+    mark: "hoodie",
     imageSrc: undefined,
     imageAlt: "Embroidered Hoodie — flat lay on black surface",
   },
@@ -146,6 +161,7 @@ const PRODUCTS_DATA: StaticProduct[] = [
       "Black thread on black weave. Repeated brand-mark pattern along length.",
     sizes: [{ label: "One size", value: "one-size" }],
     details: LANYARD_DETAILS,
+    mark: "lanyard",
     imageSrc: undefined,
     imageAlt: "Embroidered Lanyard — hanging with breakaway clip",
   },
@@ -159,6 +175,7 @@ const PRODUCTS_DATA: StaticProduct[] = [
       "Black thread on black backing. Single design with embedded brand mark.",
     sizes: [{ label: "One size", value: "one-size" }],
     details: STICKER_DETAILS,
+    mark: "sticker",
     imageSrc: undefined,
     imageAlt: "Embroidered Sticker patch on black fabric",
   },

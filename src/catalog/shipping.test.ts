@@ -132,6 +132,34 @@ describe("diffShipping compares declared rules against the store (STI-507)", () 
     assert.deepEqual(diff.actions, []);
   });
 
+  it("reports a catalog product that is in no delivery profile on the store", () => {
+    // A product with no delivery profile cannot be bought: checkout has no
+    // profile to read rates from. The zone comparison cannot see this, because
+    // it only ever looks at the one profile's zones — so a profile covering
+    // NOTHING with a perfect declared rate reported zero actions.
+    const none = profile({ productHandles: [] });
+    const diff = diffShipping(policy(), none, ["sku-001", "sku-002", "sku-003"]);
+    assert.equal(diff.actions.length, 1);
+    assert.match(diff.actions[0]!, /in no delivery profile/);
+    assert.match(diff.actions[0]!, /sku-001, sku-002, sku-003/);
+  });
+
+  it("reports a partially uncovered profile rather than a pass", () => {
+    const partial = profile({ productHandles: ["sku-001", "sku-003"] });
+    const diff = diffShipping(policy(), partial, ["sku-001", "sku-002", "sku-003"]);
+    assert.equal(diff.actions.length, 1);
+    // Only the uncovered handle is listed as missing; the covered ones appear
+    // solely in the trailing "profile covers ..." clause.
+    assert.match(diff.actions[0]!, /: sku-002 \(profile/);
+  });
+
+  it("says nothing about coverage when the caller declares no handles", () => {
+    // The default keeps every existing caller and test meaningful: with no
+    // catalog handle list there is no coverage claim to make.
+    const none = profile({ productHandles: [] });
+    assert.deepEqual(diffShipping(policy(), none).actions, []);
+  });
+
   it("reports a price difference the restatement could never show", () => {
     // The exact regression: a YAML rate of 0.00 against a store charging 25.00.
     const dear = profile();
