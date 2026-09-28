@@ -12,6 +12,7 @@
     "typecheck": "nuxt typecheck",
     "catalog:test": "node --import tsx --test src/**/*.test.ts",
     "catalog:validate": "tsx scripts/catalog.ts validate",
+    "design:drift": "tsx scripts/design-drift.ts",
     "catalog:plan": "tsx scripts/catalog.ts plan",
     "catalog:apply": "tsx scripts/catalog.ts apply",
     "shopify:env": "tsx scripts/shopify-env.ts env-template",
