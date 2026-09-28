@@ -90,8 +90,17 @@ async function main() {
     for (const action of diff.actions) console.log(`  - ${action}`);
   }
 
-  for (const action of planShippingPolicies(shippingPolicies)) {
-    console.log(action);
+  // Shipping is declared-only. `planShippingPolicies` restates the YAML; it
+  // never reads the remote delivery profile and `apply` never writes one, so
+  // these lines are not diff lines and must not sit in the same block as the
+  // action list that gates approval. Same false-green class as the tags blind
+  // spot (PR #65) and collection membership (PR #72): an unverified fact
+  // printed where an approved action looks like it is.
+  if (shippingPolicies.length > 0) {
+    console.log("shipping (declared in catalog/shipping, NOT verified against the store, NOT applied):");
+    for (const line of planShippingPolicies(shippingPolicies)) {
+      console.log(`  ${line.replace(/^\s*- /, "· ")}`);
+    }
   }
 
   if (command === "plan") {
