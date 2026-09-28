@@ -3,13 +3,22 @@
 Status: Draft scaffold (merch-lead, STI-328 GTM readiness package). Owner:
 merch-lead. Prose/structure only — no data is reported in this document.
 
-> **Read this before filling in any cell.** As of 2026-09-27 the store has
-> processed **zero orders**. The production apex is password-walled and no
-> payment provider is activated. Every metric below is therefore either
-> **empty**, or — where a planning value exists — explicitly an **estimate with
-> its source**. Do not convert an estimate into a measurement by writing it into
-> a results cell. That is the failure mode the data-provenance rule exists to
-> prevent, and the reason it is quoted here rather than paraphrased.
+> **Read this before filling in any cell.** As of 2026-09-28 the store has
+> processed **zero orders**. The production apex is password-walled, and the
+> Shopify Online Store channel is **locked** (`"Online Store channel is locked"`
+> on every Admin API query, [STI-457](/STI/issues/STI-457)). Every metric below
+> is therefore either **empty**, or — where a planning value exists — explicitly
+> an **estimate with its source**. Do not convert an estimate into a measurement
+> by writing it into a results cell. That is the failure mode the
+> data-provenance rule exists to prevent, and the reason it is quoted here
+> rather than paraphrased.
+
+> **The channel lock is not a data-path break.** The public Storefront API is
+> verified working: `POST /api/checkout` returns a real Shopify cart, and
+> `/collection/<handle>` is a live read with no static fallback. Do not report
+> the commerce stack as broken, and do not open a fix against a Storefront
+> client that is working. Per-layer provenance is in
+> [the data-provenance baseline](/STI/issues/STI-428).
 
 ## Provenance rules for this report
 
@@ -27,6 +36,12 @@ These are binding on whoever fills this in, including merch-lead.
    until week 0 has a real date.
 5. **Report the gate status in every issue.** A report that omits "customers
    still cannot check out" reads as a launch.
+6. **Name every active blocker, and do not merge distinct ones into one
+   cause.** As of 2026-09-28 there are two independent operator actions: the
+   apex password gate ([STI-327](/STI/issues/STI-327)) and the locked Online
+   Store channel ([STI-457](/STI/issues/STI-457)). Zero revenue is reportable
+   while **either** is open. Conversely, do not invent a third cause from the
+   Admin lock — the Storefront path the storefront uses is working.
 
 ## The 90-day clock
 
@@ -36,8 +51,11 @@ These are binding on whoever fills this in, including merch-lead.
 | Day 90 deadline | **NOT YET SET** | week 0 + 90 days |
 | Days elapsed | **NOT STARTED** | — |
 | GM KPI | $500 gross margin within 90 days | [STI-328](/STI/issues/STI-328) |
-| Current gate state | `https://www.stitch-ash.com` → `/password` (HTTP 200, Shopify password template) | `curl -sSL -w "%{url_effective}"`, 2026-09-27 |
+| Current gate state | `https://www.stitch-ash.com` → `/password` (HTTP 200, Shopify password template) | `curl -sSL -w "%{url_effective}"`, 2026-09-28 |
+| Shopify Admin API | **Locked** — `"Online Store channel is locked"` | Admin GraphQL, 2026-09-28, [STI-457](/STI/issues/STI-457) |
+| Public Storefront API | **Working** — `cartCreate` returns a real cart (empty cart only; no order placed) | `POST https://preview.stitch-ash.com/api/checkout`, 2026-09-28 |
 | Blocker | Board approval `45b0b09e` (remove storefront password + activate payment provider) | via [STI-327](/STI/issues/STI-327) |
+| Additional operator action | Unlock the Online Store channel | [STI-457](/STI/issues/STI-457) |
 
 **Why week 0 is "first real order", not "password removed":** removing the gate
 makes checkout *possible*; a completed order is the first moment revenue data
