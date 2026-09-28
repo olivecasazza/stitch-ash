@@ -297,10 +297,26 @@ useSeoMeta({
     width: 100%;
   }
 
+  /* STI-501: the >=768px reset below only reached the parent. `.pdp__name`
+     and `.pdp__badges` hard-code centring, so the title and badge row stayed
+     centre-aligned while price/description/embroidery-note inherited
+     `text-align: left` — the column read as mis-aligned at 1440x900 and
+     820x1180. Reset the two children here so the whole column is left-aligned
+     at >=768px, which is the intent the comment above `.pdp__info` states.
+     Mobile (<768px) is untouched: centring remains the intended treatment. */
   @media (min-width: 768px) {
     .pdp__info {
       align-items: stretch;
       text-align: left;
+    }
+
+    .pdp__name {
+      margin-inline: 0;
+      text-align: left;
+    }
+
+    .pdp__badges {
+      justify-content: flex-start;
     }
   }
 
