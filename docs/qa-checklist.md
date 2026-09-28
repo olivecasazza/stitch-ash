@@ -33,6 +33,32 @@ shell, not from CI. A green CI run is not a live deploy.
 | `https://preview.stitch-ash.com/products/sku-001` | `301` or `308` → `/product/sku-001` | The `/products/` → `/product/` redirect must resolve before the PDP body loads |
 | `https://preview.stitch-ash.com/api/bug-report` | Pages Function responds (any 2xx/4xx JSON, not a CF 5xx) | POST handler reachable |
 | `https://preview.stitch-ash.com/api/checkout` | Pages Function responds (any 2xx/4xx JSON, not a CF 5xx) | POST handler reachable |
+| `https://preview.stitch-ash.com/<nonexistent-path>` | `404` **and** `content-type: text/html` | Branded `app/error.vue`. See the `Accept` note below before running this one. |
+
+**The 404 probe must send a browser `Accept` header.** A bare `curl` sends
+`Accept: */*`, and Nitro/h3 answers *that* with a JSON error object instead of
+the rendered error page. The JSON is correct content negotiation, not a broken
+404 — reporting it as a live defect is a false positive:
+
+```sh
+curl -sS -D - -o e404.html \
+  -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
+  -w '\nSTATUS=%{http_code} CT=%{content_type}\n' \
+  https://preview.stitch-ash.com/<nonexistent-path>
+```
+
+A correct response is `404` + `text/html` + a body containing `error-page` and
+`Back to home` from `app/error.vue`. Measured on `main` at `acb9803` on
+2026-09-28 against `/nope-sti444`: the browser-`Accept` probe returns 15978
+bytes of branded HTML (header, cart, `404`, `Back to home`, footer), while the
+same path with `Accept: */*` returns a 226-byte JSON object. Only the first is
+evidence about `app/error.vue`.
+
+Bots and crawlers that send `Accept: text/html` (including Googlebot) get the
+branded page, so this is not an SEO or customer-facing regression.
+
+This exact probe error was filed as a live defect on [STI-444](/issues/STI-444)
+and turned out to be a false positive; the reproduction is in that issue.
 
 ### 2. Deploy provenance
 
