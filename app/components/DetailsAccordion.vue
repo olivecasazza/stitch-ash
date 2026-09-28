@@ -38,6 +38,14 @@ defineProps<{
     margin-top: 0;
   }
 
+  /* components.accordion-body declares typography.body-sm for the panel; the
+     <summary> is a different element and DESIGN.md gives it no token of its
+     own. typography.body-sm is used here — the nearest declared ramp step
+     for 12px tracked copy — rather than editing DESIGN.md from the component
+     side (STI-515 F4). Shipped 600 / 0.08em: 600 is a weight the ramp never
+     declares (400 or 500, nothing else). design-lead owns the question of
+     whether the summary wants its own components: entry or is covered by
+     accordion-body; tracked on STI-518. */
   .accordion__summary {
     display: flex;
     align-items: center;
@@ -47,8 +55,9 @@ defineProps<{
     cursor: pointer;
     list-style: none;
     font-size: var(--text-sm);
-    font-weight: 600;
-    letter-spacing: 0.08em;
+    line-height: 1.5;
+    font-weight: 400;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
     color: var(--bone);
     transition: color var(--transition-base);

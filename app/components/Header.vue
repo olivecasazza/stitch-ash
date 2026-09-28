@@ -12,7 +12,7 @@ const { quantity, open } = useCart()
           font-family="'JetBrains Mono', monospace"
           font-size="22"
           letter-spacing="2"
-          font-weight="600"
+          font-weight="500"
         >STITCH &amp; ASH</text>
       </svg>
     </NuxtLink>
@@ -120,18 +120,26 @@ const { quantity, open } = useCart()
   outline: none;
 }
 
-.cart-pill__count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.4em;
-  height: 1.4em;
-  padding-inline: 4px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  background: var(--ink-black);
-  color: var(--bone);
-  border-radius: 0;
-  line-height: 1;
-}
+  /* typography.numeric — tabular figures on every count. Shipped 0.7rem (a
+     literal that traces to no type step) and 600 (a weight the ramp never
+     declares). Stepped down to --text-xs (11px) so the numeral stays on the
+     ramp: --text-base (13px, the token's own size) is taller than the 1.4em
+     box it sits in. DESIGN.md declares no components: token for this count
+     chip and the class is not minted in tokens.css, so no mirror ships here;
+     design-lead's token decision is tracked on STI-518. */
+  .cart-pill__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4em;
+    height: 1.4em;
+    padding-inline: 4px;
+    font-size: var(--text-xs);
+    font-weight: 500;
+    font-feature-settings: "tnum" 1;
+    background: var(--ink-black);
+    color: var(--bone);
+    border-radius: 0;
+    line-height: 1;
+  }
 </style>
