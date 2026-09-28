@@ -98,7 +98,11 @@ export function destinationMatches(ruleDestination: string, zone: ShopifyShippin
  * operator decision rather than silently reconciled, because a rate change is
  * a customer-visible, money-moving edit.
  */
-export function diffShipping(policy: ShippingPolicy, remote: ShopifyShippingProfile | null): ShippingDiff {
+export function diffShipping(
+  policy: ShippingPolicy,
+  remote: ShopifyShippingProfile | null,
+  catalogProductHandles: readonly string[] = [],
+): ShippingDiff {
   const actions: string[] = [];
   const notes: string[] = [];
 
@@ -109,6 +113,24 @@ export function diffShipping(policy: ShippingPolicy, remote: ShopifyShippingProf
   }
 
   notes.push(`remote profile "${remote.profileName}" (default=${remote.isDefault}) covering ${remote.productHandles.length} product(s)`);
+
+  // A product that is in no delivery profile cannot be bought: checkout has no
+  // profile to read rates from. The rate comparison below only looks at the
+  // zones of the ONE profile being diffed, so a coverage gap is invisible to it
+  // — a profile covering zero products with a perfect declared rate produced
+  // zero actions and a "0 pending product actions" summary. Compared as sets,
+  // because the profile's own list is sorted curator-side and the catalog's is
+  // not.
+  const uncovered = catalogProductHandles
+    .filter(handle => !remote.productHandles.includes(handle))
+    .sort();
+  if (uncovered.length > 0) {
+    actions.push(
+      `shipping policy ${policy.id}: ${uncovered.length} catalog product(s) are in no delivery profile ` +
+        `on the store, so checkout cannot compute a rate for them: ${uncovered.join(", ")}` +
+        ` (profile "${remote.profileName}" covers ${remote.productHandles.join(", ") || "nothing"})`,
+    );
+  }
 
   const declaredRules = policy.rules ?? [];
   if (declaredRules.length === 0) {
