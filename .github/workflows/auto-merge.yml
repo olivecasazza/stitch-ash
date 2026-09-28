@@ -3,6 +3,24 @@ name: Auto-merge
 on:
   pull_request:
     types: [labeled, unlabeled, opened, synchronize, reopened, ready_for_review]
+  # STI-441: re-arm after the labeler finishes.
+  #
+  # `pull_request` (opened/synchronize) fires this workflow and semver-label.yml
+  # from the same event, so on a fresh PR head BOTH start at the same second and
+  # auto-merge reads the PR before semver-label has written the label. Measured
+  # on PR #59 (head 206180bc, 2026-09-28T04:04:01Z): auto-merge run 36376144858
+  # logged `Labels [] do not qualify for auto-merge.` and concluded SUCCESS, so
+  # the skip is invisible in the checks list and the PR never merges. The
+  # `labeled` trigger below cannot cover that case, because GITHUB_TOKEN-created
+  # events do not retrigger workflows.
+  #
+  # workflow_run off semver-label is the deterministic re-arm: it is delivered
+  # after the label has been written, and it also lands for the GITHUB_TOKEN
+  # label write that `pull_request: labeled` misses. Guarded on conclusion ==
+  # success so a failed label run cannot arm auto-merge off a stale label.
+  workflow_run:
+    workflows: [Semver Label]
+    types: [completed]
   check_suite:
     types: [completed]
   status: {}
@@ -24,16 +42,53 @@ jobs:
             const owner = context.repo.owner;
             const repo  = context.repo.repo;
 
+            // STI-441: `label` is the ONLY semver value that authorizes a merge.
+            // A PR carrying no semver label is not "not yet eligible", it is
+            // "semver-label has not finished writing yet", and those two states
+            // are indistinguishable at a single instant — which is exactly the
+            // bug. Everything below waits for the real state instead of guessing.
+            const autoMergeLabels = ['semver:patch', 'semver:minor'];
+            const blockLabels     = ['semver:major', 'semver:unknown'];
+
+            // Bounded wait for semver-label to land. 90s is ~45x the 2s skew
+            // measured on PR #59, so it absorbs the race with room to spare while
+            // staying well inside the job timeout. Polling is by API read, not a
+            // blind sleep, so a PR that already carries its label returns on the
+            // first iteration and costs nothing.
+            const labelWait  = 90 * 1000;
+            const interval   = 5 * 1000;
+            const labelUntil = Date.now() + labelWait;
+
             // Resolve the PR number — available directly on pull_request events;
-            // for check_suite/status events we need to look it up.
+            // workflow_run, check_suite and status events need a lookup.
             let prNumber = context.payload.pull_request?.number;
 
-            if (!prNumber && context.eventName === 'status') {
-              const sha = context.payload.sha;
+            const findPrBySha = async sha => {
               const { data: prs } = await github.rest.pulls.list({
-                owner, repo, state: 'open', per_page: 50,
+                owner, repo, state: 'open', per_page: 100,
               });
-              const match = prs.find(p => p.head.sha === sha);
+              return prs.find(p => p.head.sha === sha);
+            };
+
+            if (!prNumber && context.eventName === 'workflow_run') {
+              // The Semver Label run that just completed. `pull_requests` is
+              // populated for pull_request-triggered runs; fall back to a
+              // head-SHA lookup because it is documented as best-effort.
+              const prs = context.payload.workflow_run?.pull_requests || [];
+              if (prs.length) {
+                prNumber = prs[0].number;
+              } else if (context.payload.workflow_run?.head_sha) {
+                const match = await findPrBySha(context.payload.workflow_run.head_sha);
+                if (!match) {
+                  core.info('Semver Label ran for a SHA with no open PR — nothing to arm.');
+                  return;
+                }
+                prNumber = match.number;
+              }
+            }
+
+            if (!prNumber && context.eventName === 'status') {
+              const match = await findPrBySha(context.payload.sha);
               if (!match) { core.info('No open PR for this SHA — skipping.'); return; }
               prNumber = match.number;
             }
@@ -47,7 +102,7 @@ jobs:
             if (!prNumber) { core.info('Could not determine PR number — skipping.'); return; }
 
             // Fetch the PR
-            const { data: pr } = await github.rest.pulls.get({
+            let { data: pr } = await github.rest.pulls.get({
               owner, repo, pull_number: prNumber,
             });
 
@@ -64,21 +119,53 @@ jobs:
             }
 
             // Must not have do-not-merge label
-            const labels = pr.labels.map(l => l.name);
-            if (labels.includes('do-not-merge')) {
+            const hasDoNotMerge = () =>
+              pr.labels.map(l => l.name).includes('do-not-merge');
+
+            if (hasDoNotMerge()) {
               core.info('do-not-merge label present — skipping auto-merge.');
               return;
             }
 
+            // Wait for semver-label to publish, but only while no semver label
+            // exists at all. A `semver:major` / `semver:unknown` label is a
+            // settled decision to NOT auto-merge, so waiting on it would burn
+            // 90s on every correctly-blocked PR.
+            const hasSemverLabel = () =>
+              pr.labels.map(l => l.name).some(n => n.startsWith('semver:'));
+
+            if (!hasSemverLabel()) {
+              core.info('No semver label yet — waiting for semver-label to land…');
+              while (Date.now() < labelUntil) {
+                await new Promise(r => setTimeout(r, interval));
+                ({ data: pr } = await github.rest.pulls.get({
+                  owner, repo, pull_number: prNumber,
+                }));
+                if (hasDoNotMerge()) {
+                  core.info('do-not-merge applied while waiting — skipping auto-merge.');
+                  return;
+                }
+                if (hasSemverLabel()) {
+                  core.info(`Semver label landed: ${pr.labels.map(l => l.name).join(', ')}`);
+                  break;
+                }
+                core.info(`Still unlabelled — retrying in ${interval / 1000}s…`);
+              }
+            }
+
             // Must have patch or minor semver label (not major or unknown)
-            const autoMergeLabels = ['semver:patch', 'semver:minor'];
-            const blockLabels     = ['semver:major', 'semver:unknown'];
+            const labels = pr.labels.map(l => l.name);
 
             const hasAutoLabel  = labels.some(l => autoMergeLabels.includes(l));
             const hasBlockLabel = labels.some(l => blockLabels.includes(l));
 
             if (hasBlockLabel || !hasAutoLabel) {
-              core.info(`Labels ${JSON.stringify(labels)} do not qualify for auto-merge.`);
+              core.info(
+                `Labels ${JSON.stringify(labels)} do not qualify for auto-merge. ` +
+                (hasSemverLabel()
+                  ? 'This is a settled decision (major/unknown), not a race.'
+                  : 'No semver label after waiting — semver-label has not published for this PR.')
+              );
               return;
             }
 
@@ -94,7 +181,11 @@ jobs:
               `, { prId: pr.node_id });
               core.info(`Auto-merge (squash) enabled on PR #${prNumber}.`);
             } catch (err) {
-              // If all checks aren't yet required-passing, enablePullRequestAutoMerge may
-              // return an error. Log it but don't fail the workflow — a re-run will catch it.
+              // Enabling can legitimately fail while required checks are still
+              // reporting, because GitHub refuses the mutation until the merge
+              // queue's requirements are satisfiable. That is not fatal: the
+              // next check_suite/status/synchronize event, or the Semver Label
+              // workflow_run above, re-enters this job and the call is idempotent.
               core.warning(`enablePullRequestAutoMerge: ${err.message}`);
             }
+
