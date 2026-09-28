@@ -113,7 +113,15 @@ export interface ShopifyShippingZone {
   name: string;
   countryCodes: string[];
   restOfWorld: boolean;
-  methods: { name: string; active: boolean; price: string | null; currency: string | null }[];
+  /**
+   * `id` is the delivery profile's own GID, not a diff input. It exists because
+   * Shopify does NOT enforce unique service names inside a zone, and the live
+   * store proves it: the Domestic zone returns two active rows both named
+   * "Standard" with two different GIDs. A name alone therefore does not identify
+   * a rate, and a lookup that returns "the one called Standard" picks
+   * arbitrarily between the two. Carrying the id makes the collision explicit.
+   */
+  methods: { id: string; name: string; active: boolean; price: string | null; currency: string | null }[];
 }
 
 export interface ShopifyShippingProfile {
