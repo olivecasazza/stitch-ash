@@ -546,6 +546,7 @@ export async function getDeliveryProfiles(client: AdminClient): Promise<ShopifyS
           countryCodes,
           restOfWorld,
           methods: zoneNode.methodDefinitions.nodes.map(method => ({
+            id: method.id,
             name: method.name,
             active: method.active,
             // A derived/carrier-calculated rate has no fixedFee. Reporting

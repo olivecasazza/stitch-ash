@@ -120,7 +120,15 @@ describe("diffShipping compares declared rules against the store (STI-507)", () 
           name: "Domestic",
           countryCodes: ["US"],
           restOfWorld: false,
-          methods: [{ name: "Tracked domestic shipping", active: true, price: "0.00", currency: "USD" }],
+          methods: [
+            {
+              id: "gid://shopify/DeliveryMethodDefinition/825665028141",
+              name: "Tracked domestic shipping",
+              active: true,
+              price: "0.00",
+              currency: "USD",
+            },
+          ],
         },
       ],
       ...overrides,
@@ -255,13 +263,71 @@ describe("diffShipping compares declared rules against the store (STI-507)", () 
     assert.match(diff.actions[0]!, /is not a valid number/);
   });
 
+  it("does not silently compare against one of several identically-named services", () => {
+    // The live Domestic zone returns TWO active services both named "Standard"
+    // with different GIDs. `find(m => m.name === rule.serviceName)` took the
+    // first and reported nothing about the second — a silent pass on the case
+    // where the declared rate cannot be checked against a single rate at all.
+    const collided = profile();
+    collided.zones[0]!.methods = [
+      { id: "gid://shopify/DeliveryMethodDefinition/825665028141", name: "Tracked domestic shipping", active: true, price: "0.00", currency: "USD" },
+      { id: "gid://shopify/DeliveryMethodDefinition/825665028141?source=RateRangeCondition&source_id=198824656941", name: "Tracked domestic shipping", active: true, price: "0.00", currency: "USD" },
+    ];
+
+    const diff = diffShipping(policy(), collided);
+    assert.equal(diff.actions.length, 1);
+    assert.match(diff.actions[0]!, /2 services all named "Tracked domestic shipping"/);
+    assert.match(diff.actions[0]!, /cannot be checked against one rate/);
+    // Both rows must be identifiable, or the operator has to go to the Admin UI.
+    assert.match(diff.actions[0]!, /825665028141/);
+    assert.match(diff.actions[0]!, /198824656941/);
+    assert.match(diff.actions[0]!, /they currently agree on price/);
+  });
+
+  it("says a name collision is a live money bug when the rows disagree", () => {
+    // Same collision, but now the two "Standard" rows charge different amounts:
+    // some customers are quoted one rate and some another for the same service.
+    const split = profile();
+    split.zones[0]!.methods = [
+      { id: "gid://shopify/DeliveryMethodDefinition/825665028141", name: "Tracked domestic shipping", active: true, price: "0.00", currency: "USD" },
+      { id: "gid://shopify/DeliveryMethodDefinition/825665060909", name: "Tracked domestic shipping", active: true, price: "25.00", currency: "USD" },
+    ];
+
+    const diff = diffShipping(policy(), split);
+    assert.equal(diff.actions.length, 1);
+    assert.match(diff.actions[0]!, /THEY DISAGREE \(2 distinct prices\)/);
+    assert.match(diff.actions[0]!, /customers are charged different rates/);
+    // A disagreement must never be reduced to a bare "not found".
+    assert.doesNotMatch(diff.actions[0]!, /not found in zone/);
+  });
+
+  it("still matches a unique name when other services share a different name", () => {
+    // The collision must not disable normal matching for a zone that happens to
+    // contain two rows, as long as the DECLARED name is unique among them.
+    const mixed = profile();
+    mixed.zones[0]!.methods = [
+      { id: "gid://shopify/DeliveryMethodDefinition/825665028141", name: "Tracked domestic shipping", active: true, price: "0.00", currency: "USD" },
+      { id: "gid://shopify/DeliveryMethodDefinition/825665028142", name: "Standard", active: true, price: "0.00", currency: "USD" },
+      { id: "gid://shopify/DeliveryMethodDefinition/825665028143", name: "Standard", active: true, price: "0.00", currency: "USD" },
+    ];
+    assert.deepEqual(diffShipping(policy(), mixed).actions, []);
+  });
+
   it("checks each declared rule against its own zone", () => {
     const twoZones = profile();
     twoZones.zones.push({
       name: "International",
       countryCodes: ["DE", "FR"],
       restOfWorld: true,
-      methods: [{ name: "Tracked international shipping", active: true, price: "25.00", currency: "USD" }],
+      methods: [
+        {
+          id: "gid://shopify/DeliveryMethodDefinition/825665093677",
+          name: "Tracked international shipping",
+          active: true,
+          price: "25.00",
+          currency: "USD",
+        },
+      ],
     });
     const diff = diffShipping(
       policy({

@@ -150,9 +150,41 @@ export function diffShipping(
     // Match on service name first, then fall back to the only active option in
     // the zone. A store that renamed "Tracked domestic shipping" to "Standard"
     // should report that honestly rather than silently reporting no drift.
-    const byName = zone.methods.find(m => m.name === rule.serviceName);
+    //
+    // A name only identifies a rate when it is unambiguous in the zone. Shopify
+    // does not enforce unique names and the live store returns two active
+    // services both called "Standard" in Domestic, so `find()` returned the
+    // FIRST of the two and reported nothing: it compared a declared rate
+    // against one arbitrary row of a name collision, and said the other row
+    // did not exist. That is a silent pass on the worst case, so a collision is
+    // reported as one explicit line instead.
+    const namedMatches = zone.methods.filter(m => m.name === rule.serviceName);
     const activeMethods = zone.methods.filter(m => m.active);
-    const method = byName ?? (activeMethods.length === 1 ? activeMethods[0] : undefined);
+    const ambiguous = namedMatches.length > 1;
+    const method = ambiguous
+      ? undefined
+      : (namedMatches[0] ?? (activeMethods.length === 1 ? activeMethods[0] : undefined));
+
+    if (ambiguous) {
+      // Everything needed to act without opening the Admin UI: the colliding
+      // rows with their GIDs, what each charges, and whether they agree. Rows
+      // that disagree are a live money bug — customers are quoted different
+      // rates for the same service name — which is why "cannot be checked"
+      // alone would understate it.
+      const rows = namedMatches
+        .map(m => `"${m.name}" [${m.id}]${m.active ? "" : " (inactive)"}=${m.price === null ? "derived/unknown" : `${m.price} ${m.currency ?? policy.currencyCode}`.trim()}`)
+        .join(", ");
+      const prices = new Set(namedMatches.map(m => (m.price === null ? "derived/unknown" : normalizePrice(m.price))));
+      actions.push(
+        `shipping rule ${rule.id}: zone "${zone.name}" has ${namedMatches.length} services all named ` +
+          `"${rule.serviceName}", so the declared ${rule.price} ${policy.currencyCode} cannot be checked ` +
+          `against one rate: ${rows}. ` +
+          (prices.size > 1
+            ? `THEY DISAGREE (${prices.size} distinct prices) — customers are charged different rates for the same service name`
+            : "they currently agree on price, but the names collide and must be renamed before they can drift apart"),
+      );
+      continue;
+    }
 
     if (!method) {
       // Include the store's actual rates for this zone. Without them a renamed
