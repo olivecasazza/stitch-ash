@@ -61,3 +61,23 @@ jobs:
 
       - name: Run internal-copy gate
         run: ./scripts/ci/no-internal-copy-in-storefront.sh
+
+  # STI-446: 30 custom properties sat in tokens.css with no DESIGN.md token for
+  # weeks — caught by the STI-423 daily drift run, but nothing prevented them.
+  # This gate makes the top-down chain mechanical: every property in tokens.css
+  # must name a token DESIGN.md really declares, and DESIGN.md must lint clean.
+  token-drift-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run token drift gate
+        run: ./scripts/ci/token-drift-gate.sh
