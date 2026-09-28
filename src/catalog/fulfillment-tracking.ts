@@ -22,49 +22,91 @@ export function validateTrackingInput(
 export async function findOrderFulfillmentTarget(orderName: string): Promise<FulfillmentTarget | null> {
   const client = await buildAdminClient();
 
-  const query = `
-    query getOrderByName($name: String!) {
-      order(name: $name) {
-        id
-        name
-        fulfillmentStatus
-        lineItems(first: 20) {
-          edges {
-            node {
-              id
-              variant { id sku }
-              quantity
-              fulfillmentService { id name }
-            }
-          }
-        }
-      }
-    }
-  `;
-
   const response = await fetch(`https://${client.domain}/admin/api/2026-04/graphql.json`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Shopify-Access-Token": client.token,
     },
-    body: JSON.stringify({ query, variables: { name: orderName } }),
+    body: JSON.stringify({ query: buildOrderLookupQuery(), variables: { query: buildOrderSearchFilter(orderName) } }),
   });
 
-  if (!response.ok) return null;
-  const json = await response.json() as { data?: { order: {
-    id: string;
-    name: string;
-    fulfillmentStatus: string;
-    lineItems: { edges: { node: {
-      id: string;
-      variant: { id: string; sku: string } | null;
-      quantity: number;
-      fulfillmentService: { id: string; name: string } | null;
-    }}[] };
-  } | null } };
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Order lookup failed (HTTP ${response.status}) for ${orderName}: ${text}`);
+  }
 
-  const order = json.data?.order;
+  return parseOrderFulfillmentTarget(await response.json(), orderName);
+}
+
+/**
+ * STI-484: the Admin API has no `order(name:)` field — an order is addressed by
+ * id, or found by name through the `orders` search. The old query asked for
+ * `order(name:)`, `Order.fulfillmentStatus` and `FulfillmentService.name`, none
+ * of which exist. GraphQL answers all of that with HTTP 200 plus an `errors`
+ * payload, so the old `if (!response.ok) return null` guard never fired and a
+ * real order looked permanently absent. These are the fields the live
+ * 2026-04 schema actually accepts.
+ */
+export function buildOrderLookupQuery(): string {
+  return `
+    query getOrderByName($query: String!) {
+      orders(first: 1, query: $query) {
+        edges {
+          node {
+            id
+            name
+            displayFulfillmentStatus
+            retailLocation { id }
+            lineItems(first: 20) {
+              edges {
+                node {
+                  id
+                  quantity
+                  variant { id sku }
+                  fulfillmentService { id handle }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+}
+
+/** A bare `#1001` is valid search syntax; anything with spaces or quotes is quoted. */
+export function buildOrderSearchFilter(orderName: string): string {
+  return /^#[A-Za-z0-9_-]+$/.test(orderName) ? `name:${orderName}` : `name:"${orderName.replace(/"/g, '\\"')}"`;
+}
+
+interface OrderLookupNode {
+  id: string;
+  name: string;
+  retailLocation?: { id: string } | null;
+  lineItems: {
+    edges: {
+      node: {
+        id: string;
+        variant: { id: string; sku: string } | null;
+        quantity: number;
+        fulfillmentService: { id: string; handle: string } | null;
+      };
+    }[];
+  };
+}
+
+export function parseOrderFulfillmentTarget(payload: unknown, orderName: string): FulfillmentTarget | null {
+  const errors = (payload as { errors?: { message: string }[] }).errors;
+  if (errors?.length) {
+    throw new Error(
+      `Shopify GraphQL rejected the order lookup for ${orderName}: ${errors.map(e => e.message).join("; ")}`,
+    );
+  }
+
+  const order = (payload as { data?: { orders?: { edges: { node: OrderLookupNode }[] } } }).data?.orders?.edges?.[0]
+    ?.node;
+
   if (!order) return null;
 
   const line = order.lineItems.edges[0]?.node;
@@ -76,10 +118,13 @@ export async function findOrderFulfillmentTarget(orderName: string): Promise<Ful
     lineItemId: line.id,
     variantId: line.variant?.id ?? "",
     quantity: line.quantity,
-    fulfillmentService: line.fulfillmentService?.name ?? "manual",
-    locationId: "",
+    fulfillmentService: line.fulfillmentService?.handle ?? "manual",
+    // STI-484: previously hardcoded "", so a fulfillment could never be bound
+    // to a location even though the policy is primary_shopify_location.
+    locationId: order.retailLocation?.id ?? "",
   };
 }
+
 
 export function renderTrackingPlan(input: TrackingInput, target: FulfillmentTarget | null): string[] {
   const lines: string[] = [];
