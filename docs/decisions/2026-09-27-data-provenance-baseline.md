@@ -66,39 +66,34 @@ Four further facts are easy to conflate and must be kept separate:
    As of 2026-09-28 the Admin GraphQL endpoint rejects queries with
    `"Online Store channel is locked"` ([STI-457](/STI/issues/STI-457)). That
    lock is **Admin-side only**. The public Storefront API — the path the
-   storefront actually uses — is **reachable and authenticating**: the server
-   route `POST /api/checkout` forwards a `cartCreate` mutation to Shopify and
-   returns a structured Shopify `userErrors` response, which is only possible
-   after a successful call to the Storefront endpoint. The lock is therefore
-   **not** a cause of zero revenue and must not be reported as one. It is a
-   separate operator action (trial/billing hold or unverified store), and it
-   may be *upstream* of the password gate rather than parallel to it.
-   **Correction (2026-09-28, `a65331a`):** this record previously claimed the
-   `cartCreate` call "returned a real Shopify cart id and `checkoutUrl`". That
-   no longer reproduces — see the empty-catalog finding (5) and the re-verification
-   log. "Reachable and authenticating" is now the claim, not "returns a cart".
+   storefront actually uses — is verified working: a `cartCreate` mutation with
+   a real variant id returns `HTTP 200` and a real Shopify `checkoutUrl`, and
+   products and purchasable variants **do** exist in the store. The lock is
+   therefore **not** a cause of zero revenue and must not be reported as one.
+   It is a separate operator action (trial/billing hold or unverified store),
+   and it may be *upstream* of the password gate rather than parallel to it.
 
-5. **The live catalog the storefront reads is empty.** *(new 2026-09-28)* The
-   fallback-free live route `/collection/featured` returns `HTTP 200` and proves
-   the Storefront read works, but the page body renders **"No products found."**
-   — the live Shopify collection titled `Featured` (description: "Heavyweight
-   cotton fleece, double-stitched. Black on black embroidery.") contains
-   **zero products**. Its product list comes from a *second* live query in
-   `app/components/collection/Products.vue:31-39`, which returned an empty
-   connection.
+5. **The live `featured` collection is empty, but the catalog is not.**
+   *(new 2026-09-28)* The fallback-free live route `/collection/featured`
+   returns `HTTP 200` — which proves the Storefront read works — and the
+   collection's title and description come back live ("Featured — Heavyweight
+   cotton fleece, double-stitched. Black on black embroidery."). But the body
+   renders **"No products found."** Its grid comes from a second live `products()`
+   query in `app/components/collection/Products.vue:31-39`, which returned an
+   **empty connection**: the live `Featured` collection has **zero members**.
 
-   This is a **third, independent** reason the storefront cannot sell, and it
-   sits *downstream* of both the Admin lock and the password gate. It is the
-   most consequential of the three for planning, because the other two are
-   configuration flips an operator can reverse, while an empty catalog requires
-   products to actually be created in Shopify — and the placeholder handles
-   (`sku-001`…`sku-003`) are not Shopify ids, so nothing maps to anything yet.
+   This is **not** a broken data path and **not** a missing catalog. Products
+   exist — the variant id recorded in [STI-327](/STI/issues/STI-327) is still
+   live and purchasable today. What is missing is the *membership* of one
+   collection. It is therefore a **merchandising gap, not a revenue blocker**:
+   the password gate already prevents every purchase, and once it lifts, an
+   unpopulated `featured` collection would cost conversion rather than
+   transactions. It belongs to the merch/GTM role's launch checklist, not to the
+   operator's unlock path.
 
-   **Consequence for go-live sequencing:** un-gating the apex and unlocking the
-   Admin channel are **necessary but not remotely sufficient**. A customer on an
-   un-gated apex would reach a storefront whose live collection is empty. Do not
-   start the 90-day KPI clock, and do not publish go-live copy, on the strength
-   of a gate fix alone.
+   The honest way to report it: the storefront can sell; the collection it sends
+   shoppers to has nothing in it yet. Do not inflate this into "the catalog is
+   empty" — an earlier draft of this record did exactly that and was wrong.
 
 So "not mock", "serves live product data" and "has revenue" are three different
 claims. The storefront config points at the live API, most pages still render
@@ -138,18 +133,19 @@ verified baseline as of 2026-09-27:
 | Preview `/products` render | `200`, body has `185`/`35`, **zero** `gid://shopify` | `curl -sSL https://preview.stitch-ash.com/products` |
 | Cart / `checkoutUrl` | Unconditional live Storefront API read | `app/composables/cart.ts:33,80` `useStorefront()` |
 | Live store credential valid | **Unverified** — operator-owned | not readable from the repo; `process.env` wire only, `?? ''` |
-| Collection `/collection/<handle>` | **Live read, no fallback** — a `200` here *is* proof of a live response — **but the collection is EMPTY** | `app/pages/collection/[handle].vue:15` query; `:36-37` throws a fatal `404` on `!collection.value \|\| error.value`; prerender disabled in `nuxt.config.ts:41-42` `routeRules`. Live: title/description come from Shopify, body renders **"No products found."** |
-| Live catalog contents | **Empty** — the `featured` collection has **0 products**, so no variant id exists to sell | `app/components/collection/Products.vue:31-39` live `products()` connection returns empty; `POST /api/checkout` → `HTTP 422` `"The merchandise with id … does not exist."` |
-| Public Storefront API path | **Reachable and authenticating** — forwards to Shopify and returns structured `userErrors`. **No longer returns a cart** (was `HTTP 200` + `checkoutUrl` on 2026-09-28T05:4xZ) | `POST https://preview.stitch-ash.com/api/checkout` → `HTTP 422` `userErrors` (2026-09-28T08:1xZ) |
+| Collection `/collection/<handle>` | **Live read, no fallback** — a `200` here *is* proof of a live response — but this collection has **0 members** | `app/pages/collection/[handle].vue:15` query; `:36-37` throws a fatal `404` on `!collection.value \|\| error.value`; prerender disabled in `nuxt.config.ts:41-42` `routeRules`. Live: title/description come from Shopify, body renders **"No products found."** |
+| Live catalog contents | **Populated** — products and purchasable variants exist; the `featured` **collection** is simply unpopulated | `POST /api/checkout` with a real variant id → `HTTP 200` + real `checkoutUrl`; `app/components/collection/Products.vue:31-39` returns an empty connection for `featured` |
+| Public Storefront API path | **Alive** — `cartCreate` returns a real cart and a real `checkoutUrl` | `POST https://preview.stitch-ash.com/api/checkout` → `HTTP 200` with a `checkoutUrl` (needs a **real** variant id; a placeholder id returns `HTTP 422` `userErrors` "The merchandise with id … does not exist.") |
 | Shopify Admin API | **Locked** — `"Online Store channel is locked"` | Admin GraphQL query rejected, 2026-09-28 ([STI-457](/STI/issues/STI-457)) |
-| Customer-reachable checkout | **No** — apex password-walled | `curl -L https://www.stitch-ash.com` → final `/password` |
-| **Observable real revenue** | **Zero** | **Three** independent causes: apex gate, Admin lock, and an empty live catalog. None is `mock` commerce. |
+| Customer-reachable checkout | **No** — apex password-walled | `curl -L https://www.stitch-ash.com` → final `/password`; the live `checkoutUrl` also lands on `/password` |
+| **Observable real revenue** | **Zero** | apex gate blocks every customer path, proven end-to-end: a real cart is created, then its `checkoutUrl` lands on `/password`. The Admin lock is not a cause. |
 
 Reporting rules that follow:
 
 - Revenue, AOV, conversion rate and gross margin are reported as `0` **with the
-  stated reason**: no customer can reach checkout while the apex is gated, and
-  the live catalog is empty besides. Never attribute `$0` to `mock` commerce.
+  stated reason**: a real cart can be created, but the production apex is
+  password-walled, so no customer completes a purchase. Never attribute `$0` to
+  `mock` commerce.
 - Any forward-looking revenue or margin figure is labeled an **estimate** with
   its source and its assumption basis. Estimates are never presented as actuals.
 - The 90-day KPI clock starts when the apex gate is lifted, **not** when
@@ -160,12 +156,16 @@ Reporting rules that follow:
   clock starts when a customer can complete a purchase, which requires a
   confirmed un-gated apex **and** a confirmed payment path — not when either
   one alone is fixed.
-  **Second amendment (2026-09-28, `a65331a`):** a third precondition now applies
-  — **the live catalog must actually contain the products.** All three must hold:
-  (a) un-gated apex, (b) unlocked Online Store channel, (c) real Shopify products
-  and variants created, with `sku-001`…`sku-003` replaced by real handles per
-  `TODO (STI-318)`. Fixing (a) alone ships an empty storefront. "The site is up"
-  is not "the store sells".
+  **Second amendment (2026-09-28, `a65331a`) — this one is a *rejection*, not
+  an addition.** An earlier draft of this entry added a third precondition,
+  "the live catalog must contain the products", on the strength of an empty
+  `featured` collection. That was **wrong**: the variant id in
+  [STI-327](/STI/issues/STI-327) is still live and purchasable, and
+  `cartCreate` with it returns `HTTP 200` and a real `checkoutUrl`. Products
+  exist. The precondition count stays at two. The unpopulated collection is
+  tracked as a merchandising item, not a launch gate. **Do not let a
+  merchandising gap be reported as a revenue blocker** — that is the pessimistic
+  twin of the error this record was first written to prevent.
 - Nobody flips `mock` to satisfy a document. `mock: false` is the current,
   intended, live-commerce state.
 - A `200` from a storefront URL is evidence the page rendered. It is **not**
@@ -178,17 +178,20 @@ Reporting rules that follow:
   a `200` from that route **is** evidence of a successful live response. Do not
   carry the "a 200 proves nothing" rule over to it.
   **Second exception:** proving the live *response* succeeded is not proving the
-  live *catalog* has anything in it. A `200` from `/collection/featured` is
-  evidence the Storefront API answered; "No products found." in the same body is
-  evidence there is nothing to sell. Check both.
+  live *catalog* is non-empty. A `200` from `/collection/featured` proves the
+  Storefront API answered; "No products found." in the same body proves that
+  collection has no members. Both can be true at once, and here both are.
 - A locked Admin API is **not** evidence of a broken Storefront path. Verify the
   path the storefront actually uses (`cartCreate`, the collection query) before
   reporting the data path as down.
-- **An empty live catalog is not evidence of a broken data path either.** The
-  Storefront API answered correctly and reported that the merchandise does not
-  exist. That is a *catalog* fact, not a *plumbing* fact. Do not "fix" the
-  storefront in response to it — the fix is to create the products in Shopify,
-  which is operator-owned.
+- **An empty collection is not evidence of a broken data path either.** Prove the
+  catalog state with a *known-good* id before reporting on it. `cartCreate` with
+  a placeholder variant id returns `HTTP 422` `"The merchandise with id … does
+  not exist."` — which is a statement about the id you supplied, not about the
+  store. Using that response to claim the catalog is empty is how this record
+  got a wrong correction into a PR on 2026-09-28; it was caught by re-testing
+  with the real variant id from [STI-327](/STI/issues/STI-327). Always run the
+  control.
 
 ## Alternatives considered
 
@@ -279,12 +282,14 @@ vector named above remains **latent, not realized**.
 - The static-catalog rows are a finding, not a defect report. Whether the
   catalog should become live-sourced before the apex gate is lifted is a
   commerce decision for the operator, out of scope for this record.
-- **The empty live catalog (added 2026-09-28) is a commerce and operations
-  decision, not a reporting one, and not this role's to execute.** Creating real
-  Shopify products and variants requires the Admin API, which is locked
-  ([STI-457](/STI/issues/STI-457)). It is escalated as an operator action; this
-  record's contribution is the verified claim that it is required, not a
-  proposal for how to do it.
+- **The unpopulated `featured` collection (added 2026-09-28) is merchandising
+  work, and it belongs to this role — not to the operator's unlock path and not
+  to a launch gate.** Populating a Shopify collection needs the Admin API, which
+  is locked ([STI-457](/STI/issues/STI-457)), so the *mechanical* step is
+  currently blocked on an operator action; the *decision* of which products
+  belong in `Featured` is merch/GTM's and is not blocked by anything. It is
+  tracked on the merch launch checklist. It must not be reported as a cause of
+  zero revenue — the password gate already accounts for all of it.
 - This record is a reporting baseline, not a commerce change. It edits no
   storefront code and requires no deploy.
 
@@ -299,7 +304,7 @@ below as current just because it appears in this file.
 | 2026-09-28 | `7a62fc5` | **All ten rows above re-verified true, unchanged. Revenue still zero.** Read from a fresh `git fetch origin` in `$PAPERCLIP_WORKSPACE_CWD/stitch-ash` (remote `github.com/olivecasazza/stitch-ash`, workspace guard PASS). Repo: `nuxt.config.ts:32` is `mock: false,` with `:33` `apiVersion: '2026-04',` and `:34` `publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? ''`; `git log --oneline 81b7b81..origin/main -- nuxt.config.ts` is **empty** — no commit since `81b7b81` has touched the storefront client config. Live, fetched 2026-09-28T07:5xZ: `https://preview.stitch-ash.com/products` → `HTTP 200`, `20908` bytes, `<title>Shop — STITCH AND ASH</title>`, all three prices `185`/`35`/`15` present, `0` occurrences of `gid://shopify`, `mock:false` present in the served payload; `https://www.stitch-ash.com` → `HTTP 200`, `103731` bytes, final `https://www.stitch-ash.com/password`, body "Enter password" / "Protected". **Observable real revenue is still zero.** Re-verification only — no storefront code changed and no deploy was triggered by this entry. |
 | 2026-09-28 | `7a39fe0` | **All ten rows above re-verified true, unchanged. Revenue still zero.** Read from a fresh `git fetch origin` in `$PAPERCLIP_WORKSPACE_CWD/stitch-ash` (remote `github.com/olivecasazza/stitch-ash`). Repo: `nuxt.config.ts:32` is `mock: false,` with `:33` `apiVersion: '2026-04',` and `:34` `publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? '',`; `app/pages/products.vue:2,18` still imports and renders the static `PRODUCTS` with no Storefront call in the file; `app/pages/product/[handle].vue:22` still runs the `useStorefrontData` query and `:70-75` still fall back to `staticProduct`; `app/pages/collection/[handle].vue:15` is still an unconditional `useStorefrontData` read; `app/composables/cart.ts:5` still calls `useStorefront()`; `app/data/products.ts:24` still says "must match Shopify product handle when live", `:116` still carries `TODO (STI-318)`, and `:136,149,162` are still `imageSrc: undefined`. Live, fetched 2026-09-28T01:07Z: `https://preview.stitch-ash.com/products` → `HTTP 200`, `20907` bytes, `<title>Shop — STITCH AND ASH</title>`, all three prices `185`/`35`/`15` present, `0` occurrences of `gid://shopify`; all three PDPs return `HTTP 200` with `0` `gid://shopify` each (`sku-001` `31474` bytes, `sku-002` `28036`, `sku-003` `27912`); `https://www.stitch-ash.com` → `HTTP 200`, `103731` bytes, final `https://www.stitch-ash.com/password`, body "Enter password" / "Protected". Re-verification only — no storefront code changed and no deploy was triggered by this entry. |
 | 2026-09-28 | `52b365c` | **All ten original rows re-verified true, unchanged. Revenue still zero. Three rows added this run.** Workspace guard passed: `$PAPERCLIP_WORKSPACE_CWD/stitch-ash` remote is `https://github.com/olivecasazza/stitch-ash.git`; `git ls-remote` → `52b365c2585b701f729d9da1bb4bd752a385d0d3`. Repo: `nuxt.config.ts:32` is `mock: false,` with `:33` `apiVersion: '2026-04',` and `:34` `publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? '',`; `app/pages/products.vue:2,18` still imports and renders the static `PRODUCTS` with no Storefront call in the file; `app/pages/product/[handle].vue:22` still runs the `useStorefrontData` query and `:70-75` still fall back to `staticProduct`; `app/pages/collection/[handle].vue:15` is still an unconditional `useStorefrontData` read; `app/composables/cart.ts:5` still calls `useStorefront()`; `app/data/products.ts:24` still says "must match Shopify product handle when live", `:116` still carries `TODO (STI-318)`, and `:136,149,162` are still `imageSrc: undefined`. Live, fetched 2026-09-28T05:4xZ: `https://preview.stitch-ash.com/` → `HTTP 200`, `22491` bytes; `/products` → `HTTP 200`, `20908` bytes, `<title>Shop — STITCH AND ASH</title>`, prices `185`/`35`/`15` present, `0` occurrences of `gid://shopify`; `/product/sku-001` → `HTTP 200`, `31474` bytes, `<title>Embroidered Hoodie — STITCH AND ASH</title>`, `0` `gid://shopify`; `/collection/featured` → `HTTP 200`, `19230` bytes, `<title>Featured | STITCH AND ASH</title>`. **New this run — the collection route is a live read with no fallback** (`app/pages/collection/[handle].vue:36-37` throws a fatal `404` when the query errors or returns nothing) and prerendering is disabled (`nuxt.config.ts:41-42` `routeRules` has the `prerender: true` entry commented out, STI-271), so that `200` is evidence of a successful live Storefront response, not a fixture. **New this run — the public Storefront path is alive:** `POST https://preview.stitch-ash.com/api/checkout` with one line → `HTTP 200` and a real Shopify `checkoutUrl` on `https://www.stitch-ash.com/cart/c/…`; following it → `HTTP 200`, `103731` bytes, final `https://www.stitch-ash.com/password`. This created an empty cart only — no order was placed and nothing was spent. **New this run — the Shopify Admin API is locked** (`"Online Store channel is locked"`, [STI-457](/STI/issues/STI-457)); it is Admin-side only and did **not** break the Storefront path proven above. Re-verification only — no storefront code changed and no deploy was triggered by this entry. |
-| 2026-09-28 | `a65331a` | **All previously-logged rows re-verified true except two, which are corrected above. Revenue still zero, and there are now three independent causes.** Workspace guard passed: `$PAPERCLIP_WORKSPACE_CWD/stitch-ash`, remote `https://github.com/olivecasazza/stitch-ash.git`; `git fetch origin` → `origin/main` = `a65331af514de3fad002230998409c1b9d7b7472`. Repo: `nuxt.config.ts:32` is `mock: false,` (`:33` `apiVersion: '2026-04',`, `:34` `publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? ''`), prerender still disabled at `:41-42`; `git log --oneline 52b365c..origin/main` = 7 commits, of which `git diff --name-only 52b365c..origin/main -- nuxt.config.ts` is **empty** and the `app/` changes are **copy-only** (`app/app.vue`, `app/components/ProductCard.vue`, `app/data/products.ts`, `app/pages/product/[handle].vue` — all four edits are string swaps: lead-time text removed from the three Shipping & Returns accordion bodies, and the PDP plate caption changed from `PHOTOGRAPH PENDING` to `EMBROIDERY, NOT PRINT`). **Every line citation in the table above was re-checked and still points at exactly the claimed line**: `app/pages/products.vue:2` + `:18`; `app/pages/product/[handle].vue:22` + the `:68-77` `?? staticProduct…` fallbacks; `app/data/products.ts:24` + `:116` + `:136,149,162`; `app/composables/cart.ts:5`; `app/pages/collection/[handle].vue:15` + `:36-37`. Live, fetched 2026-09-28T08:10:48Z: `/` → `HTTP 200`, `22517` bytes; `/products` → `HTTP 200`, `20934` bytes, all three prices `185`/`35`/`15` present, `0` occurrences of `gid://shopify`; `/product/sku-001` → `200`/`31457`, `/product/sku-002` → `200`/`28019`, `/product/sku-003` → `200`/`27910`, each with `0` `gid://shopify`; `/collection/featured` → `200`/`19247`, `0` `gid://shopify`; `https://www.stitch-ash.com` → `HTTP 200`, `103731` bytes, final `https://www.stitch-ash.com/password`, body "Enter password" / "Protected". The `a65331a` copy change is confirmed deployed: `EMBROIDERY, NOT PRINT` present on `/product/sku-001`, `allow 3–5 weeks` now `0` occurrences. **CORRECTION — `cartCreate` no longer returns a cart.** `POST https://preview.stitch-ash.com/api/checkout` with the documented `{ items: [{ variantId, quantity }] }` shape now returns **`HTTP 422`**, `"The merchandise with id gid://shopify/ProductVariant/1 does not exist."`, for both a low ordinal (`…/1`) and a zero ordinal (`…/00000000000000`); the earlier `HTTP 200` + `checkoutUrl` recorded at `52b365c` **does not reproduce**. This is a `userErrors` passthrough from `server/api/checkout.ts:123-129`, which is only reachable after the server has called Shopify — so the row is narrowed from "Alive, returns a cart" to **"reachable and authenticating"**. (An earlier probe in this same run used the wrong payload key — `{ lines: … }` — and got `HTTP 400`; that was my error, not a finding, and the corrected shape above is the result that counts.) **NEW FINDING — the live catalog is empty.** `/collection/featured` renders **"No products found."** Its `<title>` (`Featured | STITCH AND ASH`) and description ("Heavyweight cotton fleece, double-stitched. Black on black embroidery.") come from the live `collection(handle:)` query at `app/pages/collection/[handle].vue:15`, and its product grid comes from a **second** live `products()` query at `app/components/collection/Products.vue:31-39` that returned an empty connection. So the Storefront path demonstrably answers, and the collection it answers with **contains zero products** — corroborating the `422` above. This is a third, independent go-live blocker, downstream of the password gate and the Admin lock. **Observable real revenue is still zero.** Re-verification and record-correction only — no storefront code changed, no deploy was triggered, no order placed, no spend, and no secret read. |
+| 2026-09-28 | `a65331a` | **All previously-logged rows re-verified true. One new merchandising finding. One wrong correction, caught and reverted.** Workspace guard passed: `$PAPERCLIP_WORKSPACE_CWD/stitch-ash`, remote `https://github.com/olivecasazza/stitch-ash.git`; `git fetch origin` → `origin/main` = `a65331af514de3fad002230998409c1b9d7b7472`. Repo: `nuxt.config.ts:32` is `mock: false,` (`:33` `apiVersion: '2026-04',`, `:34` `publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? ''`), prerender still disabled at `:41-42`; `git log --oneline 52b365c..origin/main` = 7 commits, of which `git diff --name-only 52b365c..origin/main -- nuxt.config.ts` is **empty** and the `app/` changes are **copy-only** (`app/app.vue`, `app/components/ProductCard.vue`, `app/data/products.ts`, `app/pages/product/[handle].vue` — all four edits are string swaps: lead-time text removed from the three Shipping & Returns accordion bodies, and the PDP plate caption changed from `PHOTOGRAPH PENDING` to `EMBROIDERY, NOT PRINT`). **Every line citation in the table above was re-checked and still points at exactly the claimed line**: `app/pages/products.vue:2` + `:18`; `app/pages/product/[handle].vue:22` + the `:68-77` `?? staticProduct…` fallbacks; `app/data/products.ts:24` + `:116` + `:136,149,162`; `app/composables/cart.ts:5`; `app/pages/collection/[handle].vue:15` + `:36-37`. Live, fetched 2026-09-28T08:10:48Z: `/` → `HTTP 200`, `22517` bytes; `/products` → `HTTP 200`, `20934` bytes, all three prices `185`/`35`/`15` present, `0` occurrences of `gid://shopify`; `/product/sku-001` → `200`/`31457`, `/product/sku-002` → `200`/`28019`, `/product/sku-003` → `200`/`27910`, each with `0` `gid://shopify`; `/collection/featured` → `200`/`19247`, `0` `gid://shopify`; `https://www.stitch-ash.com` → `HTTP 200`, `103731` bytes, final `https://www.stitch-ash.com/password`, body "Enter password" / "Protected". The `a65331a` copy change is confirmed deployed: `EMBROIDERY, NOT PRINT` present on `/product/sku-001`, `allow 3–5 weeks` now `0` occurrences. **NEW FINDING — the live `featured` collection has zero members.** `/collection/featured` renders **"No products found."** Its `<title>` (`Featured | STITCH AND ASH`) and description ("Heavyweight cotton fleece, double-stitched. Black on black embroidery.") come from the live `collection(handle:)` query at `app/pages/collection/[handle].vue:15`, and its product grid comes from a **second** live `products()` query at `app/components/collection/Products.vue:31-39` that returned an empty connection. **WRONG CORRECTION, CAUGHT AND REVERTED — the catalog is not empty.** An earlier draft of this entry claimed `cartCreate` "no longer returns a cart" and that the live catalog was empty, on the strength of `POST /api/checkout` returning `HTTP 422` `"The merchandise with id gid://shopify/ProductVariant/1 does not exist."`. That `422` is a statement about the **id I supplied**, not about the store. Re-tested with the **real** variant id recorded in [STI-327](/STI/issues/STI-327) (`gid://shopify/ProductVariant/66758592790573`): `cartCreate` returns **`HTTP 200`** and a real `checkoutUrl` (`https://www.stitch-ash.com/cart/c/…?key=…`, key redacted). **The original table row was correct and is restored.** The `422` is a `userErrors` passthrough from `server/api/checkout.ts:123-129` and is only reachable after the server has called Shopify, so it is evidence the path is alive — not evidence the catalog is empty. **The end-to-end revenue path is now proven in one run:** a real variant exists → a real cart is created → its `checkoutUrl` returns `HTTP 200` and lands on `https://www.stitch-ash.com/password`. **Observable real revenue is still zero, and the cause is the apex gate — not mock commerce, and not an empty catalog.** Re-verification and record-correction only — no storefront code changed, no deploy was triggered, no order placed, no spend, and no secret read. |
 
 ## Related
 
