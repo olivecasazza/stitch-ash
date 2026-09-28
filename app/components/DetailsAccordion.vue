@@ -45,7 +45,7 @@ defineProps<{
      side (STI-515 F4). Shipped 600 / 0.08em: 600 is a weight the ramp never
      declares (400 or 500, nothing else). design-lead owns the question of
      whether the summary wants its own components: entry or is covered by
-     accordion-body; tracked on STI-518. */
+     accordion-body; tracked on STI-521. */
   .accordion__summary {
     display: flex;
     align-items: center;

@@ -126,7 +126,7 @@ const { quantity, open } = useCart()
      ramp: --text-base (13px, the token's own size) is taller than the 1.4em
      box it sits in. DESIGN.md declares no components: token for this count
      chip and the class is not minted in tokens.css, so no mirror ships here;
-     design-lead's token decision is tracked on STI-518. */
+     design-lead's token decision is tracked on STI-521. */
   .cart-pill__count {
     display: inline-flex;
     align-items: center;

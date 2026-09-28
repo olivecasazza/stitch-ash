@@ -499,7 +499,7 @@ body {
    `background` / `border` divergence below (grey-950/--border-rule here vs
    transparent/--primary there) is invisible today and was never worth
    churning. Both were corrected for the typographic triple only; the
-   background pair is a separate design-lead call, tracked on STI-518. */
+   background pair is a separate design-lead call, tracked on STI-521. */
 .badge {
   display: inline-block;
   font-size: var(--text-xs);

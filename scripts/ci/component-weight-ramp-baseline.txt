@@ -11,8 +11,15 @@
 # prevent — a legitimate new weight goes into DESIGN.md's `typography:` first,
 # which is design-lead's call, not this file's.
 #
-# Every entry below is owned by STI-515. None of them are fixed by STI-516,
-# because a new CI gate and a batch of visual edits must not land in one PR.
+# THIS FILE IS CURRENTLY EMPTY, and that is the intended end state rather than
+# a gap. STI-516 landed the gate with all six violations recorded here as
+# baseline entries; STI-515 then fixed all six and deleted all six entries in
+# the same PR, which is exactly the ratchet discipline this file asks for. The
+# ratchet did its job: the gate was red on the STI-515 branch until this file
+# was tightened, and green afterwards. A future `font-weight: 600` in
+# component CSS is now an ordinary gate failure with no baseline to hide in.
+#
+# Do not re-add a violation here to get a PR to green. Fix the selector.
 #
 # SCOPE, stated honestly so nobody assumes coverage that does not exist. This
 # gate is TIER 1 of the three STI-516 describes, and it is the only tier that
@@ -21,10 +28,11 @@
 #   Tier 1 (SHIPPED HERE) — a literal `font-weight` / weight-leading `font:`
 #                         shorthand outside DESIGN.md's `typography:` ramp.
 #   Tier 2 (DEFERRED)    — raw literals on the 4px grid or the type steps,
-#                         e.g. `font-size: 0.7rem` on `.cart-pill__count`, or a
-#                         raw `padding: 12px` where a `--space-*` step exists.
-#                         Needs an allowlist for genuinely one-off values, or it
-#                         produces false positives.
+#                         e.g. `font-size: 0.7rem`, or a raw `padding: 12px`
+#                         where a `--space-*` step exists. Needs an allowlist
+#                         for genuinely one-off values, or it produces false
+#                         positives. STI-515 fixed the one instance it named
+#                         (`.cart-pill__count`), but the tier still ships.
 #   Tier 3 (DEFERRED)    — selector -> `components:` token diffing. Would have
 #                         caught STI-486's F1 and F3, a `transparent` background
 #                         where `components.input.backgroundColor` declares
@@ -32,19 +40,11 @@
 #
 # Also NOT covered, deliberately: `font-weight="600"` as an SVG presentation
 # attribute on a <text> element. That is markup, not a CSS declaration. The
-# gate prints those as an ADVISORY on every run so they stay visible, and two
-# exist today (Header.vue, index.vue). `bolder` / `lighter` are relative
-# weights and cannot be checked against a closed set, so they are not checked.
+# gate prints those as an ADVISORY on every run so they stay visible; both
+# that STI-516 found (Header.vue, index.vue) were fixed by STI-515, so no
+# advisory is expected until the next one is introduced.
+# `bolder` / `lighter` are relative weights and cannot be checked against a
+# closed set, so they are not checked.
 
-# --- STI-515, item 1: components.price maps to typography.numeric / text-xl ---
-app/pages/product/[handle].vue::.pdp__price::font-weight::600
-# --- STI-515, item 2: components.button-primary maps to typography.label ---
-app/pages/product/[handle].vue::.pdp__atc-btn::font-weight::600
-# --- STI-515, item 3: components.badge maps to typography.label (500) ---
-app/components/Badge.vue::.badge::font-weight::600
-# --- STI-515, item 3, second declaration: the cascade decides, so both must go ---
-app/assets/css/global.css::.badge::font-weight::600
-# --- STI-515, item 4: .accordion__summary needs a design-lead token decision ---
-app/components/DetailsAccordion.vue::.accordion__summary::font-weight::600
-# --- STI-515, item 5: .cart-pill__count traces to no DESIGN.md token at all ---
-app/components/Header.vue::.cart-pill__count::font-weight::600
+# --- no open entries ---
+
