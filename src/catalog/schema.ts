@@ -1,8 +1,35 @@
 import { z } from "zod";
 
+/**
+ * STI-421: money in the catalog is a decimal STRING, never a JS number, so
+ * "62.50" cannot be reinterpreted as 62.5 and compared wrong.
+ */
+const MoneyStringSchema = z
+  .string()
+  .regex(/^\d+(\.\d{2})$/, "must be a decimal string like 185.00");
+
 export const ProductVariantSchema = z.object({
   sku: z.string(),
   price: z.string(),
+  /**
+   * STI-421: landed cost (unit cost including inbound freight/duty) is the
+   * missing half of the gross-margin KPI, and this file is one of the two
+   * destinations STI-418 offers for it.
+   *
+   * It HAD to be declared here. `ProductVariantSchema` is a zod object, and zod
+   * strips unrecognised keys by default — so before this field existed, a
+   * `landedCost:` in catalog/products/*.yaml was removed during parse WITHOUT
+   * raising an error. `catalog:validate` stayed green, the cost vanished, and
+   * the margin report would have read blank forever with nothing to trace.
+   * The `landed-cost.test.ts` survival test is what stops that regression.
+   *
+   * Deliberately NOT sent to Shopify: `unitCost` lives on `inventoryItem`, not
+   * on ProductInput, so it cannot ride the productUpdate mutation. It is a
+   * local margin input only, which is also why `normalizeVariant` in
+   * shopify-admin.ts must stay an allowlist that omits it — otherwise adding a
+   * cost would print a phantom drift action against the live store.
+   */
+  landedCost: MoneyStringSchema.optional(),
   option1: z.string().nullable(),
   option2: z.string().nullable().optional(),
   option3: z.string().nullable().optional(),
@@ -29,6 +56,12 @@ export const CatalogProductSchema = z.object({
   status: z.enum(["ACTIVE", "DRAFT", "ARCHIVED"]),
   tags: z.array(z.string()).optional(),
   bodyHtml: z.string().optional(),
+  /**
+   * STI-421: product-level landed cost, for made-to-order lines where every
+   * variant is cut from the same bolt and carries one cost. Falls back to this
+   * when a variant declares no `landedCost` of its own; the variant value wins.
+   */
+  landedCost: MoneyStringSchema.optional(),
   options: z.array(ProductOptionSchema).optional(),
   variants: z.array(ProductVariantSchema),
 });
