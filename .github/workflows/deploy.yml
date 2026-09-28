@@ -27,33 +27,61 @@ on:
   #
   # STI-434: `on: push` does not fire for a commit created by GitHub's native
   # auto-merge, and the cron backstop added by STI-433 has never been delivered
-  # by GitHub at all, so every bot-merge still left the site behind main. The
-  # deterministic trigger is `pull_request: closed` below, which fires on the
-  # merge event itself and carries the resulting merge commit.
+  # by GitHub at all, so every bot-merge still left the site behind main.
+  # `pull_request: closed` below was the attempted replacement.
   #
-  # Why the obvious alternatives do not work here (evaluated on STI-434,
-  # 2026-09-27, against this repo's actual event stream):
-  #   * `on: push` — GitHub suppresses push events for commits its own
-  #     auto-merge service creates, so bot-merges never reach this trigger.
+  # WARNING — the `pull_request: closed` trigger is PROVEN INSUFFICIENT and
+  # must not be read as covering bot-merges. PR #51 is the counter-example,
+  # measured live and recorded in docs/STI-434-trigger-proof.md:
+  #
+  #   $ gh pr view 51 --json mergedAt,mergedBy,mergeCommit,headRefOid
+  #   mergedAt=2026-09-27T23:49:51Z
+  #   mergedBy={"login":"app/github-actions","is_bot":true}
+  #   mergeCommit=9e7083ea724d8c3c8a5953af7aff183638656d8d
+  #   $ gh api "repos/olivecasazza/stitch-ash/actions/runs?head_sha=9e7083ea..." -q .total_count
+  #   0
+  #
+  # PR #51 is a real ancestor of main, merged 29 minutes AFTER this trigger
+  # reached main (23:20:36Z), and it produced ZERO runs — not a deploy, not
+  # Release-plz, not any other workflow. The four `pull_request` runs that do
+  # exist for its branch all carry the pre-merge head `ac4d24dc` and were
+  # created 98s BEFORE the merge.
+  #
+  # The controlled comparison is exact. Every merge since this trigger landed:
+  #   PR #48 23:20:34 PAT  -> push 36358367571 + pull_request 36358368384
+  #   PR #49 23:27:14 PAT  -> push 36358742010 + pull_request 36358742266
+  #   PR #50 23:35:11 PAT  -> push 36359195253 + pull_request 36359195453
+  #   PR #51 23:49:51 BOT  -> NOTHING
+  #   PR #53 23:55:37 PAT  -> push 36360315984 + pull_request 36360315906
+  #   PR #55 00:22:11 PAT  -> push 36361968799 + pull_request 36361969147
+  # Five PAT merges, five merge-triggered deploys. One bot-merge, zero runs.
+  #
+  # Cause: GitHub suppresses ALL workflow events originating from a
+  # GITHUB_TOKEN actor, not just `push`. Enabling auto-merge with
+  # GITHUB_TOKEN in auto-merge.yml makes the native auto-merge service
+  # merge as the Actions app, and the resulting `pull_request: closed` event
+  # is suppressed along with it. This trigger is therefore load-bearing for
+  # PAT merges only, which is a real improvement over push-only, but it does
+  # NOT close the bot-merge gap and the site can still drift on a bot-merge.
+  #
+  # Status of the alternatives (evaluated on STI-434, 2026-09-27):
+  #   * `on: push` — suppressed for a GITHUB_TOKEN merge. (STI-433)
   #   * `on: workflow_run` off Auto-merge — REJECTED on STI-433. That run's
   #     headSha is the PRE-merge PR head, and it completes BEFORE the merge
   #     lands (PR #41: run finished 21:19:35Z, merge 21:21:06Z, 91s later), so
   #     a deploy chained off it would publish a pre-merge tree.
-  #   * `repository_dispatch` fired from auto-merge.yml — ALSO REJECTED on
-  #     STI-434. auto-merge.yml never performs the merge; it only calls the
-  #     `enablePullRequestAutoMerge` GraphQL mutation and exits. The merge is
-  #     then performed asynchronously by GitHub's native auto-merge service
-  #     once the required checks go green. There is therefore no workflow run
-  #     that happens *at* merge time to dispatch from — a dispatch step in
-  #     auto-merge.yml would fire long before the merge commit exists.
-  #   * `on: schedule` — still worth keeping as a last-resort backstop, but it
-  #     is not load-bearing: see below.
-  #
-  # Verified on STI-434 that this event IS delivered on this repo: the repo
-  # event feed shows PullRequestEvent action=merged for PRs #38, #39, #40, #41,
-  # #44 and #45, including the two bot-merges that produced zero deploy runs
-  # (PR #40 -> 95e70fde, PR #44 -> d1adb3d). The trigger is therefore proven
-  # live rather than assumed.
+  #   * `on: pull_request: closed` — SUPPRESSED for a GITHUB_TOKEN merge. (PR
+  #     #51, above.) Kept below because it does work for PAT merges, but it is
+  #     not a bot-merge fix.
+  #   * `on: schedule` — 0 firings, all time, before and after coarsening to
+  #     */30. Not load-bearing; see below.
+  #   * `repository_dispatch` — the only untested mechanism, and now the only
+  #     candidate, because it is NOT suppressed for a GITHUB_TOKEN actor (nor is
+  #     `workflow_dispatch`). It requires auto-merge.yml to perform the merge
+  #     itself via the contents API rather than arming native auto-merge, so that
+  #     a dispatch carrying the real merge SHA can be issued after the merge
+  #     commit exists. That changes how merges happen on this repo and needs a
+  #     reviewer's decision; it is deliberately NOT implemented unilaterally.
   pull_request:
     types: [closed]
   # The schedule is a BACKSTOP, not the primary trigger. STI-434 measured zero
