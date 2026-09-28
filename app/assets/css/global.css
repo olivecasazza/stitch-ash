@@ -317,6 +317,27 @@ body {
   margin-inline: auto;
   justify-content: center;
 }
+/* The field and the CTA are siblings inside one flex row. Previously the
+   input sat in one wrapper (under its label) and the button in a second
+   wrapper, so the two only lined up because those wrappers were flex items
+   of the form: they were baseline-aligned as blocks, not laid out as one
+   control row, and the button rendered 53px against the input's 44px
+   (STI-486 F3). `align-items: center` centres both controls on one baseline
+   within the row. */
+.signup__field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+.signup__controls {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
 .signup label {
   display: block;
   font-size: var(--text-xs);
@@ -343,17 +364,26 @@ body {
   font-size: var(--text-base);
   padding: 10px 12px;
 }
+/* The CTA keeps its intrinsic width so the input takes the remaining space
+   in the row. */
+.signup__controls button {
+  flex: 0 0 auto;
+}
 /* One height for the waitlist pair. components.input and
    components.button-primary declare different paddings (10px 12px vs
    12px 16px) and different typographies (body 13px vs label 11px), so their
-   natural border-box heights are 42.15px and 43.05px — unequal, and neither
-   on the 4px grid. 44px is the smallest grid step that contains both, and it
-   is what makes the field and the CTA read as one control row. It is a layout
-   equaliser, not a new token: both component tokens stay as DESIGN.md
-   declares them (STI-486 F3). */
+   natural border-box heights differ and neither sits on the 4px grid.
+   `min-height` alone was not enough: measured live at 1440x900, the input
+   box was 44px and the button 53px, because the two were in separate
+   wrapper divs and were never laid out as one control row (STI-486 F3).
+   `.signup__controls` is the row; `height` (not `min-height`) pins both
+   controls to the same 44px box so neither component token's intrinsic
+   padding can push the pair apart. It is a layout equaliser, not a new
+   token: both component tokens still read exactly as DESIGN.md declares
+   them, so the top-down chain holds. */
 .signup input[type="email"],
 .signup button {
-  min-height: 44px;
+  height: 44px;
 }
 .signup input[type="email"]:focus-visible {
   outline: none;
