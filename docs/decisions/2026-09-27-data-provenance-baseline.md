@@ -193,11 +193,15 @@ Reporting rules that follow:
 - A locked Admin API is **not** evidence of a broken Storefront path. Verify the
   path the storefront actually uses (`cartCreate`, the collection query) before
   reporting the data path as down.
-- **An empty live catalog is not evidence of a broken data path either.** The
-  Storefront API answered correctly and reported that the merchandise does not
-  exist. That is a *catalog* fact, not a *plumbing* fact. Do not "fix" the
-  storefront in response to it — the fix is to create the products in Shopify,
-  which is operator-owned.
+- **An empty rendered grid is not evidence of a broken data path, and not
+  evidence of an empty catalog either.** This rule stands on its own merits —
+  the Storefront API answering "no products" is a *catalog/membership* fact, not
+  a *plumbing* fact, so do not "fix" the storefront in response to it. What
+  changed at `a7151fd` is the specific diagnosis: the live catalog is **not**
+  empty (all three products `ACTIVE`, real variant id returns a cart), and what
+  was empty was `featured` collection *membership* — fixed at the catalog layer
+  by `catalog/collections/featured.yaml` ([STI-471](/STI/issues/STI-471)), not
+  by creating products that already exist.
 
 ## Alternatives considered
 
@@ -301,12 +305,15 @@ not realized** — `mock` remains `false`.
 - The static-catalog rows are a finding, not a defect report. Whether the
   catalog should become live-sourced before the apex gate is lifted is a
   commerce decision for the operator, out of scope for this record.
-- **The empty live catalog (added 2026-09-28) is a commerce and operations
-  decision, not a reporting one, and not this role's to execute.** Creating real
-  Shopify products and variants requires the Admin API, which is locked
-  ([STI-457](/STI/issues/STI-457)). It is escalated as an operator action; this
-  record's contribution is the verified claim that it is required, not a
-  proposal for how to do it.
+- **The `featured` collection's empty membership (corrected at `a7151fd`) is a
+  commerce decision, not a reporting one, and not this role's to execute.** The
+  earlier version of this bullet said the live catalog was empty and that
+  creating products required the locked Admin API ([STI-457](/STI/issues/STI-457)).
+  That was wrong: the products exist and are `ACTIVE`, and the gap is membership,
+  which is declared in-repo at `catalog/collections/featured.yaml` and applied
+  through the existing catalog tooling. It is escalated as a curation action
+  whose execution path needs the Admin API; this record's contribution is the
+  verified claim that membership is the gap, not the catalog.
 - This record is a reporting baseline, not a commerce change. It edits no
   storefront code and requires no deploy.
 
