@@ -81,3 +81,21 @@ jobs:
 
       - name: Run token drift gate
         run: ./scripts/ci/token-drift-gate.sh
+
+  # STI-517 (split out of STI-428): the storefront must stay on the live Shopify
+  # data path. Three agents' AGENTS.md files asserted `mock = true` for weeks
+  # after f3ac83d (STI-319) had set it to false, and the only thing standing
+  # between that stale sentence and a broken live data path was a comment in
+  # nuxt.config.ts — which is precisely what a well-meaning agent argues past.
+  # This gate makes the invariant mechanical. It needs no Node and no secrets:
+  # it reads only the configured value, never the Storefront token.
+  storefront-mock-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run storefront mock gate
+        run: ./scripts/ci/storefront-mock-gate.sh
