@@ -46,7 +46,7 @@ const finalImageAlt = computed(() => props.imageAlt || props.name)
             <path d="M214 300 L140 340 L140 470 L196 452 L196 560 L214 566 Z" />
             <path d="M386 300 L460 340 L460 470 L404 452 L404 560 L386 566 Z" />
           </g>
-          <text x="300" y="640" class="product-card__plate-caption">PHOTOGRAPH PENDING</text>
+          <text x="300" y="640" class="product-card__plate-caption">EMBROIDERY, NOT PRINT</text>
         </svg>
       </div>
     </div>

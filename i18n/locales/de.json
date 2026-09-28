@@ -1,8 +1,6 @@
 {
     "footer": {
-        "message": "Veröffentlicht unter der MIT License.",
-        "github": "Auf GitHub ansehen",
-        "country": "Land und Währung auswählen"
+        "message": "Stitch and Ash. Bestickte Kleidung, auf Bestellung gefertigt."
     },
     "cart": {
         "title": "Warenkorb",
@@ -62,12 +60,8 @@
         "title": "Filter",
         "clear": "Filter zurücksetzen"
     },
-    "home": {
-        "title": "Nuxt Shopify Demo Store",
-        "description": "Dies ist ein Demo-Shop, der mit Nuxt 4 und der Shopify Storefront API erstellt wurde. Er zeigt, wie man einen voll funktionsfähigen E-Commerce-Storefront mit Nuxt UI erstellt."
-    },
     "seo": {
-        "description": "Willkommen in unserem Demo-Shop! Entdecken Sie unsere Kollektionen und finden Sie die perfekten Artikel für Sie. Genießen Sie ein nahtloses Einkaufserlebnis mit Nuxt und Shopify."
+        "description": "Stitch and Ash — schwarz auf schwarz bestickte Kleidung, auf Bestellung gefertigt."
     },
     "error": {
         "home": "Zurück zur Startseite",
