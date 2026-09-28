@@ -13,12 +13,14 @@ jobs:
       statuses: read
     steps:
       - name: Wait for Cloudflare Pages preview deployment
+        id: wait-and-check
         uses: actions/github-script@v7
         with:
           script: |
             const owner     = context.repo.owner;
             const repo      = context.repo.repo;
             const sha       = context.payload.pull_request.head.sha;
+            const prNumber  = context.payload.pull_request.number;
             const maxWait   = 5 * 60 * 1000; // 5 minutes
             const interval  = 10 * 1000;      // 10 seconds
             const deadline  = Date.now() + maxWait;
@@ -26,17 +28,41 @@ jobs:
             core.info(`Polling for CF Pages deployment on SHA ${sha}…`);
 
             let previewUrl = null;
+            // STI-442: did we ever see Cloudflare announce itself for this SHA?
+            //
+            // The original gate only asked "did a success with a URL arrive in
+            // 5 minutes?", which conflates three unrelated states:
+            //   (a) CF tried and the preview build broke,
+            //   (b) CF is still building it,
+            //   (c) CF has no GitHub integration wired to this repo at all.
+            // Only (a) is a red that belongs to the change under review. This
+            // repo is in (c) — verified: `GET /deployments` returns 30 records
+            // and 0 of them carry a non-null `environment_url`, and no
+            // commit status on any head has ever had a `cloudflare pages`
+            // context, so neither API this gate polls can ever yield a URL.
+            // Reporting (c) as a failure is what made this job permanently red
+            // on all 12+ runs observed, including merged PRs #48, #49, #50, #51,
+            // #53 and #55. A gate that is always red is not a signal, and
+            // training the team to ignore red is how a false-positive catalog
+            // plan sat on this repo long enough to be filed as STI-432.
+            //
+            // So: track evidence that CF is participating at all, and only fail
+            // on timeout if it was. Absent integration => skip, loudly, with
+            // the reason named — not a fabricated red.
+            let sawCloudflare = false;
+
+            const isCloudflare = s =>
+              (s.context || '').toLowerCase().includes('cloudflare pages');
 
             while (Date.now() < deadline) {
               // Check commit statuses (CF Pages posts here when Pages GitHub integration is active)
               const { data: statuses } = await github.rest.repos.listCommitStatusesForRef({
                 owner, repo, ref: sha, per_page: 100,
               });
-              const cfStatus = statuses.find(s =>
-                s.context && s.context.toLowerCase().includes('cloudflare pages')
-              );
+              const cfStatus = statuses.find(isCloudflare);
 
               if (cfStatus) {
+                sawCloudflare = true;
                 if (cfStatus.state === 'success') {
                   previewUrl = cfStatus.target_url;
                   core.info(`CF Pages reported success. Preview URL: ${previewUrl}`);
@@ -75,9 +101,44 @@ jobs:
             }
 
             if (!previewUrl) {
+              if (!sawCloudflare) {
+                // The honest outcome: we never observed Cloudflare participate, so
+                // there is no preview result to judge and nothing here says anything
+                // about the change under review. Skip with a neutral conclusion and
+                // a reason that names the missing wiring, rather than a red that
+                // looks like someone's build broke.
+                //
+                // Re-enable by wiring the CF Pages project's GitHub integration with
+                // preview deployments on, at which point `sawCloudflare` becomes
+                // true and this branch stops being taken.
+                core.warning(
+                  'SKIPPED, not failed: no Cloudflare Pages integration is observable on ' +
+                  `this repo (no \`cloudflare pages\` commit status and no deployment with an ` +
+                  '`environment_url` for this SHA, over a full ' +
+                  `${Math.round(maxWait / 1000)}s wait). This gate cannot judge the change ` +
+                  'under review, so it is reporting neutral. To make it enforce again, ' +
+                  'enable the Cloudflare Pages GitHub integration with preview deployments ' +
+                  'for this repository.'
+                );
+                core.summary
+                  .addHeading('Preview Gate skipped', 3)
+                  .addRaw(
+                    'No Cloudflare Pages integration is observable on this repository, so ' +
+                    'no preview deployment was expected and none was observed. Reported ' +
+                    '`neutral` rather than `failure` — a red here would not be a signal ' +
+                    'about this change.\n\n' +
+                    '**To enforce this gate:** enable the Cloudflare Pages GitHub ' +
+                    'integration for this repository with preview deployments turned on. ' +
+                    'Until then `preview-gate.yml` observes nothing to gate on.'
+                  )
+                  .write();
+                return;
+              }
+
               core.setFailed(
-                'Timed out waiting for Cloudflare Pages preview deployment (5 min). ' +
-                'Verify that the CF Pages project has GitHub integration with preview deployments enabled.'
+                'Cloudflare Pages began reporting on this SHA but never reached success within ' +
+                `${Math.round(maxWait / 1000)}s. Verify the Cloudflare Pages project has ` +
+                'GitHub integration with preview deployments enabled.'
               );
               process.exit(1);
             }
@@ -86,8 +147,10 @@ jobs:
             core.setOutput('preview_url', previewUrl);
 
       - name: Smoke-test preview URL
+        if: ${{ steps.wait-and-check.outputs.preview_url != '' }}
         shell: bash
         run: |
           echo "Smoke-testing: $PREVIEW_URL"
           curl --fail --location --max-time 30 --silent --show-error "$PREVIEW_URL" -o /dev/null
           echo "Preview responded with 2xx — gate passed."
+
