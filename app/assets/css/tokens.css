@@ -6,64 +6,84 @@
    Compact monochrome minimal: pitch-black ground, achromatic grey hierarchy,
    one typeface (JetBrains Mono) carrying everything, square edges everywhere,
    hairline dividers in place of shadow.
-*/
+
+   STI-446: each property below now names its DESIGN.md token in its own comment,
+   and scripts/ci/token-drift-gate.sh fails the build if any property here loses
+   that trace. The chain is strictly top-down: DESIGN.md -> tokens.css -> components.
+   Do not add a value here that DESIGN.md does not declare first. */
 
 :root {
   /* ─── Color — achromatic on pitch black ────────────────────────────────── */
-  --ink-black:    #000000; /* Page ground, header, footer, product framing. */
-  --charcoal:     #0E0E0E; /* Elevated card/modal surface; distinguished by hairline, never shadow. */
-  --grey-950:     #1A1A1A; /* Hover wells, image fallback plates, mid-tone surface. */
-  --border-rule:  #2A2A2A; /* Hairline divider + disabled-control fill. */
+  /* colors.* */
+  --ink-black:    #000000; /* colors.ink */
+  --charcoal:     #0E0E0E; /* colors.charcoal */
+  --grey-950:     #1A1A1A; /* colors.grey-950 */
+  --border-rule:  #2A2A2A; /* colors.border-rule */
 
   /* Grey ramp — every value achromatic. */
-  --primary:      #5C5C5C; /* Muted strokes; low-emphasis interactive surface. */
-  --grey-400:     #9A9A9A; /* Secondary text, captions, metadata, timestamps. */
-  --grey-200:     #CFCFCF; /* Default body-text color for non-hero paragraph copy. */
+  --primary:      #5C5C5C; /* colors.primary */
+  --grey-400:     #9A9A9A; /* colors.grey-400 */
+  --grey-200:     #CFCFCF; /* colors.grey-200 */
 
-  --bone:         #E8E8E8; /* Neutral emphasis text; the only "off-black" tone for inline emphasis. */
-  --white:        #FFFFFF; /* Reserved for max-contrast moments: primary CTA fill, focus ring. */
-  --focus:        #FFFFFF; /* 2px solid square focus ring, 2px offset, no colour tint (DESIGN.md). */
+  --bone:         #E8E8E8; /* colors.bone */
+  --white:        #FFFFFF; /* colors.white */
+  --focus:        #FFFFFF; /* colors.focus — 2px solid square focus ring, 2px offset, no colour tint. */
 
   /* ─── Typography — one face does all the work ──────────────────────────── */
   --font-mono:    "JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
-  --font-body:    var(--font-mono); /* Single brand face; mono carries everything. */
-  --font-display: var(--font-mono); /* Display uses mono, not an editorial serif. */
+                  /* "Mono fallback stack" (Typography) — availability fallbacks below
+                     JetBrains Mono, never an approved alternative face. */
+  --font-body:    var(--font-mono);
+                  /* "Mono fallback stack" (Typography) — role alias of the single brand face. */
+  --font-display: var(--font-mono);
+                  /* "Mono fallback stack" (Typography) — role alias; display is mono, never a serif. */
 
-  /* Type scale — JetBrains Mono, tabular figures on every numeric. */
-  --text-xs:      0.6875rem; /* 11px — tracked uppercase labels */
-  --text-sm:      0.75rem;   /* 12px — secondary info */
-  --text-base:    0.8125rem; /* 13px — body */
-  --text-lg:      0.9375rem; /* 15px — large body */
-  --text-xl:      1.25rem;   /* 20px — small headings */
-  --text-2xl:     1.75rem;   /* 28px — section headings */
-  --text-3xl:     2.5rem;    /* 40px — page headings */
-  --text-display: clamp(2.5rem, 6vw + 1rem, 6.5rem); /* Hero display */
+  /* Type scale — each step mirrors a typography: token of the same name.
+     JetBrains Mono throughout; tabular figures on every numeric. */
+  --text-xs:      0.6875rem; /* typography.text-xs   — 11px — tracked uppercase labels */
+  --text-sm:      0.75rem;   /* typography.text-sm   — 12px — secondary info */
+  --text-base:    0.8125rem; /* typography.text-base — 13px — body */
+  --text-lg:      0.9375rem; /* typography.text-lg   — 15px — large body */
+  --text-xl:      1.25rem;   /* typography.text-xl   — 20px — small headings */
+  --text-2xl:     1.75rem;   /* typography.text-2xl  — 28px — section headings */
+  --text-3xl:     2.5rem;    /* typography.text-3xl  — 40px — page headings */
+  --text-display: clamp(2.5rem, 6vw + 1rem, 6.5rem);
+                  /* "Hero display line" (Typography) — fluid, so it has no typography:
+                     key; fontSize accepts only px/rem and a clamp() is a lint error. */
 
   /* ─── Spacing — 4px base grid ───────────────────────────────────────────── */
-  --space-xs:   4px;
-  --space-sm:   8px;
-  --space-md:   12px;
-  --space-lg:   16px;
-  --space-xl:   24px;
-  --space-2xl:  32px;
-  --space-3xl:  48px;
-  --space-4xl:  64px;
-  --space-5xl:  96px;
+  /* spacing.* */
+  --space-xs:   4px;     /* spacing.xs */
+  --space-sm:   8px;     /* spacing.sm */
+  --space-md:   12px;    /* spacing.md */
+  --space-lg:   16px;    /* spacing.lg */
+  --space-xl:   24px;    /* spacing.xl */
+  --space-2xl:  32px;    /* spacing.2xl */
+  --space-3xl:  48px;    /* spacing.3xl */
+  --space-4xl:  64px;    /* spacing.4xl */
+  --space-5xl:  96px;    /* spacing.5xl */
 
-  /* Editorial page gutter: fluid from mobile to desktop. */
-  --gutter: clamp(1rem, 2vw + 0.5rem, 2.5rem);
+  /* ─── Layout measures ──────────────────────────────────────────────────── */
+  /* "Layout measures" (Layout). content-max and content-wide are rem dimensions
+     and also live under spacing.*; gutter is fluid and cannot. */
+  --content-max:  68.75rem; /* spacing.content-max — standard page content container */
+  --content-wide: 80rem;    /* spacing.content-wide — full-bleed sections */
+  --measure:      65ch;     /* spacing.measure — long-form reading column */
+  --gutter:       clamp(1rem, 2vw + 0.5rem, 2.5rem);
+                   /* "Page gutter" (Layout) — fluid; a clamp() in spacing: is silently dropped. */
 
-  /* Section spacing */
-  --section-sm:  32px;
-  --section-md:  48px;
-  --section-lg:  64px;
-  --section-xl:  96px;
+  /* Section spacing — aliases of the 4px scale, not new steps.
+     If a pair here ever disagrees, the scale wins (Layout > Section spacing). */
+  --section-sm:  32px; /* spacing.section-sm — = spacing.2xl */
+  --section-md:  48px; /* spacing.section-md — = spacing.3xl */
+  --section-lg:  64px; /* spacing.section-lg — = spacing.4xl */
+  --section-xl:  96px; /* spacing.section-xl — = spacing.5xl */
 
   /* ─── Radius — square edges everywhere ─────────────────────────────────── */
-  --radius-none: 0;
-  --radius-sm:   0;
-  --radius-md:   0;
-  --radius-lg:   0;
+  --radius-none: 0; /* rounded.none */
+  --radius-sm:   0; /* rounded.sm */
+  --radius-md:   0; /* rounded.md */
+  --radius-lg:   0; /* rounded.lg */
 
   /* ─── Vendor radius bridge — mirrors DESIGN.md `rounded.ui` ("0px") ───────
      See "Third-party radius bridge (rounded.ui)" in DESIGN.md. @nuxt/ui ships
@@ -71,24 +91,25 @@
      utilities compile against that vendor token rather than the --radius-*
      scale above. Zeroing the scale alone leaves 4px corners on the live site.
      Declared unlayered so it wins over the vendor's layered default. */
-  --ui-radius: 0;
+  --ui-radius: 0; /* rounded.ui */
 
   /* ─── Component tokens ───────────────────────────────────────────────────── */
-  --accordion-body-bg:     var(--charcoal);
-  --accordion-body-text:  var(--bone);
-  --accordion-icon:       var(--grey-400);
+  --accordion-body-bg:     var(--charcoal); /* components.accordion-body.backgroundColor */
+  --accordion-body-text:  var(--bone);      /* components.accordion-body.textColor */
+  --accordion-icon:       var(--grey-400);  /* components.accordion-icon.textColor */
 
   /* ─── Shadow — flat. No shadow tokens. ─────────────────────────────────── */
 
   /* ─── Transitions ──────────────────────────────────────────────────────── */
-  --transition-fast: 120ms ease;
-  --transition-base: 200ms ease;
-  --transition-slow: 350ms ease;
+  /* "Motion" (Motion). Millisecond easings have no frontmatter token type and
+     would be silently dropped from spacing:, so they are stated in prose. */
+  --transition-fast: 120ms ease; /* transition-fast — product-card image swap, hover */
+  --transition-base: 200ms ease; /* transition-base — default state change */
+  --transition-slow: 350ms ease; /* transition-slow — large surface changes only */
 
-  /* ─── Layout measures ──────────────────────────────────────────────────── */
-  --content-max:  68.75rem; /* Max width for page content */
-  --content-wide: 80rem;    /* Max width for full-bleed sections */
-  --measure:      65ch;     /* Comfortable reading measure */
-  --rule:         1px solid var(--border-rule); /* Standard divider */
-  --rule-light:   1px solid color-mix(in srgb, var(--border-rule) 100%, transparent);
+  /* ─── Hairline rules — the one allowed depth (Elevation & Depth) ────────── */
+  --rule:        1px solid var(--border-rule); /* rule — standard divider, colors.border-rule */
+  --rule-light:  1px solid color-mix(in srgb, var(--border-rule) 100%, transparent);
+                 /* rule-light — same hairline, explicit colour, colors.border-rule.
+                    A shorthand border is not a Dimension, so it has no frontmatter key. */
 }

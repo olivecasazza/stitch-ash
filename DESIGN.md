@@ -21,7 +21,26 @@ typography:
   body-sm: { fontFamily: "JetBrains Mono", fontWeight: 400, fontSize: "0.75rem", lineHeight: 1.5, letterSpacing: "0.02em" }
   label: { fontFamily: "JetBrains Mono", fontWeight: 500, fontSize: "0.6875rem", lineHeight: 1.3, letterSpacing: "0.12em", fontFeature: "'tnum' 1" }
   numeric: { fontFamily: "JetBrains Mono", fontWeight: 500, fontSize: "0.8125rem", lineHeight: 1.4, letterSpacing: "0em", fontFeature: "'tnum' 1" }
+  # ── Type-scale steps (STI-446) ──────────────────────────────────────────────
+  # `tokens.css` carries a `--text-*` step per size used by a component, and
+  # `--font-display` / `--font-mono` as the two role aliases. The steps below
+  # are the same eight typographies under CSS-shaped names so that each
+  # `--text-*` property in the mirror has a named source token. One face:
+  # JetBrains Mono at every step. The hero `--text-display` clamp is fluid and
+  # is stated in prose under "Hero display line" — `fontSize` accepts only
+  # px/rem dimensions, so a `clamp()` here is a lint error, not a style choice.
+  text-xs:   { fontFamily: "JetBrains Mono", fontWeight: 500, fontSize: "0.6875rem", lineHeight: 1.3, letterSpacing: "0.12em", fontFeature: "'tnum' 1" }
+  text-sm:   { fontFamily: "JetBrains Mono", fontWeight: 400, fontSize: "0.75rem",   lineHeight: 1.5, letterSpacing: "0.02em" }
+  text-base: { fontFamily: "JetBrains Mono", fontWeight: 400, fontSize: "0.8125rem", lineHeight: 1.55, letterSpacing: "0em" }
+  text-lg:   { fontFamily: "JetBrains Mono", fontWeight: 400, fontSize: "0.9375rem", lineHeight: 1.55, letterSpacing: "0em" }
+  text-xl:   { fontFamily: "JetBrains Mono", fontWeight: 500, fontSize: "1.25rem",   lineHeight: 1.15, letterSpacing: "0em" }
+  text-2xl:  { fontFamily: "JetBrains Mono", fontWeight: 500, fontSize: "1.75rem",   lineHeight: 1.1,  letterSpacing: "-0.01em" }
+  text-3xl:  { fontFamily: "JetBrains Mono", fontWeight: 500, fontSize: "2.5rem",    lineHeight: 1.05, letterSpacing: "-0.02em" }
 spacing:
+  # ── 4px base grid. `4xl`/`5xl` are the top of the scale (STI-446); the
+  # section rhythm below is the same four values under the names
+  # components already consume. `--measure` and `--content-max`/`--content-wide`
+  # are length dimensions, so they belong to the grid the scale defines.
   xs:   "4px"
   sm:   "8px"
   md:   "12px"
@@ -29,6 +48,15 @@ spacing:
   xl:   "24px"
   "2xl": "32px"
   "3xl": "48px"
+  "4xl": "64px"
+  "5xl": "96px"
+  section-sm: "32px"
+  section-md: "48px"
+  section-lg: "64px"
+  section-xl: "96px"
+  measure:     "65ch"
+  content-max: "68.75rem"
+  content-wide: "80rem"
 rounded:
   none: "0px"
   sm:   "0px"
@@ -92,6 +120,23 @@ components:
     padding:         "4px 12px 16px"
   accordion-icon:
     textColor: "{colors.grey-400}"
+  # ── Hairline rules (STI-446) ────────────────────────────────────────────────
+  # The single allowed "depth" (see Elevation & Depth). `rule` is the standard
+  # 1px divider in `border-rule`; `rule-light` is the same hairline with the
+  # colour made explicit via `color-mix`, which is how it is expressed in
+  # `tokens.css` so a translucent rule cannot be confused with a solid one.
+  # `rule-light` is a composite, not a Dimension, so it is stated here in prose
+  # rather than as a `rounded:`/`spacing:` key — the spec schema has no token
+  # type for a shorthand border and drops it silently if given one.
+  # Its source colour is `colors.border-rule`; mirrored as
+  # `--rule: 1px solid var(--border-rule)` and
+  # `--rule-light: 1px solid color-mix(in srgb, var(--border-rule) 100%, transparent)`.
+  # ── Motion (STI-446) ───────────────────────────────────────────────────────
+  # `transition-fast` / `transition-base` / `transition-slow` are the only three
+  # durations in the system. Easing is always `ease`. There is no token type
+  # for a millisecond easing, so these are stated in prose under "Motion"
+  # below rather than forced into `spacing:` (which accepts px/rem dimensions
+  # only — `120ms ease` is silently dropped, not reported).
 ---
 
 ## Overview
@@ -162,6 +207,47 @@ face; nothing else reaches the surface.
 labels. The "editorial" feeling that previously lived in Playfair is now
 expressed through whitespace and rule lines alone.
 
+### Type scale (the `--text-*` steps)
+
+`typography:` above carries two parallel sets of names. The named roles
+(`h1`, `h2`, `h3`, `body-lg`, `body`, `body-sm`, `label`, `numeric`) are what
+components are described against; the `text-*` steps are the same eight
+typographies under the CSS-shaped names `tokens.css` mirrors, so every
+`--text-*` custom property traces to a key in this file rather than to a
+number written in a stylesheet. The two sets must not drift: `text-xs` =
+`label`, `text-sm` = `body-sm`, `text-base` = `body`, `text-lg` = `body-lg`,
+`text-xl` = `h3`, `text-2xl` = `h2`, `text-3xl` = `h1`.
+
+The size steps are 11 / 12 / 13 / 15 / 20 / 28 / 40px. There is no step
+between 15 and 20 or between 20 and 28; hierarchy inside a band is carried by
+weight and letter-spacing, not by a new size.
+
+### Hero display line (`--text-display`)
+
+The hero line is the one fluid type value in the system:
+`clamp(2.5rem, 6vw + 1rem, 6.5rem)` — 40px at the floor, 104px at the
+ceiling, tracking the viewport between. It is mirrored as `--text-display` and
+sits *above* `text-3xl` (`h1`) rather than replacing it: `--text-3xl` is the
+fixed page-heading size, `--text-display` is the hero only.
+
+It has no `typography:` key on purpose. The spec schema types `fontSize` as a
+Dimension (px/rem), so a `clamp()` there is a lint **error**, not a style
+choice. Stating it in prose is the only way to keep it canonical while
+linting at 0 errors.
+
+### Mono fallback stack (`--font-mono`, `--font-display`)
+
+`--font-mono` is the face stack `"JetBrains Mono", "Fira Code", "Cascadia
+Code", "Consolas", monospace`; `--font-display` and `--font-body` both alias
+it. One brand face, so there is no display/body distinction to make — the two
+role aliases exist to mirror the historical names, not to permit a second
+typeface.
+
+Everything below JetBrains Mono is an *availability* fallback for a machine
+that lacks the brand face. A fallback rendering is a degraded state, not an
+approved one: if a screenshot shows Fira Code or Consolas, the face failed to
+load and that is a bug to fix, not a variant to accept.
+
 ## Layout
 
 Compact modern rhythm on a **4px base grid** (tightened from the prior
@@ -170,13 +256,53 @@ warm-bone era.
 
 - **Page gutter** — `clamp(1rem, 2vw + 0.5rem, 2.5rem)`. About half the
   previous upper bound; mobile reads tighter, desktop stays generous.
+  Mirrored as `--gutter`. Like `--text-display`, it is a `clamp()` and so
+  cannot be a `spacing:` key (dimensions only); it is stated here.
 - **Section spacing** — `section-sm 32px`, `section-md 48px`,
   `section-lg 64px`, `section-xl 96px`. Pick the smallest one that still
-  separates the blocks.
+  separates the blocks. These are the top of the 4px grid re-expressed under
+  the names components consume, and they are **aliases of the scale, not new
+  steps**: `section-sm` = `2xl`, `section-md` = `3xl`, `section-lg` = `4xl`,
+  `section-xl` = `5xl`. If the two ever disagree, the scale wins.
 - **Base unit** — `4px`. Every padding, gap, and offset snaps to it. No
   `13px` or `7px`; either 12 or 16.
 - **Container max** — 68.75rem; content reaches it sooner because the
   surrounding rhythm is tighter.
+- **Reading measure** — 65ch. Long-form copy (journal articles) caps here.
+
+### Layout measures
+
+| Token | Value | Mirrored as | Used for |
+|---|---|---|---|
+| `content-max` | 68.75rem | `--content-max` | Standard page content container |
+| `content-wide` | 80rem | `--content-wide` | Full-bleed sections (header, footer, marquee) |
+| `measure` | 65ch | `--measure` | Long-form reading column |
+| `gutter` | `clamp(1rem, 2vw + 0.5rem, 2.5rem)` | `--gutter` | Fluid page inset |
+
+`content-max` and `content-wide` are `spacing:` keys above because they are
+plain `rem` dimensions and belong to the same grid. `gutter` is fluid and
+lives here for the same reason `--text-display` does.
+
+## Motion
+
+Three durations, one easing. There is no spring, no bounce, no per-component
+timing.
+
+| Token | Value | Mirrored as | Used for |
+|---|---|---|---|
+| `transition-fast` | 120ms `ease` | `--transition-fast` | Product-card image swap, hover state |
+| `transition-base` | 200ms `ease` | `--transition-base` | Default state change |
+| `transition-slow` | 350ms `ease` | `--transition-slow` | Large surface changes only |
+
+Nothing exceeds 350ms. Motion never carries meaning on its own — it may
+confirm a state change, never be the only signal of one, and never blocks
+input.
+
+These have no frontmatter keys on purpose. The spec schema has no token type
+for a millisecond easing, and `spacing:` accepts only `px`/`rem` dimensions:
+`"120ms ease"` written there is **silently dropped** by the linter and the
+export, with no warning. Stating them here keeps them canonical without
+feeding the linter a value it cannot represent.
 
 ## Elevation & Depth
 
@@ -192,6 +318,21 @@ arrives only through:
 The one allowed "depth" is the 1px hairline, and it counts as a border,
 not as a shadow. If a design choice needs an actual shadow to read, the
 design is wrong; rework it.
+
+### Hairline rules (`--rule`, `--rule-light`)
+
+Two named shorthands, both 1px, both in `border-rule` (#2A2A2A). They exist
+so a divider is never typed as a raw `border` declaration at the call site:
+
+- `rule` — `1px solid var(--border-rule)`. The standard divider: table rows,
+  accordion edges, section breaks.
+- `rule-light` — the same hairline with the colour expressed as
+  `color-mix(in srgb, var(--border-rule) 100%, transparent)`. At 100% it
+  renders identically to `rule`; the explicit form is what stops a future
+  edit from quietly making a rule translucent without anyone deciding to.
+
+Neither is a Dimension, so neither can be a frontmatter key — see the note in
+the frontmatter. Both trace to `colors.border-rule`.
 
 ## Shapes
 
