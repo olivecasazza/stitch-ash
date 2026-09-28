@@ -1,6 +1,6 @@
 # Storefront Development Guide
 
-> All changes touching customer-visible paths (`app/pages/`, `app/components/`, `app/layouts/`, `app/assets/`, `nuxt.config.ts`) must follow this lifecycle. Internal-analysis and ops prose never belongs in those paths.
+> All changes touching customer-visible paths (`app/pages/`, `app/components/`, `app/layouts/`, `app/assets/`, `nuxt.config.ts`, `app/app.config.ts`, `app/error.vue`) must follow this lifecycle. Internal-analysis and ops prose never belongs in those paths. This list is the authoritative scope; `CUSTOMER_PATHS` in `scripts/ci/no-internal-copy-in-storefront.sh` is the gate's mirror of it and is kept in sync with it.
 
 ## Mandatory Development Lifecycle
 
@@ -47,6 +47,13 @@ Before requesting review, verify:
 - Reviewer must be `ui-ux` or `cto`
 - Sign-off required before deploy; no exceptions for customer-visible changes
 - Re-review required if the diff grows beyond the original scope
+
+**The reviewer's working checklist is
+[`docs/ui-ux-storefront-review-runbook.md`](./ui-ux-storefront-review-runbook.md).**
+Sign-off there is four sub-gates — 6a no-leaked-internal-copy, 6b token-system
+integrity, 6c copy fidelity, 6d visual sanity at three viewports — and all four
+must pass or be explicitly recorded as *unverified*. Read it before reviewing a
+storefront PR; do not sign off from this summary alone.
 
 ### 7. Deploy
 
