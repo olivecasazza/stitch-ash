@@ -155,21 +155,50 @@ PY
 # 3. DESIGN.md itself must lint clean
 # ---------------------------------------------------------------------------
 if command -v npx >/dev/null 2>&1; then
-  LINT_OUT="$(cd "$REPO_ROOT" && npx --yes @google/design.md lint DESIGN.md 2>/dev/null || true)"
-  if [ -n "$LINT_OUT" ]; then
-    read -r ERRORS WARNINGS <<EOF
-$(printf '%s' "$LINT_OUT" | python3 -c 'import json,sys; s=json.load(sys.stdin).get("summary",{}); print(s.get("errors",0), s.get("warnings",0))' 2>/dev/null || echo "? ?")
-EOF
-    if [ "$ERRORS" != "0" ] || [ "$WARNINGS" != "0" ]; then
-      echo "ERROR: DESIGN.md does not lint clean (errors=$ERRORS warnings=$WARNINGS)."
-      printf '%s\n' "$LINT_OUT"
-      echo "DESIGN.md's own rule: resolve every error and every warning before merging."
-      exit 1
-    fi
-    echo "Token drift gate: DESIGN.md lints clean (0 errors, 0 warnings)."
+  # Fail closed, never open. The previous version captured the linter with
+  # `|| true` and only looked at the output `if [ -n "$LINT_OUT" ]`, so a
+  # silent or absent linter skipped the check entirely and the gate still
+  # exited 0. STI-450 verified that: stubbing `npx` to print nothing, with a
+  # lint-broken DESIGN.md in place, produced
+  #     "Token drift gate: passed" / EXIT=0
+  # An unrunnable linter and a clean linter are not the same result, and a
+  # gate that cannot tell them apart is not a gate. Every failure mode below
+  # is now a hard error: a registry outage, a renamed/unpublished package, a
+  # linter crash, or output we cannot parse.
+  if ! LINT_OUT="$(cd "$REPO_ROOT" && npx --yes @google/design.md lint DESIGN.md 2>&1)"; then
+    echo "ERROR: could not run the DESIGN.md linter (npx/@google/design.md)."
+    printf '%s\n' "$LINT_OUT"
+    echo "Refusing to pass: an unrunnable linter is not a clean lint."
+    exit 1
   fi
+
+  if [ -z "$LINT_OUT" ]; then
+    echo "ERROR: the DESIGN.md linter produced no output; cannot verify it is lint-clean."
+    echo "Refusing to pass: silence is not a clean lint."
+    exit 1
+  fi
+
+  if ! SUMMARY="$(printf '%s' "$LINT_OUT" | python3 -c 'import json,sys; s=json.load(sys.stdin).get("summary"); print(s["errors"], s["warnings"])' 2>/dev/null)"; then
+    echo "ERROR: could not parse the DESIGN.md linter output as JSON."
+    printf '%s\n' "$LINT_OUT"
+    echo "Refusing to pass: unparseable output is not a clean lint."
+    exit 1
+  fi
+
+  read -r ERRORS WARNINGS <<EOF
+$SUMMARY
+EOF
+  if [ "$ERRORS" != "0" ] || [ "$WARNINGS" != "0" ]; then
+    echo "ERROR: DESIGN.md does not lint clean (errors=$ERRORS warnings=$WARNINGS)."
+    printf '%s\n' "$LINT_OUT"
+    echo "DESIGN.md's own rule: resolve every error and every warning before merging."
+    exit 1
+  fi
+  echo "Token drift gate: DESIGN.md lints clean (0 errors, 0 warnings)."
 else
-  echo "Token drift gate: npx unavailable, skipped the DESIGN.md lint step."
+  echo "ERROR: npx is unavailable, so DESIGN.md cannot be linted."
+  echo "Refusing to pass: an unrunnable linter is not a clean lint."
+  exit 1
 fi
 
 echo "Token drift gate: passed"
