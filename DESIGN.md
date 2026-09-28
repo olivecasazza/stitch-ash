@@ -294,6 +294,40 @@ that lacks the brand face. A fallback rendering is a degraded state, not an
 approved one: if a screenshot shows Fira Code or Consolas, the face failed to
 load and that is a bug to fix, not a variant to accept.
 
+### Scaled SVG text (the `viewBox` trap)
+
+An SVG `viewBox` is a fixed user-space coordinate system that the browser
+scales to whatever box it renders into. A `font-size` written as a
+**presentation attribute** — `font-size="13"` on a `<text>` element — is
+expressed in those user units, so the size that actually reaches the shopper is
+`declared x (renderedWidth / viewBoxWidth)`. On a `0 0 600 750` plate rendered
+~400px wide, a perfectly on-ramp `font-size="13"` (the `text-base` step) lands
+at **~8.7px**. A presentation attribute is not a CSS declaration, so it never
+resolves through `tokens.css`; a component can drop below the type floor with
+every existing gate green. It has no `typography:` key here for the same reason
+`--text-display` has none: the constraint is a rendered outcome, not a
+declarable value.
+
+The rule, in both directions:
+
+- **Legible text is never an SVG presentation attribute.** Text a shopper has
+  to read takes a `--text-*` token in a CSS rule (`font-size:
+  var(--text-base)`), so it is checkable against the scale the way every other
+  text node is.
+- **The constraint is the rendered size, not the declared one.** For text set
+  inside a scaled `viewBox`, size for the step that must appear on screen,
+  divide by the scale factor, and round **up** to a whole user unit. The floor
+  of the ramp is 11px (`text-xs` = `label`), so no tracked uppercase caption
+  may render below 11px however the user units are spelled.
+- **Decorative text may stay an attribute** when it is a logo lockup, a
+  duplicate of a neighbouring text node, or otherwise carries no reading
+  obligation — and it must never be the only copy of a string on the page.
+
+`design:drift` reads this file's frontmatter and `tokens.css`; it does not
+render the page. This class of defect is therefore invisible to the token gate
+by construction and needs the source read plus a three-viewport visual review
+to be caught at all.
+
 ## Layout
 
 Compact modern rhythm on a **4px base grid** (tightened from the prior
