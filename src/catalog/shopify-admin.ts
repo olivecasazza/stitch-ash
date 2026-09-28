@@ -215,6 +215,16 @@ export function diffProduct(product: CatalogProduct, remote: ShopifyProduct | nu
   if (product.productType !== (remote.productType ?? "")) actions.push(`set productType: "${remote.productType ?? ""}" -> "${product.productType ?? ""}"`);
   if (product.vendor !== (remote.vendor ?? "")) actions.push(`set vendor: "${remote.vendor ?? ""}" -> "${product.vendor ?? ""}"`);
 
+  // applyProduct always sends `tags`, so tags are in scope for the plan/apply
+  // gate. A tag that is missing on either side is real drift: apply would
+  // overwrite store-side tags nobody declared, and storefront filtering reads
+  // these. Compared as a set because Shopify returns them in its own order.
+  const catalogTags = [...(product.tags ?? [])].sort();
+  const remoteTags = [...remote.tags].sort();
+  if (catalogTags.join(",") !== remoteTags.join(",")) {
+    actions.push(`set tags: [${remoteTags.join(",") || "(none)"}] -> [${catalogTags.join(",") || "(none)"}]`);
+  }
+
   // STI-432: option values are compared positionally, so the two sides must
   // agree on the declared option order. Surface a mismatch explicitly instead
   // of letting the positional compare silently mis-attribute every variant.
