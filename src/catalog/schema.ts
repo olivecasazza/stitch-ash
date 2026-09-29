@@ -154,7 +154,37 @@ export interface ShopifyShippingZone {
    * a rate, and a lookup that returns "the one called Standard" picks
    * arbitrarily between the two. Carrying the id makes the collision explicit.
    */
-  methods: { id: string; name: string; active: boolean; price: string | null; currency: string | null }[];
+  /**
+   * `rateKind` records WHICH Admin API shape carried the rate, because
+   * `fixedFee` means two different things depending on the shape and reading
+   * it as a price is a money bug in both directions.
+   *
+   *   fixed_rate  — DeliveryRateDefinition: a genuine flat price, returned in
+   *                 `price`. Verifiable against a declared amount.
+   *   carrier_calculated — DeliveryParticipant: a carrier-calculated rate.
+   *                 `fixedFee` here is only the operator's surcharge ON TOP of
+   *                 the carrier's live quote, never the price charged. The
+   *                 total is computed at checkout from `carrierService` plus
+   *                 `percentageOfRateFee`, and the Admin API never returns it.
+   *
+   * The live store proves the split: Domestic "Standard"/"Express" are
+   * fixed_rate, while both International services are carrier_calculated with
+   * `fixedFee = 0.0` and `percentageOfRateFee = 0`. Reading that 0.0 as the
+   * price reported "0.0 USD" for both international services — declaring free
+   * international shipping that the store does not actually charge. Only a
+   * `fixed_rate` may set `price`; a `carrier_calculated` rate stays `null`,
+   * which diffShipping already reports as "cannot be verified".
+   */
+  methods: {
+    id: string;
+    name: string;
+    active: boolean;
+    price: string | null;
+    currency: string | null;
+    rateKind?: "fixed_rate" | "carrier_calculated";
+    /** The operator's surcharge on a carrier-calculated rate. Never the total. */
+    carrierSurcharge?: string | null;
+  }[];
 }
 
 export interface ShopifyShippingProfile {
