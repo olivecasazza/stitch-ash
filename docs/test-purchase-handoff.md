@@ -3,7 +3,16 @@
 The Storefront API checkout flow is now live and functional on the Cloudflare Pages preview domain.
 
 ## How to execute the test purchase
-1. Navigate to: https://preview.stitch-ash.com/products/sku-003/
+1. Navigate to: https://preview.stitch-ash.com/product/sku-003
+
+   The route is **singular**: `app/pages/product/[handle].vue`. The plural
+   `/products/sku-003/` form returns `308` and redirects here; it is not a dead
+   link, but it is not the canonical URL either. Measured 2026-09-29, and the
+   same reason `docs/qa-checklist.md` used to point QA at a non-existent
+   `/collections/<handle>` route (STI-511).
+
+   To re-derive routes instead of trusting any document: `find app/pages -name '*.vue'`.
+   Handles come from `catalog/products/*.yaml`.
 2. Click **Add to cart**. The site will initialize the cart via the Cloudflare Page Function and transition you directly to the Shopify checkout flow.
 3. Complete the checkout process with your shipping address. 
 4. After purchase, the live order will appear in your Shopify Admin dashboard.
