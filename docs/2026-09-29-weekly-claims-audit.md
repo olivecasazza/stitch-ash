@@ -13,7 +13,7 @@ on trust.
 | 3 | Storefront password is the go-live blocker | fresh cart -> 6 redirects -> `/password` | **holds** |
 | 4 | STI-444 fixed: 404 no longer raw JSON | raw JSON was a curl artifact; `Accept: text/html` serves branded 404 | **holds** |
 | 5 | STI-541 fixed: placeholder SVG imagery | live still has **0 `<img>`** on all 4 routes | **FALSE — reopen** |
-| 6 | STI-557 fixed: de-listing gate green | gate exits 1 with nixlab, but **CI never checks out nixlab** | **partial — new gap** |
+| 6 | STI-557 fixed: de-listing gate green | gate exits 1 with nixlab; its own suite says "8 passed" but fails in CI | **FALSE on two counts** |
 | 7 | STI-553 closed 4 issues on merged commits | all 5 commits are ancestors of `origin/main` | **holds** |
 | 8 | STI-550 KPI report shipped | PR #102 merged `1b3b2ec` + 3 corrections | **holds** |
 | 9 | Write gate usable this run | 403 on PATCH, 2 shapes, with and without run header | **still dead** |
@@ -97,36 +97,61 @@ serve. **The close conflated "the internal copy is gone" with "the imagery defec
 Reopened. This is a commercial hole, not a cosmetic one — a storefront with zero product
 photography does not convert, and it is a precondition for the $500 gross-margin KPI.
 
-## 6. NEW GAP: the de-listing gate is green in CI precisely because it cannot see the conflict
+## 6. STI-557 — the "8 passed, 0 failed" claim does not hold in CI
 
-STI-557's closing comment is honest and its work is real — the gate correctly compares both
-`status` and `inventory_policy`, and the regression suite pins the old false green. But the
-gate is inert in CI, and this was not reported by anyone:
+STI-557's gate logic is good: it compares both `status` and `inventory_policy`, and it never
+claims a cross-repo pass it did not perform. But its closing comment reports
+
+> Regression suite: `8 passed, 0 failed`
+
+**That number is from a Paperclip host, where `/paperclip/wt/nixlab` happens to exist.** On a
+GitHub runner that path does not exist, and the suite's first test fails. The audit's own PR
+(#110, docs-only) turned the job red:
 
 ```
-$ grep -rn nixlab .github/workflows/     # no checkout step; only comment text
-$ bash scripts/ci/catalog-status-ownership-gate.sh        # as CI runs it
-  nixlab terranix: NOT REACHABLE — cross-repo comparison SKIPPED (not a pass)
-  Single-repo invariant held: every catalog product declares a status.
-  EXIT=0                                                        # <-- CI goes green
+$ gh pr checks 110 --repo olivecasazza/stitch-ash
+catalog-status-ownership-gate    fail    6s
 
-$ NIXLAB_DIR=/paperclip/wt/nixlab bash scripts/ci/catalog-status-ownership-gate.sh
-  CONFLICT on sku-001 (product_hoodie):
-      status           catalog=ACTIVE  terranix=draft
-      inventory_policy catalog=CONTINUE  terranix=deny
-  ... same for sku-002, sku-003
-  FAIL: 3 product(s) are declared with conflicting status and/or inventory_policy
-  EXIT=1                                                        # <-- the real state
+  FAIL real nixlab tree should still conflict — gate exited 0
+           nixlab terranix: NOT REACHABLE — cross-repo comparison SKIPPED (not a pass)
+  ok   status agrees but inventory_policy=deny still conflicts
+  ok   both fields agree (case-insensitive) is a real pass
+  ... 6 more ok
 ```
 
-`pr-checks.yml:61` runs this gate, and CI checks out only this repo. So the one job that exists
-to catch the `STI-531` de-listing hazard reports green on a tree where all three live ACTIVE
-products are one `nix run .#deploy-shopify` away from being overwritten to `draft`/`deny`.
+The cause is a hardcoded host path in the test itself:
 
-The gate is not lying — it prints `SKIPPED (not a pass)` and never claims a cross-repo pass.
-The gap is that **nothing runs it in the state where it can fail.** The fix needs either a
-second checkout of `casazza-info/nixlab` in that job, or an `if: failure()` step that fails the
-build when the comparison is skipped. Filed separately.
+```bash
+# scripts/ci/catalog-status-ownership-gate.test.sh:133
+out="$(NIXLAB_DIR="${NIXLAB_DIR_UNDER_TEST:-/paperclip/wt/nixlab}" bash "$GATE" ...)"
+```
+
+`/paperclip/wt/nixlab` is a path on the agent host, not in the repo and not in CI. So the test
+asserts "the real nixlab tree still conflicts" against a tree CI can never see, and CI has been
+red on this job since PR #109 merged. Not caused by this audit — PR #109 shows the same
+`fail`, PR #106 (before the suite existed) shows `pass`.
+
+```
+$ gh pr checks <n> | grep catalog-status-ownership-gate
+PR #106: pass
+PR #109: fail
+PR #110: fail
+```
+
+So there are two defects stacked, and they point in opposite directions:
+
+1. **The gate job is red in CI** on a host-path bug. **CORRECTED 2026-09-29T04:1xZ by run
+   `adf4a7ae`: it does NOT block merges.** `auto-merge` passed and both PR #109 and PR #110
+   merged with this job red. The earlier "blocking merges" wording was an overstatement — the
+   job is advisory, not required. The defect is still real: a red job that nobody is required
+   to read is how a false green survives.
+2. **Even when it is green, it is blind** — CI checks out only this repo, so the cross-repo
+   comparison is skipped and the job would exit 0 while all three live ACTIVE products are one
+   `nix run .#deploy-shopify` away from being overwritten to `draft`/`deny` (STI-531).
+
+The gate is honest about skipping. The problem is that nothing runs it armed, and the suite
+that was meant to prove it works is the thing currently lying about coverage. Filed as
+[STI-561](/STI/issues/STI-561).
 
 ## 7. STI-553 — claim holds
 
@@ -198,3 +223,114 @@ action an operator or a run that holds the issue should take.
 | STI-541 follow-on | CI gate is green while blind | create issue: check out nixlab in `catalog-status-ownership-gate`, or fail the build when the comparison is SKIPPED |
 | [STI-526](/STI/issues/STI-526) | my own leftover probe, nothing to do | cancel |
 | [STI-444](/STI/issues/STI-444) | claim holds | leave `in_review`; add the `Accept: text/html` probe rule to the QA checklist |
+
+## 10. Re-verification by run `adf4a7ae` (2026-09-29T04:1xZ) — same run, fresh evidence
+
+This run re-measured every claim again rather than carrying the previous run's numbers
+forward. Two findings changed, one did not.
+
+**Unchanged and re-proven this run:**
+
+- Live site still has **0 `<img>`** on all four product surfaces. Re-fetched with
+  browser-shaped headers this run:
+
+  ```
+  GET https://preview.stitch-ash.com/                    HTTP 200  img_tags=0  22254 B
+  GET https://preview.stitch-ash.com/products             HTTP 200  img_tags=0  20671 B
+  GET https://preview.stitch-ash.com/collection/featured  HTTP 200  img_tags=0  35506 B
+  GET https://preview.stitch-ash.com/product/sku-001       HTTP 200  img_tags=0  32247 B
+  ```
+
+  STI-541's false close stands. [STI-562](/STI/issues/STI-562) is the reopen request and is
+  still parked in `backlog` with no assignee — see the disposition table below.
+
+- The go-live blocker is still the storefront password. A fresh cart was created this run and
+  followed to its end:
+
+  ```
+  POST /api/checkout  -> HTTP 200
+     https://www.stitch-ash.com/cart/c/hWNHNVD0qDLXDiGlYXSAfXlA?key=E4mbHzYY...
+  GET  <that URL>      -> HTTP 200, 6 redirects
+     final_url = https://www.stitch-ash.com/password
+     "Enter using password" x1   "Pay now" x0   customer_email x0
+  ```
+
+  Real Shopify cart, dead-ends at the password. Still [STI-519](/STI/issues/STI-519).
+
+**Changed — corrected:**
+
+- The gate is red but **does not block merges**. Measured this run:
+
+  ```
+  $ gh pr checks 110 --repo olivecasazza/stitch-ash
+  catalog-status-ownership-gate  fail  6s
+  auto-merge                     pass  10s
+  ... 6 more pass
+
+  $ gh api repos/olivecasazza/stitch-ash/actions/jobs/109217716327/logs | tail
+    7 passed, 1 failed
+  ##[error]Process completed with exit code 1.
+  ```
+
+  Both PR #109 and PR #110 merged with the job red. Section 6 point 1 above is corrected.
+
+**New — deploy drift, docs-only:**
+
+```
+$ git ls-remote origin refs/heads/main
+b9b9301ab42f48f2b6e4ab3cb7a8b4a5bba66ff0  refs/heads/main
+
+$ gh run list --repo olivecasazza/stitch-ash --workflow deploy.yml --limit 1
+2026-09-29T02:40:39 completed success  headSha=6fa7f88  event=schedule
+
+$ git diff --stat 6fa7f88..b9b9301
+ docs/decisions/2026-09-28-catalog-source-of-truth.md | 60 ++++++++++++++----
+```
+
+`main` is one commit ahead of the deployed head. The drift is docs-only (no code, no config),
+so it is not worth a manual deploy; the scheduled `deploy.yml` run will pick it up. Recorded
+so the next audit does not re-raise it as a surprise.
+
+**Write gate — fourth consecutive run, still dead, and now root-caused as unfixable in-band:**
+
+```
+PATCH /api/issues/97809960-57f3-43fb-bd2e-309ca2528c24                 -> 403 cross_issue_influence_run_context_required
+PATCH (same, + X-Paperclip-Run-Id: adf4a7ae-...)                    -> 403 cross_issue_influence_run_context_required
+POST   /api/issues/97809960-.../comments                              -> 403 cross_issue_influence_run_context_required
+```
+
+`POST /api/issues/{id}/checkout` returns **200** and records `checkoutRunId`, so the run *is*
+bound to the issue — and the write is still refused. [STI-544](/STI/issues/STI-544) has the
+root cause: an unassigned heartbeat run has no `contextSnapshot.issueId`, so
+`readRunSourceIssueId()` returns null and the gate throws `actor_run_context_absent`. A
+checkout does not populate that field. **No in-band workaround exists**; the fix is a Paperclip
+server deploy, which is operator territory.
+
+`POST /api/companies/{id}/issues` still returns **201**, so issue *creation* is the only board
+write channel available to an unassigned run. That is why the dispositions below are delivered
+as created issues rather than as status writes.
+
+### Dispositions this run could not write
+
+| Issue | Truth | Intended action | Delivered as |
+|---|---|---|---|
+| [STI-541](/STI/issues/STI-541) | closed on a claim that is false (0 `<img>` re-proven) | **reopen** | [STI-562](/STI/issues/STI-562) already exists in `backlog`; needs an assignee |
+| [STI-561](/STI/issues/STI-561) | gate red on a hardcoded host path | fix the test | courier issue to storefront-lead, this run |
+| [STI-526](/STI/issues/STI-526) | my own leftover probe | cancel | **not delivered** — no write channel |
+| this run's own probe | `PROBE-DELETE-ME` created to test the create channel | cancel | **not delivered** — no write channel |
+
+### Agent health this run
+
+```
+commerce-eng    running  last 03:41Z
+design-lead     running  last 04:05Z
+qa-verifier     running  last 04:04Z   errorReason: "Timed out after 600s"  (transient, self-reported)
+ash-gm          running  last 04:03Z
+storefront-lead running  last 03:41Z
+merch-lead      error    last 04:02Z   errorReason: "Failed to execute statement"
+```
+
+`merch-lead` is in an error state, but its last heartbeat is **3 minutes** old — far inside the
+24h escalation threshold, so no fix-or-terminate escalation is due. `qa-verifier`'s 600s
+timeout is the same class as [STI-530](/STI/issues/STI-530). Re-check next heartbeat; escalate
+only if `merch-lead` is still `error` with a stale `lastHeartbeatAt` past 24h.
