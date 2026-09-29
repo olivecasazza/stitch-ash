@@ -28,12 +28,30 @@ shell, not from CI. A green CI run is not a live deploy.
 | URL | Expected | Notes |
 | --- | --- | --- |
 | `https://preview.stitch-ash.com/` | `200` | Home |
-| `https://preview.stitch-ash.com/collections/<one>` | `200` | One collection page (pick a real handle) |
+| `https://preview.stitch-ash.com/collection/featured` | `200` | One collection page. The route is **singular** `/collection/[handle]` (`app/pages/collection/[handle].vue`) and `featured` is a real handle in `src/catalog`. |
+| `https://preview.stitch-ash.com/products` | `200` | Shop index (`app/pages/products.vue`) |
 | `https://preview.stitch-ash.com/product/sku-001` | `200` | PDP (canonical path) |
 | `https://preview.stitch-ash.com/products/sku-001` | `301` or `308` → `/product/sku-001` | The `/products/` → `/product/` redirect must resolve before the PDP body loads |
 | `https://preview.stitch-ash.com/api/bug-report` | Pages Function responds (any 2xx/4xx JSON, not a CF 5xx) | POST handler reachable |
 | `https://preview.stitch-ash.com/api/checkout` | Pages Function responds (any 2xx/4xx JSON, not a CF 5xx) | POST handler reachable |
 | `https://preview.stitch-ash.com/<nonexistent-path>` | `404` **and** `content-type: text/html` | Branded `app/error.vue`. See the `Accept` note below before running this one. |
+
+**The collection route is `/collection/<handle>`, singular — and a plural
+`/collections/...` 404 is not a defect.** Until the 2026-09-29 cycle this
+table said `/collections/<one>`, and a run that trusted it would have filed a
+live defect for a route the app never had. Measured on `main` at `b9b9301` on
+2026-09-29:
+
+```sh
+curl -s -o /dev/null -w '%{http_code} /collections/featured\n'  …  # 404
+curl -s -o /dev/null -w '%{http_code} /collection/featured\n'   …  # 200
+curl -s -o /dev/null -w '%{http_code} /collections/essentials\n'…  # 404
+```
+
+Confirm the real route before probing it — `find app/pages -name '*.vue'` is
+the source of truth, and the handles come from `src/catalog`, not from
+guessing a name. If the handle set changes, re-derive it; do not leave a
+placeholder in this table.
 
 **The 404 probe must send a browser `Accept` header.** A bare `curl` sends
 `Accept: */*`, and Nitro/h3 answers *that* with a JSON error object instead of
@@ -147,12 +165,20 @@ issue, if any of the following appear:
 - any non-zero `border-radius`
 - any editorial serif (Playfair Display, etc.)
 - a colour outside the palette: warm bone `#F7F3EC`, thread-gold
-  `#B08D57`, error-ember `#9F3A2F`, ash-silver `#C0C0C0`, near-black
-  `#0E0E0E`
+  `#B08D57`, error-ember `#9F3A2F`, ash-silver `#C0C0C0`
 - a change to `app/assets/css/tokens.css` without a matching `DESIGN.md`
   change in the same PR
 - a `DESIGN.md` change where `npx @google/design.md lint DESIGN.md` is
   not clean
+
+**`#0E0E0E` is not a rejected colour.** An earlier revision of this list
+lumped `near-black #0E0E0E` in with the forbidden four. It is wrong and
+has been corrected. `charcoal #0E0E0E` *is* the brand ground — DESIGN.md
+(`colors.charcoal`) uses it for the page surface, cards, modals and image
+framing plates, and `tokens.css` defines it as `--charcoal`. Flagging it
+as a STYLE regression would be a false positive on every page in the store.
+The forbidden set is exactly four: `#F7F3EC`, `#B08D57`, `#9F3A2F`,
+`#C0C0C0`.
 
 WCAG AA contrast is still required and is checked against the `DESIGN.md`
 grey scale, not ad-hoc.
@@ -250,6 +276,41 @@ reopened as STI-YYY`.
   blocked; graded evidence was posted there rather than filed as a
   duplicate. Pass closed `done`. Dead `.rounded-*` utilities in the
   shipped CSS bundle remain an open footgun, still unapplied.
+
+- STI-511 — 2026-09-29 — **non-visual gates all green at deployed
+  `6fa7f88`; three-viewport visual gate UNVERIFIED.** `/` `200`,
+  `/products` `200`, `/collection/featured` `200`,
+  `/product/sku-001` `200`, `/products/sku-001` `308` →
+  `/product/sku-001` (1 hop, final `200`), branded `404` +
+  `text/html` on the browser-`Accept` probe. Both Pages Functions
+  answer with their own validation bodies (`/api/bug-report`:
+  *"Please describe the bug in at least 10 characters."*;
+  `/api/checkout`: *"items must be a non-empty array."*). Deploy run
+  [36513710435](https://github.com/olivecasazza/stitch-ash/actions/runs/36513710435)
+  `success` @ `2026-09-29T02:40:39Z`; `origin/main` `b9b9301` is
+  **1 docs-only commit** ahead, ~2 min old — inside the 24 h
+  threshold, so **no** freshness defect. Internal-copy scan of all
+  three customer pages: one hit, and it is the legitimate
+  `placeholder="your@email.com"` attribute on the waitlist input.
+  Source-level WCAG AA from the shipped bundle: white/bone/grey-200/
+  grey-400 clear **4.5:1** on all three ground surfaces (min 6.19:1,
+  grey-400 on `#1A1A1A`); `--outline` (3.29:1) and `--primary`
+  (3.14:1) are border/fill only — verified by enumerating every
+  `color:` declaration in the bundle, neither is used as a text
+  colour. Style sweep clean: no `#F7F3EC`/`#B08D57`/`#9F3A2F`/
+  `#C0C0C0`, no Playfair, all radius tokens `0`, every inline
+  `border-radius` `0`. **This cycle also fixed a defect in this
+  document** — the collection URL above was wrong; see the note under
+  the smoke table. Visual gate could not run: `skill("visual-review")`
+  returns *"Skill not found"*, `GET /api/skills` → **404**, `GET
+  /api/agents/me/skills` → **404**. No screenshots, so layout at
+  1440×900 / 820×1180 / 390×844 is **unverified**, not passed.
+
+  **A `/collections/…` 404 is the checklist's bug, not the site's.**
+  This file said `/collections/<one>`; the app has only ever had
+  `app/pages/collection/[handle].vue`. A run that trusted the old
+  table would have filed a defect against a route that does not exist
+  — the exact STI-444 false-positive shape, in a different place.
 
 ### Method notes worth keeping (learned the hard way this cycle)
 
