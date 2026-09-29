@@ -66,24 +66,53 @@ CI green is necessary, never sufficient. Verify the deploy in this order:
 
 1. `git ls-remote origin main` → record the `main` HEAD SHA.
 2. `gh run list --workflow deploy.yml --branch main --limit 1 --json databaseId,conclusion,headSha,url` → must show a `success` run whose `headSha` matches the `main` HEAD from step 1. Older successful runs are stale and do not count. Record the run's `createdAt`/`updatedAt` window.
-3. Re-fetch the live site (see § 1) and read the build timestamp:
+3. Read the build marker the artifact itself carries:
+
+   ```sh
+   curl -sS https://preview.stitch-ash.com/__build.json
+   # {"commit":"<full-40-sha>","short":"<7>","source":"env|git","repo":"olivecasazza/stitch-ash"}
+   ```
+
+   The `commit` field **must equal** the `main` HEAD SHA from step 1. Equality
+   of the full 40 characters is the whole test — the `short` field is a human
+   convenience and is deliberately not the identity field, because 7 characters
+   is not enough to attribute a claim to a commit.
+
+   If `commit` is `null`, or the marker 404s, the build could not determine its
+   commit. That is a deploy-pipeline defect, not a stale site: do not fall back
+   to the timestamp below, report "unverified at SHA level", and file it.
+
+4. Only if the marker is unavailable, fall back to the build timestamp:
 
    ```sh
    curl -sS https://preview.stitch-ash.com/_nuxt/builds/latest.json
-   # {"id":"<build-uuid>","timestamp":<epoch-ms>}
+   # {"id":"<build-id>","timestamp":<epoch-ms>}
    ```
 
    Convert `timestamp` to UTC and confirm it falls **inside the step 2 run's
    window** (`createdAt` → `updatedAt`) and **after** the previous deploy run's
-   `createdAt`. That is the whole test.
+   `createdAt`. Note that Cloudflare Pages also rewrites this path on any deploy,
+   so the timestamp is the freshest available signal even when the content is
+   identical. It is still **not** a commit match — see below.
 
-**There is no commit-SHA signal on the live site — do not go looking for one.**
-An earlier revision of this step told the verifier to read the Cloudflare Pages
-build SHA from the response headers or a `/_nuxt/builds/meta/...` manifest. That
-mechanism does not exist on this deployment. Measured 2026-09-28 on
-[STI-482](/issues/STI-482), all live:
+**The `id` in that manifest is the full 40-character commit, not a random UUID,
+and `/_nuxt/builds/meta/<commit>.json` is now reachable.** Nuxt's default
+`buildId` is a fresh `randomUUID()` per build, which is what made two builds of
+one commit ship different bytes; it is now derived from the commit by the same
+resolver that writes the marker (`nuxt.config` imports
+`scripts/read-build-commit.mjs`, as does `scripts/write-build-id.mjs`), so the
+manifest and `__build.json` cannot name different commits. Both probes agreeing
+is worth a glance, but `/__build.json` in step 3 is the one to quote — it is the
+marker that ships *inside* the artifact, and a marker injected at deploy time
+could drift from what was actually published.
 
-| Probe | Result |
+### Historical note — what this step used to say
+
+Before [STI-542](/issues/STI-542) this step read the timestamp only, and told you
+flatly that no live probe could name the deployed commit. That was true on
+2026-09-28 and was measured, not assumed:
+
+| Probe | Result (2026-09-28) |
 | --- | --- |
 | `GET /` response headers | no `etag` SHA, no `x-*-commit`, no `x-*-sha`; only `x-powered-by: Nuxt`, `server: cloudflare`, `cf-ray` |
 | `GET /_nuxt/builds/meta/e99010a….json` | `404` |
@@ -91,17 +120,24 @@ mechanism does not exist on this deployment. Measured 2026-09-28 on
 | `GET /_nuxt/builds/meta/fb5fe11….json` | `404` |
 | `/` HTML body | 0 occurrences of any known commit SHA |
 
-**Consequence you must write down honestly:** for a commit that changes no
-rendered output — a comments- or `docs/`-only commit like `e99010a` — **no live
-probe can distinguish "deployed" from "not deployed."** The build timestamp in
-step 3 is corroboration that *a* deploy landed in that window, not a proof of
-*which* commit it carried. For those commits, steps 1–2 are the entire
-provenance guarantee and step 3 cannot be made into a SHA match. Say
-"unverified at SHA level" rather than claiming `main == live`; STI-482 proposes
-emitting the commit SHA at build time to close that gap properly.
+All five were re-probed live on 2026-09-29 against `892ff25`: `/__build.json`
+returns its commit, and `/_nuxt/builds/meta/892ff255….json` went `404` → `200`.
 
-Note that Cloudflare Pages also rewrites this path on any deploy, so the
-timestamp is the freshest available signal even when the content is identical.
+The consequence recorded then — "for a commit that changes no rendered output, no
+live probe can distinguish *deployed* from *not deployed*" — **no longer holds.**
+`/__build.json` distinguishes them for every commit, including `docs/`-only
+ones, because the marker lives in the published artifact rather than in the
+rendered page.
+
+The reason `__build.json` exists is [STI-542](/issues/STI-542): two builds of
+`9c55c363` published different font files, so "a build of main is live" was all
+the site could prove and no observation could be attributed to the commit it was
+reported against. That is also what made [STI-405](/issues/STI-405) possible —
+a deployed-SHA attribution the pipeline could not support. Do not reintroduce a
+build-time network font fetch or a per-build random `buildId`; the
+`build-determinism-gate` job in `pr-checks.yml` builds the same commit twice and
+fails on any digest difference, and it only means anything while the marker and
+the manifest keep agreeing.
 
 If the deploy run is `failure`, `cancelled`, or missing: do not sign off. File a defect on the deploy workflow issue, paste the run URL, and stop.
 
