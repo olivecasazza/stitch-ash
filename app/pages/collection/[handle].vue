@@ -34,11 +34,18 @@ const { data: collection, error } = await useStorefrontData(key, `#graphql
 })
 
 if (!collection.value || error.value) {
+    // STI-444: no `fatal: true` here. It marks this expected 404 as a server
+    // fault, and nitro's prod error handler responds to that by replacing the
+    // real message with the literal "Server Error" (prod.mjs:
+    // `message: isSensitive ? "Server Error" : error.message`, where
+    // `isSensitive = error.unhandled || error.fatal`) and by dropping `data`.
+    // It also logs every bad collection URL as `[fatal]`. The sibling blog
+    // throws are byte-for-byte the same without that flag and report their real
+    // message ("Blog not found" / "Article not found") — keep it consistent.
     throw createError({
         status: 404,
         statusText: `${$t('error.notFound')}: ${route.fullPath}`,
         message: error.value?.message || $t('error.collection'),
-        fatal: true,
     })
 }
 
