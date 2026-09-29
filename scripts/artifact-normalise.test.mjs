@@ -541,3 +541,92 @@ test('a member access after a member access is still a member (STI-589)', () => 
     const normalised = norm(CHUNK, minified('const o=f(a.b.c);'))
     assert.ok(normalised.includes('.b.'), 'a middle member must survive verbatim')
 })
+
+// ------------------------------------------------- STI-589, round three: QA on #146
+//
+// qa-verifier, on PR #146, found the opposite defect to the one that fix closed:
+// it absorbed CONTENT. The placeholders are NUL-delimited sentinels, and
+// `out.replace(/\0d(\d+)\0/g, ...)` ran over the whole finished output — so a real
+// string literal whose bytes happened to be the sentinel had its text rewritten:
+//
+//   in   class A{m(){this.#x();return "\0d0\0"}#x(){return 1}}
+//   out  ...return "\0c0\0"...
+//
+// A rule that edits a string literal is the exact failure the two negative
+// controls exist to prevent: the digest no longer describes the artifact it is
+// supposed to be hashing. The same whole-output path also reached template text
+// and regex bodies.
+//
+// The fix is NOT to narrow which markers the regex accepts — the marker set has
+// to stay collision-free against the WHOLE output, and any NUL-delimited choice
+// can collide. The fix is to decline the file: `canonicaliseMangledNames` now
+// returns its input untouched when the source already contains a NUL, so the
+// substitution pass can only ever see sentinels it emitted itself.
+//
+// This is the safe direction to fail. A chunk left uncanonicalised can report
+// drift; it can never hide it. The 12 local builds of a19ffaa that pin this
+// behaviour contained zero raw NUL bytes, so the guard does not weaken anything
+// that is actually in the digest today.
+
+/** The sentinel the deferred-read path emits for its first marker, as source bytes. */
+const SENTINEL = '\u0000d0\u0000'
+
+test('a string literal holding the marker bytes is not rewritten (STI-589)', () => {
+    // The regression, exactly as qa-verifier reported it. Before the fix this
+    // returned the class slot (`\0c0\0`) in place of the literal's own bytes.
+    const out = norm(CHUNK, minified(`class A{m(){this.#x();return "${SENTINEL}"}#x(){return 1}}`))
+    assert.ok(
+        out.includes(`"${SENTINEL}"`),
+        `the literal's bytes must survive verbatim; got ${JSON.stringify(out.slice(-90))}`,
+    )
+    assert.ok(!out.includes('\u0000c0\u0000"'), 'a slot placeholder must not be written into a string')
+})
+
+test('template text holding the marker bytes is not rewritten (STI-589)', () => {
+    const out = norm(CHUNK, minified('class A{m(){return `' + SENTINEL + '`}#x(){return 1}}m2(){this.#x()}'))
+    assert.ok(out.includes(SENTINEL), 'template text must survive verbatim')
+})
+
+test('a regex holding the marker bytes is not rewritten (STI-589)', () => {
+    const out = norm(CHUNK, minified(`class A{m(){return/${SENTINEL}/}#x(){return 1}}m2(){this.#x()}`))
+    assert.ok(out.includes(SENTINEL), 'a regex body must survive verbatim')
+})
+
+test('two chunks differing only in marker bytes inside a string do not collapse (STI-589)', () => {
+    // The digest-level statement of the finding: with the rule applied, a change
+    // in string CONTENT must still move the digest. Before the fix these two
+    // hashed the same, because both were rewritten to the same slot placeholder.
+    assert.ok(
+        !chunkCollapses(
+            minified(`class A{m(){this.#x();return "${SENTINEL}"}#x(){return 1}}`),
+            minified(`class A{m(){this.#x();return "${SENTINEL.replace('0', '1')}"}#x(){return 1}}`),
+        ),
+        'a changed string literal must not collapse',
+    )
+})
+
+test('a genuine deferred private read is still resolved when no NUL is present (STI-589)', () => {
+    // The guard must not be a blanket "rule off": the read-before-declare shape it
+    // exists for still has to collapse, or #146's own fix regresses.
+    const readFirst = (a, b) =>
+        minified(`class u{static unsafeExposeInternals(e){return{starts:e.#${a},ttls:e.#${b}}}`
+            + `#${a}=0;#${b}=0;m(){return this.#${a}+this.#${b}}}`)
+    assert.ok(chunkCollapses(readFirst('C', 'k'), readFirst('k', 'C')))
+
+    // And a real difference in that shape must still move the digest.
+    assert.ok(
+        !chunkCollapses(
+            readFirst('C', 'k'),
+            minified('class u{static unsafeExposeInternals(e){return{starts:e.#C,ttls:e.#k}}'
+                + '#C=0;#k=0;m(){return this.#C*this.#k}}'),
+        ),
+        'a changed operator in a deferred-read class must not collapse',
+    )
+})
+
+test('a chunk carrying NUL bytes is left entirely alone (STI-589)', () => {
+    // The guard is all-or-nothing on purpose: a file the rule cannot describe
+    // unambiguously is reported as-is rather than half-rewritten.
+    const source = minified(`const s="${SENTINEL}";class u{#a;f(e){return this.#a+e}}`)
+    assert.equal(norm(CHUNK, source), source)
+})

@@ -196,6 +196,21 @@ const canonicaliseMangledNames = (text) => {
     const lines = text.length / (text.split('\n').length)
     if (lines < MINIFIED_AVERAGE_LINE) return text
 
+    // STI-589 (QA finding on #146): the placeholders below are NUL-delimited
+    // sentinels, and a sentinel is only unambiguous if the SOURCE cannot also
+    // contain one. It can: `return "\0d0\0"` is a legal string literal, and a
+    // whole-output `replace` on the sentinel rewrote it to the class's slot,
+    // turning real content into a different real content. That is the exact
+    // failure the two negative controls exist to prevent — the rule changing
+    // bytes it was told were content.
+    //
+    // A raw NUL cannot occur in a minified chunk otherwise (esbuild escapes
+    // them as `\0` in source), and 12 consecutive local builds of a19ffaa
+    // contained zero. So a file that DOES carry one is a file this rule cannot
+    // describe unambiguously, and the honest move is to leave it alone: an
+    // uncanonicalised chunk can only ever report drift, never hide it.
+    if (text.includes('\u0000')) return text
+
     let out = ''
     const names = new Map()
     let i = 0
@@ -254,6 +269,12 @@ const canonicaliseMangledNames = (text) => {
     // known. Markers are substituted in ONE pass over the finished string
     // afterwards; resolving each read as it is met would need a second scan per
     // class, and slicing `out` per class is the quadratic trap documented above.
+    //
+    // That ONE pass is a regex over the whole output, so it only rewrites
+    // markers this function emitted — which the NUL guard at the top of
+    // canonicaliseMangledNames now guarantees, by returning early on any source
+    // that already contains a NUL. Without that guard a real string carrying the
+    // sentinel bytes was rewritten here; qa-verifier found exactly that on #146.
     const resolved = new Map()
     let deferredId = 0
 
