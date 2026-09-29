@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "nuxt dev",
     "start": "nuxt dev",
+    "prebuild": "node scripts/write-build-id.mjs",
     "build": "nuxt build",
+    "build:hash": "node scripts/artifact-hash.mjs",
+    "build:hash:test": "node --test scripts/artifact-normalise.test.mjs",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "prepare": "nuxt prepare",
@@ -38,6 +41,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.0.0",
+    "@fontsource/jetbrains-mono": "5.3.0",
     "@nuxt/eslint-config": "^1.15.2",
     "@types/node": "^25.9.1",
     "eslint": "^10.4.0",

@@ -3,7 +3,26 @@
 
 @plugin "@tailwindcss/typography";
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+/* STI-542: the brand face used to be pulled from Google's CDN at BUILD time:
+ *   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:...');
+ *
+ * A remote @import makes the built stylesheet a function of a third party's
+ * response, so two builds of one commit shipped byte-different output and
+ * nothing the live site served could identify which commit was deployed.
+ *
+ * @fontsource/jetbrains-mono is pinned exactly (5.3.0) in package.json and
+ * integrity-hashed in pnpm-lock.yaml, so these two stylesheets are a pure
+ * function of the repository. The weights match DESIGN.md `typography`, which
+ * uses 400 and 500 only — adding a weight here means adding it to DESIGN.md
+ * in the same PR.
+ *
+ * Do not re-add a remote font URL, and do not re-add the family to
+ * nuxt.config's `fonts.families` with provider 'google': both reintroduce
+ * build-time non-determinism. See .github/workflows/pr-checks.yml, which
+ * builds twice and fails on any artifact-hash difference.
+ */
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
 
 @theme {
     --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
