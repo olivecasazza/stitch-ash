@@ -18,23 +18,49 @@
 //
 // A request middleware runs inside the same Nitro worker that serves the
 // rest of the app, so it works regardless of the CF Pages edge-layer
-// behaviour. The middleware only matches `/products/<anything>` (one
-// path segment, no trailing slash) and issues a 308, preserving the
-// request method and body so probes/mutations against the legacy URL are
-// not dropped.
+// behaviour.
 //
-// The waitlist flow emits `https://...products/<handle>` as the
-// redirectBase in functions/api/checkout.js:121, so fixing this also
-// unblocks the "complete my waitlist signup" landing experience.
+// The waitlist flow emits `https://...products/<handle>?waitlist=ok` as the
+// redirect target in functions/api/checkout.js:121, so this path is
+// load-bearing for the "complete my waitlist signup" landing experience.
+import { PRODUCTS } from '~/data/products'
+
+// The destination gate is app/pages/product/[handle].vue, which throws a 404
+// unless the handle is in PRODUCTS. PRODUCTS is therefore the authoritative
+// set of routable handles, and consulting it here makes the entry URL agree
+// with the destination instead of redirecting into a guaranteed 404.
+const HANDLES = new Set(PRODUCTS.map(p => p.handle))
+
 export default defineEventHandler((event) => {
-    const path = event.path || ''
+    const raw = event.path || ''
+
+    // STI-241: match against the PATHNAME only. `event.path` carries the query
+    // string, so `[^/]+` swallowed `sku-001?waitlist=ok` as the "handle" —
+    // `?` is not `/`, so it matched happily. The destination was then
+    // `/product/sku-001?waitlist=ok?waitlist=ok`, because the query string was
+    // re-appended to a handle that had already absorbed it. The real 404s this
+    // issue reports (`/products/embroidered-hoodie` -> 308 -> 404) are the same
+    // bug seen from the other side: the redirect was issued unconditionally.
+    const qIndex = raw.indexOf('?')
+    const pathname = qIndex === -1 ? raw : raw.slice(0, qIndex)
+    const qs = qIndex === -1 ? '' : raw.slice(qIndex)
+
     // Match /products/<handle> exactly (one non-empty segment, no further
     // path). `/products` (no handle) and `/products/foo/bar` are not
     // contract URLs and fall through to the normal 404.
-    const match = /^\/products\/([^/]+)\/?$/.exec(path)
+    const match = /^\/products\/([^/]+)\/?$/.exec(pathname)
     if (!match) return
+    // `noUncheckedIndexedAccess` types a capture group as `string | undefined`.
+    // The `+` quantifier guarantees a non-empty segment, but the type system
+    // does not, so narrow it here rather than asserting.
     const handle = match[1]
-    // Preserve query string if present.
-    const qs = event.path.includes('?') ? event.path.slice(event.path.indexOf('?')) : ''
+    if (!handle) return
+
+    // Unknown handle: no redirect. Falling through lets the router produce the
+    // 404 at the URL the customer actually typed — no false 308 in the SEO
+    // chain, and no redirect hop spent on a guaranteed dead end.
+    if (!HANDLES.has(handle)) return
+
+    // Re-attach the original query string exactly once.
     return sendRedirect(event, `/product/${handle}${qs}`, 308)
 })
