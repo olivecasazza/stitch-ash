@@ -92,13 +92,13 @@ components:
     textColor:        "{colors.bone}"
     typography:       "{typography.body}"
     rounded:          "{rounded.none}"
-    padding:          "10px 12px"
+    padding:          "8px 12px"
   badge:
     backgroundColor:  "transparent"
     textColor:        "{colors.grey-400}"
     typography:       "{typography.label}"
     rounded:          "{rounded.none}"
-    padding:          "2px 6px"
+    padding:          "0px 8px"
   # `borderColor` is deliberately absent above. The badge boundary is the
   # 1px `primary` hairline, and the schema's valid component sub-tokens are
   # backgroundColor / textColor / typography / rounded / padding / size /
@@ -345,7 +345,11 @@ warm-bone era.
   steps**: `section-sm` = `2xl`, `section-md` = `3xl`, `section-lg` = `4xl`,
   `section-xl` = `5xl`. If the two ever disagree, the scale wins.
 - **Base unit** — `4px`. Every padding, gap, and offset snaps to it. No
-  `13px` or `7px`; either 12 or 16.
+  `13px` or `7px`; either 12 or 16. The grid governs **spacing geometry**.
+  **Stroke geometry** is out of its scope and is deliberately off-grid: the
+  1px hairlines and the 2px focus ring are line weights, and rounding a
+  hairline up to 4px turns a rule into a slab. An *offset* is spacing, not
+  stroke, so no offset is exempt.
 - **Container max** — 68.75rem; content reaches it sooner because the
   surrounding rhythm is tighter.
 - **Reading measure** — 65ch. Long-form copy (journal articles) caps here.
@@ -460,10 +464,10 @@ has no place in a square-edged system.
 
 ### Forms
 - **Input** — charcoal background, `outline` (#5F5F5F) 1px
-  boundary, body typography. `outline` is the control-boundary
-  token and is the minimum that clears SC 1.4.11 3:1 on the control's
-  own fill; `border-rule` is a divider token and is not a substitute.
-  Active field is distinguished by the underline (grey-400
+  boundary, body typography, `8px 12px` padding. `outline` is the
+  control-boundary token and is the minimum that clears SC 1.4.11 3:1 on the
+  control's own fill; `border-rule` is a divider token and is not a
+  substitute. Active field is distinguished by the underline (grey-400
   bottom edge), never by a box-shadow ring.
 - Labels sit above inputs in `label` typography.
 - Validation messages use grey-400 weight plus underline; never red text.
@@ -484,8 +488,14 @@ has no place in a square-edged system.
 
 ### Badges
 - Transparent fill, hairline `primary` border, tracked-uppercase `label`
-  typography. Used for `EMBROIDERED`, `LIMITED RUN`, `LOW STOCK`,
-  `MADE TO ORDER`.
+  typography, `0px 8px` padding. Used for `EMBROIDERED`, `LIMITED RUN`,
+  `LOW STOCK`, `MADE TO ORDER`. The padding is grid-pure and reads as a
+  tag rather than a pill: `label` is 11px / 1.3, so its own leading already
+  supplies the breathing room, and a vertical pad on top of it would spend
+  vertical space on a micro-label that is meant to sit quietly on a product
+  card. The inline step is `8px`, not `4px`, because `0.12em` tracking on
+  uppercase needs the extra inline room; `4px` would crowd the tracked
+  edge against the hairline.
 - The boundary is `1px solid var(--primary)` — the `rule` shorthand's
   colour, not `rule-control`. `rule-control` is reserved for form
   controls that must clear SC 1.4.11 3:1; a badge is a decorative
