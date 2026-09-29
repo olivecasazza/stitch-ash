@@ -368,8 +368,20 @@ jobs:
       # files that differ and then throws the evidence away, which is the same
       # "rebuild it yourself and hope" loop this gate was built to end. The
       # negative controls prove the digest still bites; this proves the failure
-      # is actually diagnosable. if-no-files-found is `warn` rather than `error`
-      # so a green run does not fail on an absent dump directory.
+      # is actually diagnosable.
+      #
+      # include-hidden-files is REQUIRED, not cosmetic. `.artifact-compare`
+      # starts with a dot, and upload-artifact@v4 skips hidden files by default
+      # — so with the default this step logs
+      #   "No files were found with the provided path: .artifact-compare/"
+      # and uploads nothing. That is exactly what the first run of this change
+      # did (run 36612852876, job 109558386804), while the compare one line
+      # earlier reported the dump was written. A gate that says it saved the
+      # bytes and did not is worse than one that never claimed to.
+      #
+      # if-no-files-found stays `warn`: a green run has no dump directory and
+      # must not fail on that, but a failing run that dumped nothing must stay
+      # visible in the log rather than erroring here.
       - name: Upload differing artifact bytes when the build is not reproducible
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
@@ -377,4 +389,5 @@ jobs:
           name: artifact-compare-dump
           path: .artifact-compare/
           if-no-files-found: warn
+          include-hidden-files: true
           retention-days: 14
