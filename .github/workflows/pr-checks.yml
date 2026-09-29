@@ -51,6 +51,24 @@ jobs:
       - name: Build
         run: pnpm build
 
+  # STI-538: product status is declared twice — catalog/products/*.yaml says
+  # ACTIVE, nixlab nix/tofu/shopify/terranix.nix says "draft". The live store is
+  # ACTIVE on all three SKUs, and the terranix resources use update_method=PUT,
+  # so `nix run .#deploy-shopify` would de-list all three in one apply. The two
+  # files live in different repos, so nothing points an editor at the conflict.
+  # This gate makes it visible; see docs/decisions/2026-09-28-catalog-source-of-truth.md
+  # for the single-owner decision. No store credentials are read here.
+  catalog-status-ownership-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run catalog status ownership gate
+        run: ./scripts/ci/catalog-status-ownership-gate.sh
+
   internal-copy-gate:
     runs-on: ubuntu-latest
     permissions:
