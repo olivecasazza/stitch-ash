@@ -229,4 +229,12 @@ export interface FulfillmentTarget {
   quantity: number;
   fulfillmentService: string;
   locationId: string;
+  /**
+   * STI-571: the store's own `displayFulfillmentStatus` for this order. The
+   * lookup query already requested it, but nothing carried it out of the
+   * parser, so `tracking:plan` could not tell an unfulfilled order from one
+   * that is already `FULFILLED` and reported "ready to apply" for both.
+   * Empty string means the field was absent from the response.
+   */
+  fulfillmentStatus: string;
 }

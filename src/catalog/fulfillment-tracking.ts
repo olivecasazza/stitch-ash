@@ -83,6 +83,7 @@ export function buildOrderSearchFilter(orderName: string): string {
 interface OrderLookupNode {
   id: string;
   name: string;
+  displayFulfillmentStatus?: string | null;
   retailLocation?: { id: string } | null;
   lineItems: {
     edges: {
@@ -122,7 +123,23 @@ export function parseOrderFulfillmentTarget(payload: unknown, orderName: string)
     // STI-484: previously hardcoded "", so a fulfillment could never be bound
     // to a location even though the policy is primary_shopify_location.
     locationId: order.retailLocation?.id ?? "",
+    // STI-571: requested by the query and then dropped on the floor.
+    fulfillmentStatus: order.displayFulfillmentStatus ?? "",
   };
+}
+
+/**
+ * STI-571: statuses that mean the order already has fulfillment recorded
+ * against it. A new `fulfillmentCreate` here is a duplicate fulfillment, not an
+ * update, so both the plan and the apply refuse rather than reporting "ready".
+ *
+ * `UNFULFILLED` and `PARTIALLY_FULFILLED` are deliberately not in this set: a
+ * partially fulfilled order is exactly the case where a human still has to
+ * decide which line item the new tracking belongs to, and that decision is
+ * reported rather than blocked.
+ */
+export function isAlreadyFulfilled(fulfillmentStatus: string): boolean {
+  return fulfillmentStatus.trim().toUpperCase() === "FULFILLED";
 }
 
 
@@ -137,7 +154,24 @@ export function renderTrackingPlan(input: TrackingInput, target: FulfillmentTarg
   lines.push(`  tracking: ${input.trackingNumber}${input.trackingUrl ? ` (${input.trackingUrl})` : ""}`);
   lines.push(`  notify: ${input.notifyCustomer ? "yes" : "no"}`);
   lines.push(`  fulfillment_service: ${target.fulfillmentService}`);
-  lines.push(`  status: ${target.orderId ? "ready to apply" : "no fulfillment target"}`);
+  // STI-571: this line used to be `target.orderId ? "ready to apply" : ...`,
+  // which is a constant — the only falsy path was handled by the early return
+  // above. An order that was already FULFILLED on the store printed exactly the
+  // same "ready to apply" as an unfulfilled one, so the plan could not warn
+  // that fulfillmentCreate would add a second fulfillment rather than record
+  // tracking on the existing one.
+  lines.push(`  store_fulfillment_status: ${target.fulfillmentStatus || "NOT_REPORTED_BY_STORE"}`);
+  lines.push(
+    isAlreadyFulfilled(target.fulfillmentStatus)
+      ? "  status: NOT READY — order is already FULFILLED on the store; applying creates a duplicate fulfillment"
+      : `  status: ${target.orderId ? "ready to apply" : "no fulfillment target"}`,
+  );
+  if (target.fulfillmentStatus.trim().toUpperCase() === "PARTIALLY_FULFILLED") {
+    // The parser targets lineItems.edges[0] only. On a multi-line order that is
+    // not necessarily the line the operator means, so this is surfaced instead
+    // of assumed.
+    lines.push("  warning: order is PARTIALLY_FULFILLED and this plan targets the FIRST line item only; confirm it is the right one");
+  }
   return lines;
 }
 
@@ -145,6 +179,18 @@ export async function applyFulfillmentTracking(
   target: FulfillmentTarget,
   input: TrackingInput,
 ): Promise<string> {
+  // STI-571: fulfillmentCreate adds a fulfillment; it does not attach tracking
+  // to an existing one. Running it against an order the store already reports
+  // as FULFILLED would double-fulfill a real customer order, so this refuses
+  // before any write rather than relying on the operator having read the plan.
+  if (isAlreadyFulfilled(target.fulfillmentStatus)) {
+    throw new Error(
+      `Refusing to apply tracking to ${target.orderName}: the store reports it as ` +
+        `${target.fulfillmentStatus}, so fulfillmentCreate would create a second fulfillment. ` +
+        `Update tracking on the existing fulfillment in Shopify Admin instead.`,
+    );
+  }
+
   const client = await buildAdminClient();
 
   const mutation = `
