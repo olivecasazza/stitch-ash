@@ -73,9 +73,11 @@ defineProps<{
     outline: none;
   }
 
+  /* components.focus-ring — 2px stroke, 4px offset (STI-578). DESIGN.md
+     names this "the standard 2px bone square"; the offset is the token's. */
   .accordion__summary:focus-visible {
     outline: 2px solid var(--bone);
-    outline-offset: 2px;
+    outline-offset: 4px;
   }
 
   .accordion__icon {

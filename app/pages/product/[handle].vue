@@ -373,12 +373,13 @@ useSeoMeta({
     border-color: var(--grey-200);
   }
 
+  /* components.focus-ring — 2px stroke, 4px offset (STI-578). */
   .pdp__atc-btn--primary:focus-visible {
     background: var(--white);
     color: var(--ink-black);
     border-color: var(--white);
     outline: 2px solid var(--focus);
-    outline-offset: 2px;
+    outline-offset: 4px;
   }
 
   /* DESIGN.md button-disabled: primary border, grey-400 text, no fill.
