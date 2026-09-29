@@ -1,10 +1,41 @@
 # Catalog source of truth: one owner for product status and inventory policy
 
-- **Date:** 2026-09-28, amended 2026-09-29 (STI-557)
-- **Status:** Proposed — needs operator ratification (STI-538, STI-531)
+- **Date:** 2026-09-28, amended 2026-09-29 (STI-557), amended 2026-09-29 (STI-552)
+- **Status:** **Owner decision already settled** — see "The owner was already
+  ratified" below. What remains open is execution of the terranix removal
+  (STI-531), not the choice of owner.
 - **Author:** commerce-eng (`7fe07aa9`)
 - **Supersedes:** nothing. Narrows `2026-07-21-shopify-as-system-of-record.md` to
   the two fields that are currently declared twice.
+
+## The owner was already ratified (2026-09-29, STI-552)
+
+An earlier version of this document asked the operator to ratify the owner. That
+question was already answered, and this document was wrong to re-open it.
+
+On **2026-07-28** the operator signed off on [STI-239](/STI/issues/STI-239)
+verbatim:
+
+> OPERATOR SIGN-OFF: Option A approved — repo catalog/products/*.yaml is the
+> single source of truth. … main YAML is ACTIVE/CONTINUE (conflict confirmed).
+
+That is the same owner this ADR proposes. It is not a new proposal; it is a
+restatement of a decision already on the record, made 63 days earlier. Anyone
+reading the "needs operator ratification" line above would reasonably conclude
+the question was open, and could spend a review cycle re-deciding it.
+
+Two consequences worth stating separately, because they are genuinely open and
+were not decided on 2026-07-28:
+
+1. **The terranix side was never done.** Step 4 of that sign-off assigned the
+   `tofu state rm` and the nixlab PR to the operator. It has not happened. That
+   is [STI-531](/STI/issues/STI-531), and it is the part that still carries the
+   de-listing risk. It is an unexecuted instruction, not an unmade decision.
+2. **`inventory_policy` is a scope extension.** The 2026-07-28 sign-off reasoned
+   about `status` in its body. It predates the `inventory_policy` half of this
+   ADR, which was added by STI-557. The owner is settled; the *second field* is
+   a new observation about a field that was already ratified as repo-owned under
+   the same rule.
 
 ## The conflict, read from both files this run
 
@@ -177,16 +208,34 @@ exit 1
 
 ## Operator decisions this ADR asks for
 
-1. **Ratify this owner** — `catalog/products/*.yaml` owns product status *and*
-   inventory policy, and the nixlab terranix product resources stop declaring
-   both.
-2. **STI-531** — confirm the terranix `status`/`inventory_policy` fields are
-   removed from `nix/tofu/shopify/terranix.nix` so `deploy-shopify` can no
-   longer de-list live merchandise or block checkout on it.
-3. **STI-539 / STI-536** — the international rate direction ($0.00 live vs
-   $25.00 declared). Still unowned, still a customer-facing money decision.
-   This ADR does not touch it.
+The first is **retracted** — it was already decided on 2026-07-28.
+
+1. ~~**Ratify this owner**~~ — **already ratified 2026-07-28 (Option A,
+   [STI-239](/STI/issues/STI-239))**: repo `catalog/products/*.yaml` is the single
+   source of truth. No further ratification is needed for the owner. This ADR
+   documents the existing decision and extends it to `inventory_policy`.
+2. **[STI-531](/STI/issues/STI-531) — execute, not decide.** The 2026-07-28
+   sign-off already assigned this: `tofu state rm` the product resources first
+   (`prevent_destroy` makes a config-removal plan error otherwise), then a nixlab
+   PR removes `status` and `inventory_policy` from
+   `nix/tofu/shopify/terranix.nix`. Do not delete the GCS state path. Until this
+   runs, a tofu apply still PUTs `draft`/`deny` over three live ACTIVE products.
+3. **[STI-539](/STI/issues/STI-539) / [STI-536](/STI/issues/STI-536) — still
+   open.** The international rate direction ($0.00 live vs $25.00 declared) is a
+   customer-facing money decision with no owner. Untouched here.
 
 Do **not** resolve the status conflict by editing the terranix `status` alone.
 That is the edit the previous gate rewarded, and it leaves `inventory_policy =
 "deny"` in place — see the false green above. Remove both fields, or neither.
+
+## One thing this ADR deliberately does not do
+
+It does not revisit the `ACTIVE`/`CONTINUE` values themselves. Step 5 of the
+2026-07-28 sign-off deferred the ACTIVE/CONTINUE flip to "a separate, later,
+operator-approved plan diff — it is the go-live decision, not part of adoption."
+[STI-269](/STI/issues/STI-269) was that diff, and it was **cancelled** as a stale
+artifact precisely so the flip would not run. The live store has served
+`ACTIVE`/`CONTINUE` since, and a completed test purchase depends on it
+(`docs/test-purchase-handoff.md`). Settling the owner does not settle the values;
+if the values should ever change, that is a fresh `catalog:plan` diff put to the
+operator as its own decision.
