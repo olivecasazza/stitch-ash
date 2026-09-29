@@ -25,17 +25,34 @@ export const productSortKeysSchema = z.enum([
     'UPDATED_AT',
 ])
 
-// STI-579: `COLLECTION_DEFAULT` and `MANUAL` are `ProductCollectionSortKeys`
-// members only. Shopify's ROOT `ProductSortKeys` enum is TITLE, PRODUCT_TYPE,
-// VENDOR, UPDATED_AT, CREATED_AT, BEST_SELLING, PRICE, ID, RELEVANCE — a
-// strictly smaller set. `productSortKeysSchema` above is shared with
-// `collection.products(...)`, where the superset is correct, so it stays as it
-// is; this is the root-level list enum. Passing `COLLECTION_DEFAULT` to a root
-// `products()` query passes zod here and then fails at the API with
-// "Variable $sortKey of type ProductSortKeys was provided invalid value".
+// STI-579: the two enums are different sets, and using the wrong one fails at
+// the API rather than here. The ROOT `ProductSortKeys` and the
+// `ProductCollectionSortKeys` on `collection.products(...)` share only six
+// members; each also has members the other does not.
+//
+// `productSortKeysSchema` above is the collection enum, so its
+// `COLLECTION_DEFAULT` / `MANUAL` / `CREATED` members are correct there and
+// stay. This is the root enum used by `/` and `/products`.
+//
+// Verified by introspection against the live Storefront API rather than by
+// reading a schema file (2026-09-29):
+//
+//   { __type(name: "ProductSortKeys")            { enumValues { name } } }
+//   { __type(name: "ProductCollectionSortKeys") { enumValues { name } } }
+//
+//   ProductSortKeys:            BEST_SELLING CREATED_AT ID PRICE PRODUCT_TYPE
+//                              RELEVANCE TITLE UPDATED_AT VENDOR
+//   ProductCollectionSortKeys:  BEST_SELLING COLLECTION_DEFAULT CREATED ID
+//                              MANUAL PRICE RELEVANCE TITLE
+//
+// `CREATED` is the member that most looks like a typo but is not: it is real,
+// on the COLLECTION enum only. The root enum spells the same idea
+// `CREATED_AT`. Shipping the collection set here would let zod pass
+// `COLLECTION_DEFAULT` and then fail at the API with "Variable $sortKey of type
+// ProductSortKeys was provided invalid value" — a request that only errors once
+// it reaches Shopify, and only for the value nobody tried until someone did.
 export const rootProductSortKeysSchema = z.enum([
     'BEST_SELLING',
-    'CREATED',
     'CREATED_AT',
     'ID',
     'PRICE',
