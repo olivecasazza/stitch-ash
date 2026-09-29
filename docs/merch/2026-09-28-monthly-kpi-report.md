@@ -34,6 +34,31 @@ filled report existed.
 > `docs/merch/2026-09-27-store-copy-pass.md` §3 no longer exists on the page.
 > The remaining open [STI-439](/STI/issues/STI-439) item is photography only.
 > Status label only — no number changed.
+>
+> **Fifth correction, 2026-09-29 (a later re-verification run; no metric
+> changed).** The fourth correction reached the **right verdict for the wrong
+> reason**, and this one fixes the reason.
+>
+> - It said *"the catalog no longer restates a lead time."* It does.
+>   `catalog/products/sku-001.yaml:16` carries `Made to order. Allow 2–3 weeks
+>   for production.` in the PDP `bodyHtml`. That string has been there since the
+>   file was created (`fe3d433`) and has **never** been `3–5 weeks` — only two
+>   commits have ever touched that file, neither of them this one.
+> - It said the contradiction *"no longer exists on the page."* The page states
+>   a lead time in three places: `2–3 weeks`, three occurrences on the hoodie
+>   PDP. `3–5 weeks` appears **zero** times.
+> - The string that was actually fixed was in **`app/data/products.ts`**, the
+>   Storefront-API **fallback**, whose three `Shipping & Returns` bodies no
+>   longer restate any lead time (they now read `Made to order. Ships tracked.
+>   …`). That is where the store-copy pass §3 found the `3–5 weeks`.
+> - **The verdict stands:** the `2–3` vs `3–5` contradiction **is** resolved,
+>   because Shopify-side and repo-side both say `2–3 weeks`. What was wrong was
+>   the file named and the mechanism described, not the outcome.
+>
+> The quoted `Shipping & Returns` body in the fourth correction was real and is
+> confirmed again this run. Only the surrounding explanation was wrong.
+> **No revenue, unit, or margin figure changed at any point.** Gross revenue
+> stays $0.00, attributed to the password-gated apex.
 
 Structure and the binding provenance rules are defined in
 `docs/merch/2026-09-27-kpi-report-template.md` and are not restated here.
@@ -49,7 +74,7 @@ is the one that governs this entire report.
 
 | # | Fact | Evidence (this run) |
 |---|---|---|
-| 1 | The storefront runs **real** commerce. It is **not** mock. | `nuxt.config.ts:37` on `origin/main` `8bacf83` is `mock: false,` (re-verified 2026-09-29) |
+| 1 | The storefront runs **real** commerce. It is **not** mock. | `nuxt.config.ts:57` on `origin/main` `2d13ecd` is `mock: false,` (re-verified 2026-09-29; the flag was line 37 at `8bacf83`, so cite the line **and** the commit, never the line alone) |
 | 2 | The commerce path **works end to end up to the last step.** | Real Shopify product, real variant, `cartCreate` returns a real `checkoutUrl` ([STI-327](/STI/issues/STI-327), [STI-545](/STI/issues/STI-545)) |
 | 3 | **No customer can complete a purchase.** | `https://www.stitch-ash.com` → `HTTP 200`, final URL `https://www.stitch-ash.com/password`, body `Enter password` / `Protected` |
 
@@ -277,7 +302,7 @@ sections as published 2026-09-28).
 | **Product photography missing, all 3 SKUs** | **OPEN** | `featuredImage` absent from live Storefront data; PDP renders an SVG mark (`aria-label="Embroidered Hoodie"`), **zero `<img>` elements** | storefront-lead — [STI-309](/STI/issues/STI-309) `blocked` by [STI-318](/STI/issues/STI-318) |
 | Hoodie landed-cost quote outstanding | OPEN — hoodie pricing provisional | ceiling $86.83 vs $75 base estimate | supplier via operator ask — [STI-418](/STI/issues/STI-418) |
 | No analytics tag before launch traffic | OPEN | [STI-419](/STI/issues/STI-419) | storefront-lead |
-| ~~`og:image` served a third-party demo logo~~ | **RESOLVED this period** | `og:image` → `https://preview.stitch-ash.com/og-brand-card.png` on `/` and on PDP; asset fetches `HTTP 200`, `20987` bytes, `image/png` | og:image item resolved; lead-time item resolved 2026-09-29 — see the fourth amendment above; [STI-439](/STI/issues/STI-439) `in_progress` for photography only |
+| ~~`og:image` served a third-party demo logo~~ | **RESOLVED this period** | `og:image` → `https://preview.stitch-ash.com/og-brand-card.png` on `/` and on PDP; asset fetches `HTTP 200`, `20987` bytes, `image/png` | og:image item resolved; lead-time item resolved 2026-09-29 — see the fourth amendment above, **and the fifth, which corrects the fourth's file and mechanism**; [STI-439](/STI/issues/STI-439) `in_progress` for photography only |
 
 Photography is worth restating as a **conversion** risk rather than a
 cosmetic one. A brand selling a $185 garment that has never been photographed
@@ -326,7 +351,7 @@ counts.
 | Apex is password-gated | `curl -sSL -w '%{http_code} %{url_effective} %{size_download}' https://www.stitch-ash.com` | `200`, final `https://www.stitch-ash.com/password`, `103731` bytes | **Unchanged** — gate still shut |
 | Gate is edge-level and total | `https://www.stitch-ash.com/nope-does-not-exist-xyz` | `200` → `/password` | **Unchanged** — gated, not a 404 |
 | Control: preview serves real 404s | `https://preview.stitch-ash.com/nope-does-not-exist-xyz` | `404` | **Unchanged** — confirms the apex gate is a gate, not a routing artifact |
-| Storefront is **not** mock | `git show origin/main:nuxt.config.ts` | line 37 `mock: false,` | **Unchanged** |
+| Storefront is **not** mock | `git show origin/main:nuxt.config.ts` | line 57 `mock: false,` at `2d13ecd` (row above cites line 37 at `8bacf83`; both correct for their commit) | **Unchanged** |
 | Three SKUs price live | `https://preview.stitch-ash.com/products` | `200`, `20304` bytes, `$185`/`$35`/`$15` one match each | **Unchanged** |
 | No product photography | `https://preview.stitch-ash.com/product/sku-00{1,2,3}` | all `200`, **0** `<img>` elements on all three; 8 `<svg>` marks on the hoodie PDP | **Unchanged — still OPEN** |
 | `og:image` fixed | `https://preview.stitch-ash.com` | `og:image` → `.../og-brand-card.png`; asset `200`, `20987` bytes, `image/png` | **Unchanged — resolved** |
@@ -338,6 +363,12 @@ The store-copy pass §3 documented a real `2–3 weeks` vs `3–5 weeks`
 contradiction; the shipped fix removed the catalog's restatement of a
 commercial fact Shopify owns, and the live PDP now defers to Shopify. The page
 no longer contradicts itself.
+
+> **The paragraph above is itself superseded — see the 2026-09-29 second pass
+> below and the fifth correction.** It names the wrong file and describes the
+> wrong mechanism. The `3–5 weeks` string was in `app/data/products.ts`, not the
+> catalog YAML, and the PDP still states `2–3 weeks`. The verdict (RESOLVED) is
+> unchanged; the explanation was not.
 
 **Note on the product URL used for the photography check:** the PDP route is
 `/product/<handle>` (`sku-001`), not `/products/<handle>`. An initial probe of
@@ -351,9 +382,64 @@ gate-shut state is the only thing re-measurable while the apex is closed.
 
 ---
 
+## Appendix — second re-verification pass, 2026-09-29 (later run)
+
+A second run on the same day, taken because `main` had advanced 13 commits
+(`14f5c9a` → `2d13ecd`) since the appendix above and every live byte count in it
+had gone stale. This pass exists mainly to check whether the fourth correction's
+lead-time claim survived contact with the current page. **It did not survive
+intact**, and the correction is logged in the fifth amendment at the top.
+
+**Again: no revenue, unit, or margin figure changed.** Gross revenue is
+$0.00 measured, and the cause is the password-gated apex. Not a mock flag.
+
+| Claim | Command | Result this run | Verdict |
+|---|---|---|---|
+| Apex is password-gated | `curl -sSL -w '%{http_code} %{url_effective} %{size_download}' https://www.stitch-ash.com` | `200`, final `https://www.stitch-ash.com/password`, `103731` bytes | **Unchanged** — gate still shut |
+| Gate is edge-level and total | `curl -sSL -o /dev/null -w '%{url_effective}' https://www.stitch-ash.com/nope-does-not-exist-xyz` | `200` → `/password` | **Unchanged** — gated, not a 404 |
+| Control: preview serves real 404s | `curl -sSL -o /dev/null -w '%{http_code}' https://preview.stitch-ash.com/nope-does-not-exist-xyz` | `404` | **Unchanged** — the apex gate is a gate, not a routing artifact |
+| Storefront is **not** mock | `git show origin/main:nuxt.config.ts` \| `grep -n 'mock: false'` | `57:                    mock: false,` at `2d13ecd` | **Unchanged** |
+| Three SKUs price live | `curl -sSL -w '%{http_code} %{size_download}' https://preview.stitch-ash.com/products` | `200`, `20308` bytes (was `20304`; +4 after 13 main commits), `$185`/`$35`/`$15` one match each | **Unchanged** — prices identical |
+| No product photography | `curl -sSL https://preview.stitch-ash.com/product/sku-00{1,2,3}` | `200` on all three (`31882`/`28532`/`28200` bytes), **0** `<img>` on all three, 8 `<svg>` on the hoodie PDP | **Unchanged — still OPEN** |
+| `og:image` fixed | `curl -sSL https://preview.stitch-ash.com` + the asset | `og:image` → `.../og-brand-card.png` on `/` **and** on the PDP; asset `200`, `20987` bytes, `image/png` | **Unchanged — resolved** |
+| **PDP still states a lead time** | `grep -o '2–3 weeks' ` on the hoodie PDP | **3** occurrences, incl. the `bodyHtml` sentence and the meta description | **CORRECTS the fourth amendment** |
+| `3–5 weeks` is gone | `grep -o '3–5 weeks' ` on the hoodie PDP | **0** occurrences | **Resolved — the fix did land** |
+| `Shipping & Returns` body | live hoodie PDP, `accordion__body` | `Made to order. Ships tracked. Returns accepted within 14 days of delivery if unworn and unaltered.` | **Unchanged** — fourth amendment's quote was accurate |
+| Where the fix actually landed | `git show origin/main:app/data/products.ts` | all three `Shipping & Returns` bodies carry no lead time (lines 70 / 93 / 116) | **Corrects the fourth amendment** |
+| Catalog YAML is unchanged | `git log --oneline origin/main -- catalog/products/sku-001.yaml` | only `fe3d433` (created) and `3b34062`; line 16 reads `2–3 weeks` in **both** | **Corrects the fourth amendment** |
+| Latent demo strings | `git show origin/main:i18n/locales/en.json` | no `Nuxt Shopify Demo` / `Welcome to our demo store`; `home` is `null`; `seo.description` = `Stitch and Ash — black-on-black embroidered apparel, made to order.` | **Unchanged — resolved** |
+
+**What this pass actually found.** The fourth correction was not a fabricated
+quote — its quoted string is still rendering, in `accordion__body`, this run.
+The failure was narrower and more embarrassing: it credited the **wrong file**
+and told a **mechanism that cannot be true**, namely that the catalog stopped
+restating a lead time. It never did. The `2–3 weeks` copy has been in
+`catalog/products/sku-001.yaml` since the catalog was introduced, and the
+`3–5 weeks` copy the store-copy pass flagged was in `app/data/products.ts` all
+along — the Storefront-API fallback, not the reconciler source. Once the
+fallback's lead-time sentence was dropped, both sides of the comparison started
+saying the same thing, and the contradiction closed for a reason the report
+described incorrectly.
+
+**The lesson is worth more than the fix, so it is recorded as a rule.** A
+correction that reaches the right verdict by citing the wrong artifact is still
+a defect, because the next reader inherits the mechanism. Cite the file that
+actually changed, and prefer `git log -- <path>` over reasoning about which file
+"should" own a string.
+
+**No storefront change is proposed.** `2–3 weeks` in the product description
+and no lead time in the returns accordion is coherent copy, not a contradiction:
+the description tells the buyer how long the garment takes, the accordion tells
+them what happens after it ships. The store-copy pass §3 recommendation to
+delete lead time from *all* `Shipping & Returns` bodies was the right call for
+the fallback, and it was executed.
+
+---
+
 ## Related
 
 - `docs/merch/2026-09-27-kpi-report-template.md` — structure and the binding provenance rules
+- `docs/merch/2026-09-27-store-copy-pass.md` §3 — the original lead-time finding, and where the `3–5 weeks` string actually lived (`app/data/products.ts`)
 - `docs/merch/2026-09-27-pricing-margin.md` — the unquoted cost bands and the 50% CM ceilings
 - `docs/merch/2026-09-27-social-plan.md` — the post-gate posting sequence
 - `docs/decisions/2026-09-27-data-provenance-baseline.md` — per-layer data-path provenance
