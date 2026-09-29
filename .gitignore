@@ -33,3 +33,8 @@ hooks/
 # would bake one build's commit into the repo and it would go stale the moment
 # the next build ran, which is worse than not having it at all.
 public/__build.json
+
+# STI-542: build 1 kept aside by the determinism gate so the failing
+# comparison can name the differing file. A build output, never a source.
+.dist-build-1
+.artifact-compare

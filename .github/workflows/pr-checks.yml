@@ -255,6 +255,14 @@ jobs:
               fi
               echo "Negative control passed: mutating a hashed file moved the digest."
 
+              # Keep build 1 aside so build 2 can be diffed against it. The
+              # digest alone says only that SOMETHING moved; the compare names
+              # the file, which is the difference between a five-minute fix
+              # and a rebuild-everything-to-find-out afternoon. The loop only
+              # clears `.nuxt` and `dist`, so this survives into attempt 2.
+              rm -rf .dist-build-1
+              cp -a dist .dist-build-1
+
             elif [ "${first}" != "${digest}" ]; then
               echo "::error::Build is not reproducible."
               echo "build 1: ${first}"
@@ -267,6 +275,12 @@ jobs:
               echo "If the difference is only in build metadata, the fix belongs"
               echo "in scripts/artifact-normalise.mjs, and the rule must state why"
               echo "the field is not content. Do not widen the gate instead."
+              echo ""
+              echo "Which files differ (normalised the same way the digest is):"
+              # Deliberately not `exit 1` on the compare's own status: the
+              # digest already failed, and a compare that cannot read a
+              # directory must not replace the real error with a louder one.
+              node scripts/artifact-compare.mjs .dist-build-1 dist || true
               exit 1
             fi
           done
