@@ -39,5 +39,7 @@ public/__build.json
 .dist-build-1
 .artifact-compare
 
-# Local scratch builds from the STI-589 determinism investigation.
+# Local scratch builds from the STI-589 determinism investigation. Both are
+# build outputs kept aside for digest comparison, never sources.
 .det/
+.fresh/
