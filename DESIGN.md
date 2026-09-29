@@ -223,8 +223,9 @@ on the grey ramp from #0E0E0E to #FFFFFF.
   permitted for inline emphasis.
 - **white (#FFFFFF)** — reserved for max-contrast moments only: primary
   CTA fill, focus ring. Use sparingly; overuse flattens contrast.
-- **focus (#FFFFFF)** — a 2px solid square focus ring, 2px offset, no
-  color tint. Accessibility-first.
+- **focus (#FFFFFF)** — a 2px solid square focus ring, 4px offset, no
+  color tint. Accessibility-first. The 2px ring is stroke geometry and stays
+  off-grid; the 4px offset is spacing and snaps to the base unit.
 
 **Forbidden in this seed**: warm bone #F7F3EC, thread-gold #B08D57,
 error-ember #9F3A2F, ash-silver #C0C0C0. Any signal previously carried by a
