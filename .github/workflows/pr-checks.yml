@@ -334,7 +334,13 @@ jobs:
               # Deliberately not `exit 1` on the compare's own status: the
               # digest already failed, and a compare that cannot read a
               # directory must not replace the real error with a louder one.
-              node scripts/artifact-compare.mjs .dist-build-1 dist || true
+              #
+              # --dump writes both sides' normalised bytes to .artifact-compare/
+              # so the failure is diagnosable from the log instead of from a
+              # rebuild nobody can reproduce. It is useless without the upload
+              # step below: a runner's workspace is discarded when the job ends,
+              # so without that step these bytes would be written and lost.
+              node scripts/artifact-compare.mjs .dist-build-1 dist --dump || true
               exit 1
             fi
           done
@@ -355,3 +361,20 @@ jobs:
             exit 1
           fi
           echo "dist/__build.json names ${actual}"
+
+      # STI-542: the `--dump` above writes the differing bytes to
+      # .artifact-compare/ on the runner, and a runner's workspace is deleted
+      # when the job ends. Without this step a determinism failure names the
+      # files that differ and then throws the evidence away, which is the same
+      # "rebuild it yourself and hope" loop this gate was built to end. The
+      # negative controls prove the digest still bites; this proves the failure
+      # is actually diagnosable. if-no-files-found is `warn` rather than `error`
+      # so a green run does not fail on an absent dump directory.
+      - name: Upload differing artifact bytes when the build is not reproducible
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact-compare-dump
+          path: .artifact-compare/
+          if-no-files-found: warn
+          retention-days: 14
