@@ -489,8 +489,13 @@ export const DELIVERY_PROFILE_QUERY = `
                   name
                   active
                   rateProvider {
+                    __typename
                     ... on DeliveryParticipant {
                       fixedFee { amount currencyCode }
+                      percentageOfRateFee
+                    }
+                    ... on DeliveryRateDefinition {
+                      price { amount currencyCode }
                     }
                   }
                 }
@@ -521,7 +526,11 @@ export async function getDeliveryProfiles(client: AdminClient): Promise<ShopifyS
                   id: string;
                   name: string;
                   active: boolean;
-                  rateProvider?: { fixedFee?: { amount: string; currencyCode: string } | null } | null;
+                  rateProvider?: {
+                    __typename?: string;
+                    fixedFee?: { amount: string; currencyCode: string } | null;
+                    price?: { amount: string; currencyCode: string } | null;
+                  } | null;
                 }[];
               };
             }[];
@@ -545,15 +554,49 @@ export async function getDeliveryProfiles(client: AdminClient): Promise<ShopifyS
           name: zoneNode.zone.name,
           countryCodes,
           restOfWorld,
-          methods: zoneNode.methodDefinitions.nodes.map(method => ({
-            id: method.id,
-            name: method.name,
-            active: method.active,
-            // A derived/carrier-calculated rate has no fixedFee. Reporting
-            // null keeps "unknown" distinguishable from "free".
-            price: method.rateProvider?.fixedFee?.amount ?? null,
-            currency: method.rateProvider?.fixedFee?.currencyCode ?? null,
-          })),
+          methods: zoneNode.methodDefinitions.nodes.map(method => {
+            // `fixedFee` is NOT a price on its own. It means "a flat price"
+            // only on DeliveryRateDefinition (where the real amount is in
+            // `price`); on DeliveryParticipant it is the operator's surcharge
+            // ON TOP of a carrier-calculated rate the Admin API never returns.
+            // Reading the surcharge as the price reported "0.0 USD" for both
+            // live international services, i.e. free international shipping
+            // that the store does not charge. So the total price is only ever
+            // read from the shape that actually carries it.
+            const rp = method.rateProvider;
+            if (rp?.__typename === "DeliveryRateDefinition" && rp.price) {
+              return {
+                id: method.id,
+                name: method.name,
+                active: method.active,
+                price: rp.price.amount,
+                currency: rp.price.currencyCode,
+                rateKind: "fixed_rate" as const,
+              };
+            }
+            if (rp?.__typename === "DeliveryParticipant") {
+              return {
+                id: method.id,
+                name: method.name,
+                active: method.active,
+                // Not derivable from the API: fixedFee + percentageOfRateFee
+                // applied to a live carrier quote, computed at checkout.
+                price: null,
+                currency: null,
+                rateKind: "carrier_calculated" as const,
+                carrierSurcharge: rp.fixedFee?.amount ?? null,
+              };
+            }
+            return {
+              id: method.id,
+              name: method.name,
+              active: method.active,
+              // A derived/carrier-calculated rate has no fixedFee. Reporting
+              // null keeps "unknown" distinguishable from "free".
+              price: null,
+              currency: null,
+            };
+          }),
         });
       }
     }

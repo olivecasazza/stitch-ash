@@ -198,6 +198,90 @@ describe("diffShipping compares declared rules against the store (STI-507)", () 
     assert.doesNotMatch(diff.actions.join("\n"), /-> store 0\.00/);
   });
 
+  it("does not report a carrier-calculated surcharge as the price", () => {
+    // The live store's International zone, read 2026-09-29: both services are
+    // DeliveryParticipant with fixedFee 0.0 and percentageOfRateFee 0. Mapping
+    // that fixedFee to `price` printed `"usps"=0.0 USD` in catalog:plan, which
+    // reads as free international shipping. The surcharge is not the price.
+    const carrier = profile();
+    carrier.zones[0]!.methods[0] = {
+      id: "gid://shopify/DeliveryMethodDefinition/825665093677",
+      name: "Tracked domestic shipping",
+      active: true,
+      price: null,
+      currency: null,
+      rateKind: "carrier_calculated",
+      carrierSurcharge: "0.0",
+    };
+    const diff = diffShipping(policy(), carrier);
+    const line = diff.actions.join("\n");
+    assert.match(line, /CARRIER-CALCULATED/);
+    assert.match(line, /surcharge is 0\.0 USD/);
+    // The number an operator would act on must not be presented as the rate:
+    // no "-> store 0.00" verdict, and no bare price verdict at all.
+    assert.doesNotMatch(line, /-> store 0\.00/);
+    assert.doesNotMatch(line, /declared \S+ USD -> store/);
+  });
+
+  it("does not print a carrier-calculated surcharge as a price in the not-found listing", () => {
+    // Same defect, different branch: the "declared service not found" line
+    // lists the store's other services, and it rendered the live international
+    // pair as "usps"=0.0 USD, "dhl_express"=0.0 USD.
+    const carrier = profile();
+    // Renamed away from the declared name, and two services in the zone like
+    // the live International zone — with a single active service the diff
+    // falls back to it and reports a rename instead of "not found", so the
+    // listing this asserts is only reached with an ambiguous set.
+    carrier.zones[0]!.methods = [
+      {
+        id: "gid://shopify/DeliveryMethodDefinition/825665093677",
+        name: "usps",
+        active: true,
+        price: null,
+        currency: null,
+        rateKind: "carrier_calculated",
+        carrierSurcharge: "0.0",
+      },
+      {
+        id: "gid://shopify/DeliveryMethodDefinition/825665126445",
+        name: "dhl_express",
+        active: true,
+        price: null,
+        currency: null,
+        rateKind: "carrier_calculated",
+        carrierSurcharge: "0.0",
+      },
+    ];
+    const diff = diffShipping(policy(), carrier);
+    const line = diff.actions.find(a => /not found in zone/.test(a))!;
+    assert.match(line, /"usps".*carrier-calculated/);
+    assert.doesNotMatch(line, /"usps"=0\.0/);
+  });
+
+  it("still compares a real fixed rate against the declared price", () => {
+    // The other direction: DeliveryRateDefinition carries a genuine flat price
+    // in `price`, so it must keep being compared rather than reported unknown.
+    const fixed = profile();
+    fixed.zones[0]!.methods[0] = {
+      id: "gid://shopify/DeliveryMethodDefinition/825665060909",
+      name: "Tracked domestic shipping",
+      active: true,
+      price: "25.00",
+      currency: "USD",
+      rateKind: "fixed_rate",
+    };
+    // The declared rule is 0.00, so a real 25.00 flat rate IS drift and must
+    // still be reported — proving the fixed_rate path compares rather than
+    // falling through to "unknown".
+    const diff = diffShipping(policy(), fixed);
+    assert.equal(diff.actions.length, 1);
+    assert.match(diff.actions[0]!, /-> store 25\.00 USD/);
+
+    // And when the declared amount genuinely matches, there is no drift.
+    fixed.zones[0]!.methods[0]!.price = "0.00";
+    assert.deepEqual(diffShipping(policy(), fixed).actions, []);
+  });
+
   it("reports a renamed service rather than silently matching nothing", () => {
     const renamed = profile();
     renamed.zones[0]!.methods[0]!.name = "Standard";

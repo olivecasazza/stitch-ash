@@ -171,8 +171,17 @@ export function diffShipping(
       // that disagree are a live money bug — customers are quoted different
       // rates for the same service name — which is why "cannot be checked"
       // alone would understate it.
+      // A carrier-calculated rate is rendered as "carrier-calculated", never as
+      // a number, for the same reason as the not-found branch: its surcharge is
+      // not the price and must not be printed as one.
+      const rateText = (m: (typeof namedMatches)[number]): string =>
+        m.rateKind === "carrier_calculated"
+          ? "carrier-calculated"
+          : m.price === null
+            ? "derived/unknown"
+            : `${m.price} ${m.currency ?? policy.currencyCode}`.trim();
       const rows = namedMatches
-        .map(m => `"${m.name}" [${m.id}]${m.active ? "" : " (inactive)"}=${m.price === null ? "derived/unknown" : `${m.price} ${m.currency ?? policy.currencyCode}`.trim()}`)
+        .map(m => `"${m.name}" [${m.id}]${m.active ? "" : " (inactive)"}=${rateText(m)}`)
         .join(", ");
       const prices = new Set(namedMatches.map(m => (m.price === null ? "derived/unknown" : normalizePrice(m.price))));
       actions.push(
@@ -190,8 +199,21 @@ export function diffShipping(
       // Include the store's actual rates for this zone. Without them a renamed
       // service hides the price comparison entirely, and the operator would
       // have to re-derive by hand whether the declared amount is even charged.
+      //
+      // A carrier-calculated rate is rendered as "carrier-calculated" and never
+      // as a number. Printing its surcharge here reported `"usps"=0.0 USD` for
+      // both live international services, which reads as free international
+      // shipping — the one number on this line an operator would act on, and
+      // the one that is not the price.
       const offered = zone.methods
-        .map(m => `"${m.name}"${m.active ? "" : " (inactive)"}=${m.price === null ? "derived/unknown" : `${m.price} ${m.currency ?? ""}`.trim()}`)
+        .map(m => {
+          const rate = m.rateKind === "carrier_calculated"
+            ? "carrier-calculated (price quoted at checkout, unverifiable here)"
+            : m.price === null
+              ? "derived/unknown"
+              : `${m.price} ${m.currency ?? ""}`.trim();
+          return `"${m.name}"${m.active ? "" : " (inactive)"}=${rate}`;
+        })
         .join(", ");
       actions.push(
         `shipping rule ${rule.id}: declared service "${rule.serviceName}" (${rule.price} ${policy.currencyCode}, ${rule.destination}) ` +
@@ -212,6 +234,23 @@ export function diffShipping(
       // A rate-derived or carrier-calculated rate. Reporting a price here would
       // mean inventing a number, and reporting nothing would let an unknown
       // rate read as verified.
+      //
+      // A carrier-calculated rate is a distinct case worth naming: the store
+      // quotes a live carrier price at checkout and the Admin API never returns
+      // the total, so the declared amount is unverifiable *by construction*,
+      // not because the read failed. The operator surcharge is reported
+      // because it is the only number the API does return, and it is the part
+      // someone would otherwise mistake for the total.
+      if (method.rateKind === "carrier_calculated") {
+        actions.push(
+          `shipping rule ${rule.id}: store service "${method.name}" is a CARRIER-CALCULATED rate ` +
+            `(declared ${rule.price} ${policy.currencyCode}); the price is quoted live from the carrier at checkout and the Admin API cannot return it` +
+            (method.carrierSurcharge
+              ? `, so the declared amount cannot be verified against it. The store's operator surcharge is ${method.carrierSurcharge} ${policy.currencyCode}, which is charged ON TOP of the carrier quote and is NOT the price a customer pays`
+              : ", so the declared amount cannot be verified against it. The store declares no operator surcharge on top of the carrier quote"),
+        );
+        continue;
+      }
       actions.push(
         `shipping rule ${rule.id}: store service "${method.name}" has no fixed-fee price ` +
           `(declared ${rule.price} ${policy.currencyCode}); rate is derived or carrier-calculated and cannot be verified`,
