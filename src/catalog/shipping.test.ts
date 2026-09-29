@@ -385,6 +385,104 @@ describe("diffShipping compares declared rules against the store (STI-507)", () 
     assert.doesNotMatch(diff.actions[0]!, /not found in zone/);
   });
 
+  it("reports a live price collision the catalog does not name (STI-577)", () => {
+    // The exact live defect. The store's Domestic zone has two active rows both
+    // named "Standard", at 8.00 and 0.00, while the catalog declares "Tracked
+    // domestic shipping". Every declared rule therefore took the renamed
+    // not-found branch, which lists rates without judging them, and a
+    // customer-visible pricing defect was reported as a mere name drift.
+    //
+    // A collision is a defect in the STORE, so it must be reported whether or
+    // not the catalog happens to name the service.
+    const live = profile();
+    live.zones[0]!.methods = [
+      {
+        id: "gid://shopify/DeliveryMethodDefinition/825665028141",
+        name: "Standard",
+        active: true,
+        price: "8.0",
+        currency: "USD",
+        rateKind: "fixed_rate",
+      },
+      {
+        id: "gid://shopify/DeliveryMethodDefinition/825665028141?source=RateRangeCondition&source_id=198824656941",
+        name: "Standard",
+        active: true,
+        price: "0.0",
+        currency: "USD",
+        rateKind: "fixed_rate",
+      },
+      {
+        id: "gid://shopify/DeliveryMethodDefinition/825665060909",
+        name: "Express",
+        active: true,
+        price: "15.0",
+        currency: "USD",
+        rateKind: "fixed_rate",
+      },
+    ];
+
+    const diff = diffShipping(policy(), live);
+    const collisions = diff.actions.filter(a => /all named "Standard"/.test(a));
+    assert.equal(collisions.length, 1);
+    const line = collisions[0]!;
+    assert.match(line, /no declared rule covers that name/);
+    assert.match(line, /THEY DISAGREE \(2 distinct prices\)/);
+    // Both rows must be identifiable and priced, or the operator has to open
+    // the Admin UI to learn what is being charged.
+    assert.match(line, /825665028141\]=8\.0 USD/);
+    assert.match(line, /source_id=198824656941\]=0\.0 USD/);
+    // The defect must be attributed to the zone, not to the declared rate: the
+    // declared rule is fine, the store is not.
+    assert.match(line, /zone "Domestic"/);
+    assert.doesNotMatch(line, /shipping rule made-to-order-domestic/);
+  });
+
+  it("does not report the same collision twice when a rule names it too", () => {
+    // One defect must produce one line. The per-rule branch can also name the
+    // declared amount, so it keeps the collision when a rule claims the name.
+    const live = profile();
+    live.zones[0]!.methods = [
+      { id: "gid://shopify/DeliveryMethodDefinition/1", name: "Tracked domestic shipping", active: true, price: "0.00", currency: "USD" },
+      { id: "gid://shopify/DeliveryMethodDefinition/2", name: "Tracked domestic shipping", active: true, price: "25.00", currency: "USD" },
+    ];
+    const diff = diffShipping(policy(), live);
+    assert.equal(diff.actions.length, 1);
+    assert.match(diff.actions[0]!, /shipping rule made-to-order-domestic/);
+    assert.match(diff.actions[0]!, /THEY DISAGREE/);
+  });
+
+  it("calls a collision of one active and one inactive row latent, not a live charge", () => {
+    // Only an active row can be offered to a buyer, so two rows that cannot
+    // both be quoted are untidy rather than a current money bug. Saying
+    // "customers are charged different rates" here would be an overclaim.
+    const latent = profile();
+    latent.zones[0]!.methods = [
+      { id: "gid://shopify/DeliveryMethodDefinition/1", name: "Standard", active: true, price: "8.0", currency: "USD" },
+      { id: "gid://shopify/DeliveryMethodDefinition/2", name: "Standard", active: false, price: "0.0", currency: "USD" },
+    ];
+    const diff = diffShipping(policy(), latent);
+    const collision = diff.actions.find(a => /all named "Standard"/.test(a));
+    assert.ok(collision, "the collision must still be reported");
+    assert.match(collision, /only 1 of them is active/);
+    assert.doesNotMatch(collision, /customers are charged different rates/);
+  });
+
+  it("does not treat two unquoted carrier-calculated rows as agreeing (STI-577)", () => {
+    // Both rows price as null, so comparing prices alone yields a set of size
+    // one and reports "they currently agree on price" — for two rates the Admin
+    // API never returned. That is a false green on the one case the collision
+    // check exists to catch.
+    const bothCarrier = profile();
+    bothCarrier.zones[0]!.methods = [
+      { id: "gid://shopify/DeliveryMethodDefinition/1", name: "Tracked domestic shipping", active: true, price: null, currency: null, rateKind: "carrier_calculated", carrierSurcharge: "0.0" },
+      { id: "gid://shopify/DeliveryMethodDefinition/2", name: "Tracked domestic shipping", active: true, price: null, currency: null, rateKind: "carrier_calculated", carrierSurcharge: "5.00" },
+    ];
+    const diff = diffShipping(policy(), bothCarrier);
+    assert.equal(diff.actions.length, 1);
+    assert.doesNotMatch(diff.actions[0]!, /they currently agree on price/);
+  });
+
   it("still matches a unique name when other services share a different name", () => {
     // The collision must not disable normal matching for a zone that happens to
     // contain two rows, as long as the DECLARED name is unique among them.
@@ -394,7 +492,13 @@ describe("diffShipping compares declared rules against the store (STI-507)", () 
       { id: "gid://shopify/DeliveryMethodDefinition/825665028142", name: "Standard", active: true, price: "0.00", currency: "USD" },
       { id: "gid://shopify/DeliveryMethodDefinition/825665028143", name: "Standard", active: true, price: "0.00", currency: "USD" },
     ];
-    assert.deepEqual(diffShipping(policy(), mixed).actions, []);
+    // The two "Standard" rows are the store's own problem even though the
+    // declared rule matches cleanly, so they are reported — under the zone, not
+    // as a failure of the declared rate.
+    const diff = diffShipping(policy(), mixed);
+    assert.equal(diff.actions.length, 1);
+    assert.match(diff.actions[0]!, /zone "Domestic" has 2 services all named "Standard"/);
+    assert.doesNotMatch(diff.actions[0]!, /shipping rule/);
   });
 
   it("checks each declared rule against its own zone", () => {

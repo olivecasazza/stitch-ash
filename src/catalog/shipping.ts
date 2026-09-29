@@ -83,6 +83,103 @@ export function destinationMatches(ruleDestination: string, zone: ShopifyShippin
   return zone.countryCodes.includes(declared);
 }
 
+type ZoneMethod = ShopifyShippingZone["methods"][number];
+
+/**
+ * Render a rate the way it must appear in a plan line.
+ *
+ * A carrier-calculated rate is never printed as a number. Its `price` is null
+ * and the only figure the Admin API returns is the operator's surcharge on top
+ * of a live carrier quote, so printing that here is how a surcharge got
+ * reported as "0.0 USD" — read as free shipping (STI-573).
+ */
+function formatRate(method: ZoneMethod, fallbackCurrency: string): string {
+  if (method.rateKind === "carrier_calculated") return "carrier-calculated";
+  if (method.price === null) return "derived/unknown";
+  return `${method.price} ${method.currency ?? fallbackCurrency}`.trim();
+}
+
+/**
+ * Decide how bad a same-name collision is, from the rows that share a name.
+ *
+ * Only ACTIVE rows are judged, because only an active row can be offered to a
+ * buyer. Two inactive rows that share a name are untidy; an inactive row
+ * shadowing a live one is latent, not a current charge. A disagreement among
+ * the active rows is the live money bug: the buyer cannot tell the options
+ * apart, so which one they are quoted is decided by the rate condition rather
+ * than by anything they can see.
+ *
+ * Agreement is only ever claimed for rows the Admin API actually priced. A
+ * rate the API does not return cannot be shown to match another, so two
+ * carrier-calculated rows are reported as unverifiable rather than as agreeing
+ * — comparing their null prices produced a set of size one and a false green
+ * on the exact case this exists to catch (STI-577). Where the rows differ in
+ * something the API DID return, the operator surcharge is surfaced, because
+ * two rows both described as "carrier-calculated" is otherwise not enough
+ * information to act on.
+ */
+function collisionVerdict(rows: readonly ZoneMethod[]): string {
+  const offered = rows.filter(m => m.active);
+  if (offered.length < 2) {
+    return (
+      `only ${offered.length} of them is active, so no buyer is quoted two rates today, but the name is ` +
+      `reused and must be made unique before a second active row can be added under it`
+    );
+  }
+
+  // A rate the Admin API will not price cannot be compared to another one, so
+  // it is pulled out before the agreement test. It is a separate defect from a
+  // disagreement and is reported in its own words.
+  const unpriced = offered.filter(m => m.rateKind === "carrier_calculated" || m.price === null);
+  if (unpriced.length > 0) {
+    const surcharges = new Set(unpriced.map(m => m.carrierSurcharge ?? "none declared"));
+    return (
+      `${unpriced.length} of them ${unpriced.length === 1 ? "is" : "are"} priced live by the carrier and ` +
+      `the Admin API cannot return ${unpriced.length === 1 ? "its rate" : "their rates"}, so whether the ` +
+      `active rows agree CANNOT be determined from the store` +
+      (unpriced.every(m => m.rateKind === "carrier_calculated")
+        ? `. Operator surcharge on the carrier quote: ${[...surcharges].join(", ")}` +
+          (surcharges.size > 1
+            ? " (these differ; the surcharge is charged on top of the carrier quote and is NOT the price a customer pays)"
+            : "")
+        : " (derived rate, no fixed fee returned)")
+    );
+  }
+
+  const distinct = new Set(offered.map(m => normalizePrice(m.price!)));
+  if (distinct.size > 1) {
+    return (
+      `THEY DISAGREE (${distinct.size} distinct prices) — customers are charged different rates for the same ` +
+      `service name, and a buyer is shown one label for ${offered.length} differently-priced options with ` +
+      `nothing to tell them apart; which one is offered is decided by the rate condition, not by the buyer`
+    );
+  }
+  return "they currently agree on price, but the names collide and must be renamed before they can drift apart";
+}
+
+/** The colliding rows, each identifiable by GID, in the shape the operator needs. */
+function collisionRowsText(rows: readonly ZoneMethod[], fallbackCurrency: string): string {
+  return rows
+    .map(m => `"${m.name}" [${m.id}]${m.active ? "" : " (inactive)"}=${formatRate(m, fallbackCurrency)}`)
+    .join(", ");
+}
+
+/**
+ * Group a zone's methods by service name.
+ *
+ * Shopify does not enforce unique service names inside a zone, so this can
+ * return more than one row per name.
+ */
+function methodsByName(zone: ShopifyShippingZone): Map<string, ZoneMethod[]> {
+  const grouped = new Map<string, ZoneMethod[]>();
+  for (const method of zone.methods) {
+    const existing = grouped.get(method.name);
+    if (existing) existing.push(method);
+    else grouped.set(method.name, [method]);
+  }
+  return grouped;
+}
+
 /**
  * STI-507: compare declared shipping rules against the store's live delivery
  * profile.
@@ -132,9 +229,43 @@ export function diffShipping(
     );
   }
 
+  // STI-577: a zone whose service names collide is a defect in the STORE, not
+  // in the catalog, and it used to be invisible unless a declared rule happened
+  // to name the colliding service. The live proof: the Domestic zone has two
+  // active rows both named "Standard" at 8.00 and 0.00, while the catalog
+  // declares "Tracked domestic shipping" — so every declared rule took the
+  // renamed/not-found branch, which lists rates without ever judging them, and
+  // a customer-visible pricing defect reached production unremarked.
+  //
+  // A collision is therefore reported per ZONE, from the store's own rows, so it
+  // does not depend on the catalog naming the service at all. Collisions that a
+  // declared rule does claim are left to the per-rule branch below, which can
+  // also name the declared amount; skipping them here keeps one defect from
+  // being printed twice under two different justifications.
   const declaredRules = policy.rules ?? [];
+  const claimedByRule = new Set<string>();
+  for (const rule of declaredRules) {
+    for (const zone of remote.zones) {
+      if (destinationMatches(rule.destination, zone, policy.originCountryCode)) {
+        claimedByRule.add(`${zone.name} ${rule.serviceName}`);
+      }
+    }
+  }
+
+  for (const zone of remote.zones) {
+    for (const [name, rows] of methodsByName(zone)) {
+      if (rows.length < 2) continue;
+      if (claimedByRule.has(`${zone.name} ${name}`)) continue;
+      actions.push(
+        `shipping policy ${policy.id}: zone "${zone.name}" has ${rows.length} services all named "${name}" ` +
+          `and no declared rule covers that name, so the catalog cannot check any of them: ` +
+          `${collisionRowsText(rows, policy.currencyCode)}. ${collisionVerdict(rows)}`,
+      );
+    }
+  }
+
   if (declaredRules.length === 0) {
-    notes.push("policy declares no rules, so there is nothing to compare");
+    notes.push("policy declares no rules, so declared rates have nothing to compare against");
     return { policy, remote, actions, notes };
   }
 
@@ -167,30 +298,15 @@ export function diffShipping(
 
     if (ambiguous) {
       // Everything needed to act without opening the Admin UI: the colliding
-      // rows with their GIDs, what each charges, and whether they agree. Rows
-      // that disagree are a live money bug — customers are quoted different
-      // rates for the same service name — which is why "cannot be checked"
-      // alone would understate it.
-      // A carrier-calculated rate is rendered as "carrier-calculated", never as
-      // a number, for the same reason as the not-found branch: its surcharge is
-      // not the price and must not be printed as one.
-      const rateText = (m: (typeof namedMatches)[number]): string =>
-        m.rateKind === "carrier_calculated"
-          ? "carrier-calculated"
-          : m.price === null
-            ? "derived/unknown"
-            : `${m.price} ${m.currency ?? policy.currencyCode}`.trim();
-      const rows = namedMatches
-        .map(m => `"${m.name}" [${m.id}]${m.active ? "" : " (inactive)"}=${rateText(m)}`)
-        .join(", ");
-      const prices = new Set(namedMatches.map(m => (m.price === null ? "derived/unknown" : normalizePrice(m.price))));
+      // rows with their GIDs, what each charges, and whether the rows a buyer
+      // can actually be offered disagree. Rows that disagree are a live money
+      // bug — customers are quoted different rates for the same service name —
+      // which is why "cannot be checked" alone would understate it.
       actions.push(
         `shipping rule ${rule.id}: zone "${zone.name}" has ${namedMatches.length} services all named ` +
           `"${rule.serviceName}", so the declared ${rule.price} ${policy.currencyCode} cannot be checked ` +
-          `against one rate: ${rows}. ` +
-          (prices.size > 1
-            ? `THEY DISAGREE (${prices.size} distinct prices) — customers are charged different rates for the same service name`
-            : "they currently agree on price, but the names collide and must be renamed before they can drift apart"),
+          `against one rate: ${collisionRowsText(namedMatches, policy.currencyCode)}. ` +
+          collisionVerdict(namedMatches),
       );
       continue;
     }
