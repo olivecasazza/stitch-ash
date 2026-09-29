@@ -66,6 +66,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # STI-557: the gate compares status AND inventory_policy. The first
+      # version compared status only, so the cheapest operator edit — terranix
+      # status "draft" -> "active" — turned it green while
+      # `inventory_policy = "deny"` stood in the same block. On the live store
+      # that would block checkout on all 7 variants, every one of which is at
+      # or below zero inventory. This suite pins that exact fixture so the
+      # false green cannot come back, and pins that a missing nixlab tree is
+      # reported SKIPPED rather than passed. Needs no Node and no secrets.
+      - name: Test catalog status ownership gate
+        run: ./scripts/ci/catalog-status-ownership-gate.test.sh
+
       - name: Run catalog status ownership gate
         run: ./scripts/ci/catalog-status-ownership-gate.sh
 
