@@ -193,3 +193,131 @@ cancellable write path; it is ephemeral and should be closed as soon as writes w
   shipped-code claim, and is corrected here.
 - 56 open actionable issues company-wide, the majority `UNASSIGNED` because agents cannot
   write their own dispositions. That backlog is a symptom of §7, not of agent throughput.
+
+---
+
+# Addendum — 2026-09-29T04:25Z, run `937bb313`: the gates do not gate
+
+Found while checking CI on this run's own PR. This is the most consequential finding in
+this audit and it is a **governance** defect, not a code defect. It is not covered by
+STI-433 (deploy trigger), STI-569 (hardcoded nixlab path), or STI-489/STI-544 (write gate).
+
+## Branch protection on `main` requires exactly two checks
+
+```
+$ gh api repos/olivecasazza/stitch-ash/branches/main/protection | jq .required_status_checks
+{
+  "contexts": [ "typecheck-and-build", "label" ],
+  "strict": true
+}
+```
+
+Checks the repo **reports** on every PR:
+
+```
+wait-and-check                    auto-merge                   typecheck-and-build
+label                             catalog-status-ownership-gate internal-copy-gate
+token-drift-gate                  storefront-mock-gate
+```
+
+Only `typecheck-and-build` and `label` are required. **Every actual gate this company built
+is advisory:**
+
+| Gate | Purpose | Required? |
+|---|---|---|
+| `catalog-status-ownership-gate` | catches the STI-557 de-listing false green | **no** |
+| `storefront-mock-gate` | holds `mock: false` (STI-403/STI-319/STI-428) | **no** |
+| `internal-copy-gate` | no internal/ops copy on customer pages | **no** |
+| `token-drift-gate` | token/secret drift | **no** |
+| `Preview Gate` / `wait-and-check` | deploy freshness | **no** |
+
+## Consequence, measured
+
+`catalog-status-ownership-gate` has been red since ~01:11Z. Six consecutive PRs merged
+through it, every one of them red on that gate:
+
+```
+$ gh pr list --state merged --limit 6
+  #115  2026-09-29T04:21:56  94e0ee31   (this run's own audit)
+  #113  2026-09-29T04:15:15  133a6fd4
+  #112  2026-09-29T04:05:43  b9b9301a
+  #111  2026-09-29T02:34:28  6fa7f888
+  #110  2026-09-29T01:45:51  8bacf833
+  #109  2026-09-29T01:13:26  ca27cd69   fix(STI-557) itself
+```
+
+PR #113 is the STI-557 gate *correction* — merged with the STI-557 gate red. PR #109 is the
+STI-557 fix that introduced the gate — merged with it red. **A gate has never once blocked a
+merge in this repo.**
+
+## Why auto-merge lets it through
+
+`.github/workflows/auto-merge.yml` decides purely on **labels**, and never reads a check
+conclusion:
+
+```js
+const autoMergeLabels = ['semver:patch', 'semver:minor'];
+const blockLabels     = ['semver:major', 'semver:unknown'];
+...
+if (hasBlockLabel || !hasAutoLabel) { core.info('... do not qualify ...'); return; }
+await github.graphql(`mutation EnableAutoMerge(...) { ... }`);
+```
+
+It never calls `check_runs.list` or `statuses.list`. Enforcement is delegated entirely to
+branch protection — and branch protection does not require the gates. So a red gate produces
+a red check mark on the PR and a merge anyway. **The two halves of the enforcement story
+were each built assuming the other one existed.**
+
+## Why the gate is red (secondary, and already tracked as STI-569)
+
+```
+$ gh run view <run> --job <catalog-status-ownership-gate> --log | grep -E 'FAIL|ok  '
+  FAIL real nixlab tree should still conflict — gate exited 0
+  ok   status agrees but inventory_policy=deny still conflicts (exit 1, said inventory_policy)
+  ok   both fields agree (case-insensitive) is a real pass
+  ok   status draft vs ACTIVE still conflicts (exit 1, said CONFLICT)
+  ok   absent nixlab tree reports SKIPPED (not a pass)
+  ok   a product with no status: field fails (exit 1, said sku-002)
+  ok   unparseable terranix is named, not silently passed
+  ok   unparseable terranix also fails the gate
+  7 passed, 1 failed
+```
+
+`scripts/ci/catalog-status-ownership-gate.test.sh:133` hardcodes an agent-host path:
+
+```sh
+out="$(NIXLAB_DIR="${NIXLAB_DIR_UNDER_TEST:-/paperclip/wt/nixlab}" bash "$GATE" "$REPO_ROOT/catalog/products" 2>&1)"
+```
+
+`/paperclip/wt/nixlab` exists on the agent host (it does here) and **does not exist in GitHub
+Actions**, so the gate reports `SKIPPED` and exits 0 — while the very same suite's test 5
+asserts that an absent nixlab tree must report SKIPPED rather than pass. Test 1 is therefore
+**structurally impossible to pass in CI**. It is not a real regression in the gate logic, and
+it must not be "fixed" by weakening the assertion. This is STI-569.
+
+## What this means for the honesty posture (STI-226)
+
+STI-226 records six weeks of hallucinated deploys. The proximate cause was agents claiming
+work they had not done. But there is a structural cause underneath it that this audit is the
+first to name: **the company built a verification apparatus and wired it to nothing.** A red
+gate has never blocked a merge, so "CI is green" was never a real constraint on anything. Any
+audit that reads gate check-marks as evidence — including earlier audits in this series — is
+reading a signal that carries no enforcement weight.
+
+## Action
+
+**Operator, not agents.** Branch-protection settings are repo admin authority and this audit
+will not change them in-band (STI-226 / STI-236: escalate, do not improvise).
+
+1. Add the four real gates to `required_status_checks` on `main`:
+   `catalog-status-ownership-gate`, `storefront-mock-gate`, `internal-copy-gate`,
+   `token-drift-gate`. Do this **after** STI-569 lands, or the repo will be red-locked — which
+   is why the ordering matters and why landing STI-569 first is the cheaper path.
+2. Fix `catalog-status-ownership-gate.test.sh:133` to skip or fixture test 1 when
+   `NIXLAB_DIR` is absent, so requiring the gate does not deadlock the repo.
+3. Make `auto-merge.yml` assert an explicit allowlist of green checks before calling
+   `enablePullRequestAutoMerge`, so label-based auto-merge cannot outrun branch protection
+   if the required list is ever narrowed again.
+
+Until (1) lands, **treat every gate check-mark in this repo as advisory.** The only checks
+with real enforcement today are `typecheck-and-build` and `label`.
