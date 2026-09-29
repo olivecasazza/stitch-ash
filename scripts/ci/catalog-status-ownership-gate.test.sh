@@ -22,6 +22,22 @@
 # A gate that only fails on disagreement is a gate that passes on the cheapest
 # possible edit. These tests pin the two-field invariant, and pin that a
 # not-reachable nixlab tree is reported as SKIPPED rather than as a pass.
+#
+# ── STI-569: the conflicting nixlab is a file in this repo ─────────────────
+#
+# Test 1 used to point NIXLAB_DIR at an agent-host path that exists nowhere but
+# the machine that wrote it, so on a GitHub runner the gate reported
+# `SKIPPED (not a pass)`, exited 0, and the assertion that a conflicting
+# terranix must fail the gate failed for a reason that had nothing to do with
+# the gate. The job was red on every PR and meant nothing, which is how a real
+# regression in it would go unnoticed.
+#
+# The conflict shape now lives at
+# scripts/ci/fixtures/catalog-status-ownership/nixlab/ — a frozen, reduced copy
+# of the nixlab terranix carrying status = "draft" / inventory_policy = "deny".
+# Pointed at this repo's real catalog/products, it reproduces the live hazard
+# on any machine, including a fresh clone. The other 7 assertions are unchanged
+# and still generated into $WORK; only the machine-dependence is gone.
 
 set -euo pipefail
 
@@ -127,21 +143,43 @@ make_terranix() {
 echo "catalog status ownership gate — regression tests"
 echo ""
 
-# ── 1. The real tree still conflicts, and the gate must still catch it ──────
+# ── 1. A conflicting nixlab declaration still fails, and the gate still
+#      catches it ───────────────────────────────────────────────────────────
+# STI-569. This pointed at /paperclip/wt/nixlab, an agent-host path. On a GitHub
+# runner that directory does not exist, so the gate reported SKIPPED, exited 0,
+# and this assertion failed with a message that pointed at the machine rather
+# than at the gate. The conflicting declaration is now a checked-in fixture, so
+# this assertion is reproducible everywhere and a failure here means the gate
+# genuinely stopped catching a conflicting terranix.
+#
 # Pass the catalog dir explicitly: when the gate runs from a scratch copy its
 # own REPO_ROOT default would not point at this repo's catalog.
-out="$(NIXLAB_DIR="${NIXLAB_DIR_UNDER_TEST:-/paperclip/wt/nixlab}" bash "$GATE" "$REPO_ROOT/catalog/products" 2>&1)" && code=0 || code=$?
-if [ "$code" -eq 0 ]; then
-  printf '  FAIL real nixlab tree should still conflict — gate exited 0\n'
-  printf '%s\n' "$out" | sed 's/^/         /'
+#
+# NIXLAB_DIR_UNDER_TEST still wins, so an operator with the real nixlab tree
+# beside them can run the cross-repo shape instead. Its absence is a hard error
+# rather than a silent skip, because a missing input is not a pass.
+CONFLICTING_NIXLAB="${NIXLAB_DIR_UNDER_TEST:-$REPO_ROOT/scripts/ci/fixtures/catalog-status-ownership/nixlab}"
+if [ ! -f "$CONFLICTING_NIXLAB/nix/tofu/shopify/terranix.nix" ]; then
+  echo "  FAIL no terranix to compare against: $CONFLICTING_NIXLAB/nix/tofu/shopify/terranix.nix"
+  echo "         The checked-in fixture is missing or NIXLAB_DIR_UNDER_TEST points nowhere."
+  echo "         A missing input must not read as a pass."
   fail=$((fail + 1))
-elif printf '%s' "$out" | grep -q 'CONFLICT on sku-001'; then
-  printf '  ok   real nixlab tree still fails, naming sku-001 (exit %s)\n' "$code"
-  pass=$((pass + 1))
+  out=""
+  code=0
 else
-  printf '  FAIL real nixlab tree exited %s without naming sku-001\n' "$code"
-  printf '%s\n' "$out" | sed 's/^/         /'
-  fail=$((fail + 1))
+  out="$(NIXLAB_DIR="$CONFLICTING_NIXLAB" bash "$GATE" "$REPO_ROOT/catalog/products" 2>&1)" && code=0 || code=$?
+  if [ "$code" -eq 0 ]; then
+    printf '  FAIL conflicting nixlab should still conflict — gate exited 0\n'
+    printf '%s\n' "$out" | sed 's/^/         /'
+    fail=$((fail + 1))
+  elif printf '%s' "$out" | grep -q 'CONFLICT on sku-001'; then
+    printf '  ok   conflicting nixlab still fails, naming sku-001 (exit %s)\n' "$code"
+    pass=$((pass + 1))
+  else
+    printf '  FAIL conflicting nixlab exited %s without naming sku-001\n' "$code"
+    printf '%s\n' "$out" | sed 's/^/         /'
+    fail=$((fail + 1))
+  fi
 fi
 
 # ── 2. The STI-557 false green: status agrees, inventory_policy does not ───
