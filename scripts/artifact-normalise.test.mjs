@@ -289,6 +289,17 @@ test('authored, non-minified code is never rewritten', () => {
     )
 })
 
+test('a comment is content (the mutation the CI chunk control makes)', () => {
+    // This is the exact byte the second negative control in pr-checks.yml
+    // appends to a real chunk in dist/. If appending it did NOT move the
+    // digest, that control would fail on every run and the gate would be
+    // un-runnable; if it moved the digest for the wrong reason, the control
+    // would be proving nothing. Pinned here so the two stay in step.
+    const before = norm(CHUNK, minified('f(1);'))
+    const after = norm(CHUNK, `${minified('f(1);')}\n//sti573-negative-control\n`)
+    assert.ok(before !== after, 'appending a comment to a chunk must move the digest')
+})
+
 test('a path outside the generated chunks is never rewritten', () => {
     // Same guarantee from the other side: the rule is scoped by path, so even a
     // long, minified-looking file elsewhere in dist/ keeps its identifiers.

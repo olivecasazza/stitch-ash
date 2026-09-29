@@ -243,6 +243,25 @@ jobs:
               # too eager" from a claim in a comment into a fact the run log
               # states. It must run here, after build 1, so there is a real
               # artifact to perturb.
+              #
+              # TWO controls, because the normaliser has two independent
+              # surfaces and one control cannot cover both. STI-573 added
+              # `canonicaliseMangledNames`, which rewrites generated minified
+              # chunks. The original control only perturbed dist/__build.json —
+              # a JSON file that never reaches that rule — so it would still have
+              # passed with the chunk rule replaced by a stub that discards the
+              # file outright, which is exactly the "green on two genuinely
+              # different builds" failure this control exists to prevent. Measured
+              # on 17effae by substituting a rule that returns Buffer.from(''):
+              # the __build.json control still reported "passed" while every
+              # content change inside a real chunk became invisible.
+              #
+              # Control 2 is the one that covers the new rule, so it perturbs a
+              # real generated chunk. A rename inside a chunk must NOT move the
+              # digest (that is the rule working), so the mutation is a content
+              # change — a trailing comment, which is content by the rule's own
+              # definition and is proven to move the digest in both directions by
+              # scripts/artifact-normalise.test.mjs.
               cp dist/__build.json /tmp/build-marker.bak
               printf '\n' >> dist/__build.json
               perturbed="$(pnpm build:hash | awk '{print $1}')"
@@ -253,7 +272,30 @@ jobs:
                 echo "gate would pass on two genuinely different artifacts."
                 exit 1
               fi
-              echo "Negative control passed: mutating a hashed file moved the digest."
+              echo "Negative control 1 passed: mutating a hashed file moved the digest."
+
+              chunk="$(find dist/_worker.js/chunks -name '*.mjs' -type f 2>/dev/null | head -1 || true)"
+              if [ -z "${chunk}" ]; then
+                echo "::error::No generated chunk found under dist/_worker.js/chunks."
+                echo "Cannot run the chunk negative control, so the gate is"
+                echo "unproven against an over-eager chunk rule. Failing rather"
+                echo "than reporting a green run that tested nothing."
+                exit 1
+              fi
+              echo "Negative control 2 targets: ${chunk}"
+              cp "${chunk}" /tmp/chunk.bak
+              printf '\n//sti573-negative-control\n' >> "${chunk}"
+              chunk_perturbed="$(pnpm build:hash | awk '{print $1}')"
+              cp /tmp/chunk.bak "${chunk}"
+              if [ "${chunk_perturbed}" = "${first}" ]; then
+                echo "::error::The digest did not move after mutating a generated"
+                echo "chunk (${chunk}). canonicaliseMangledNames in"
+                echo "scripts/artifact-normalise.mjs is normalising away CONTENT,"
+                echo "not just generated names, and the gate would pass on two"
+                echo "genuinely different builds."
+                exit 1
+              fi
+              echo "Negative control 2 passed: mutating a generated chunk moved the digest."
 
               # Keep build 1 aside so build 2 can be diffed against it. The
               # digest alone says only that SOMETHING moved; the compare names
