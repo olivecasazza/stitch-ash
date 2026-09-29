@@ -145,12 +145,13 @@ echo ""
 
 # ── 1. A conflicting nixlab declaration still fails, and the gate still
 #      catches it ───────────────────────────────────────────────────────────
-# STI-569. This pointed at /paperclip/wt/nixlab, an agent-host path. On a GitHub
-# runner that directory does not exist, so the gate reported SKIPPED, exited 0,
-# and this assertion failed with a message that pointed at the machine rather
-# than at the gate. The conflicting declaration is now a checked-in fixture, so
-# this assertion is reproducible everywhere and a failure here means the gate
-# genuinely stopped catching a conflicting terranix.
+# STI-569. This pointed at an absolute nixlab path on one agent host, outside
+# this repo and outside any runner. On a GitHub runner that directory does not
+# exist, so the gate reported SKIPPED, exited 0, and this assertion failed with a
+# message that pointed at the machine rather than at the gate. The conflicting
+# declaration is now a checked-in fixture, so this assertion is reproducible
+# everywhere and a failure here means the gate genuinely stopped catching a
+# conflicting terranix.
 #
 # Pass the catalog dir explicitly: when the gate runs from a scratch copy its
 # own REPO_ROOT default would not point at this repo's catalog.

@@ -11,10 +11,9 @@
 # not in this repo, so on a GitHub runner it does not exist, the gate honestly
 # reports `SKIPPED (not a pass)`, exits 0, and the test that asserted "a
 # conflicting terranix must fail the gate" failed for a reason that had nothing
-# to do with the gate. The suite was hardcoded to an agent-host path
-# (/paperclip/wt/nixlab), so it was red on every PR from the machine that ran
-# the job and unrunnable anywhere else — a permanently red job, which is the
-# same as no job.
+# to do with the gate. The suite was hardcoded to one agent host's absolute
+# path, so it was red on every PR from the machine that ran the job and
+# unrunnable anywhere else — a permanently red job, which is the same as no job.
 #
 # So the conflict shape is now a file in this repo, next to the assertion about
 # it. The test points NIXLAB_DIR at this fixture directory and the assertion
