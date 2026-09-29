@@ -1,8 +1,48 @@
 <script setup lang="ts">
-import { PRODUCTS } from '~/data/products'
-
 const route = useRoute()
 const waitlistParam = computed(() => route.query.waitlist)
+
+// STI-579: the capsule grid rendered `PRODUCTS` from `app/data/products.ts`.
+// It now reads the Storefront API, the same way `/product/[handle]` and
+// `/collection/[handle]` already do, so a catalog change in Shopify is what
+// changes this page. Capped at 4 so the homepage stays a capsule preview and
+// `/products` stays the full listing; `PRODUCTS` is still the pre-launch
+// fallback on the PDP and is intentionally not deleted.
+//
+// `sortKey: 'TITLE'` reproduces the order the static array rendered in. See the
+// longer note in `app/pages/products.vue` on why the root `products()` field
+// rejects `COLLECTION_DEFAULT`.
+const { locale } = useI18n()
+
+const key = computed(() => `home-products-${locale.value}`)
+
+const { data: connection, status } = await useStorefrontData(key, `#graphql
+  query FetchHomeProducts(
+      $first: Int,
+      $sortKey: ProductSortKeys,
+      $reverse: Boolean,
+      $language: LanguageCode,
+      $country: CountryCode
+  )
+  @inContext(language: $language, country: $country) {
+    products(first: $first, sortKey: $sortKey, reverse: $reverse) {
+      ...ProductConnectionFields
+    }
+  }
+  ${PRODUCT_CONNECTION_FRAGMENT}
+  ${IMAGE_FRAGMENT}
+  ${PRICE_FRAGMENT}
+`, {
+  variables: computed(() => productListInputSchema.parse({
+    first: 4,
+    sortKey: 'TITLE',
+    reverse: false,
+  })),
+  transform: data => data?.products,
+  cache: 'long',
+})
+
+const products = computed(() => flattenConnection(connection.value))
 
 useSeoMeta({
   title: 'STITCH AND ASH — Embroidered Apparel',
@@ -44,20 +84,24 @@ useSeoMeta({
       <p class="eyebrow" id="prod-h" style="margin-block-start: clamp(3rem, 6vw, 5rem)">
         The first capsule — embroidered black on black
       </p>
-      <div class="products">
+      <div v-if="products.length" class="products">
         <ProductCard
-          v-for="p in PRODUCTS"
-          :key="p.handle"
+          v-for="p in products"
+          :key="p.id"
           :href="`/product/${p.handle}`"
-          :name="p.name"
-          :price="p.price"
-          :note="p.embroideryCopy"
-          :image-src="p.imageSrc"
-          :image-alt="p.imageAlt"
-          :mark="p.mark"
+          :name="p.title"
+          :price="p.priceRange?.minVariantPrice?.amount ?? ''"
+          :image-src="p.featuredImage?.url"
+          :image-alt="p.featuredImage?.altText ?? p.title"
           :handle="p.handle"
         />
       </div>
+      <p v-else-if="status === 'pending'" class="note" role="status" aria-live="polite">
+        Loading the capsule…
+      </p>
+      <p v-else class="note">
+        The capsule is being restocked. Check back shortly.
+      </p>
     </section>
 
     <!-- BRAND STATEMENT -->
