@@ -398,3 +398,235 @@ test('`class` as a member or a key does not open a private-name scope (STI-589)'
         'a private name with no enclosing class must be emitted verbatim, not slotted',
     )
 })
+
+// ------------------------------------------------------- STI-589, round two
+//
+// The first STI-589 fix closed the private-FIELD transposition. It did not
+// close the two shapes the first real dump actually contained, captured from
+// CI run 36630363851 (job 109629666602, the first run whose artifact upload
+// worked) — two normalised copies of `_worker.js/chunks/nitro/nitro.mjs`, both
+// 525577 bytes, differing in 9 places and NOTHING else:
+//
+//   [replace] ...moveToTail:1=>0.#I(1),indexes:1=>0.#P(1),rindexes:1=>0.#z(1),...
+//   [replace] *#P({allowStale:0=this.allowStale}={}){if(this...
+//   [replace] ...727=Object.freeze({...$f,...If});Object.freeze({...Pf,body:"",hidden:!1})...
+//
+// Both transpositions are the same letters, `I` and `P`, and both are the
+// mechanism STI-573 identified landing on a tie close enough to flip.
+//
+// HOLE A — private METHODS were never slotted. `declares` only matched a
+// private name followed by `;`, `=` or `}`, which is the shape of a field. A
+// method is followed by `(`, so it was never registered in the class frame and
+// every reference to it was emitted raw. Measured on the dump: build a held
+// 8 raw `#P` and 5 raw `#I`, build b held 5 and 8, and the whole 525KB file
+// emitted ZERO `\0c<n>` slot placeholders — the rule never fired once.
+//
+// HOLE B — `...` is indistinguishable from `.` by a last-character test. The
+// names in `{...$f,...If}` and `{...Pf,...}` each occur EXACTLY ONCE in the
+// whole chunk, both immediately after a spread, and `isMember` read the `.` as
+// a member access, so they were never entered into the first-use map either.
+// Their first uses are transposed, so their placeholders are transposed.
+
+/** A class whose two private METHODS are adjacent, in the shape esbuild emits. */
+const swapMethodPair = (a, b) =>
+    minified(`class u{#h;*#${a}(e={}){if(this.m)for(let t of this.#${a}())return t}` +
+        `#${b}(e){return this.m=e}static get(e){return{indexes:t=>t.#${a}(1),moveToTail:t=>t.#${b}(1)}}` +
+        `keys(){for(let t of this.#${a}())return t}}`)
+
+test('two swapped private METHOD names in a minified class normalise away (STI-589)', () => {
+    // Hole A. The declarations stay in place and only the NAMES swap, which is
+    // exactly the `#P`/`#I` pair in the real dump.
+    assert.ok(chunkCollapses(swapMethodPair('P', 'I'), swapMethodPair('I', 'P')))
+})
+
+test('a private method rename inside a class normalises away (STI-589)', () => {
+    assert.ok(
+        chunkCollapses(
+            minified('class u{#a;*f(e={}){return this.#a}e(){return this.#a(1)}g(){return this.#a}}'),
+            minified('class u{#z;*f(e={}){return this.#z}e(){return this.#z(1)}g(){return this.#z}}'),
+        ),
+    )
+})
+
+test('a different private method set still moves the digest (STI-589)', () => {
+    // Slot assignment must not make the rule blind. Same contract as the field
+    // case above: adding, removing or moving a member changes the slots, and
+    // that has to reach the digest. Renaming a member is NOT this test -- a
+    // rename is a bijection over names, so it is meant to collapse.
+    assert.ok(
+        !chunkCollapses(
+            minified('class u{*#a(){}#b(){}}'),
+            minified('class u{*#a(){}#b(){}#c(){}}'),
+        ),
+    )
+    assert.ok(
+        !chunkCollapses(
+            minified('class u{*#a(){}#b(){}}'),
+            minified('class u{*#a(){}}'),
+        ),
+    )
+    // DELIBERATELY NOT ASSERTED: `*#a(){}#b(){}` against `*#b(){}#a(){}` collapses.
+    // Absorbing an adjacent swap and detecting one are mutually exclusive, and
+    // this rule is on the absorb side -- the same trade the shipped field rule
+    // already makes, verified against origin/main before this branch was cut.
+    // What is asserted above is the part that is recoverable: a change in how
+    // MANY members a class has still moves the digest.
+})
+
+test('a private method body that changes still moves the digest (STI-589)', () => {
+    assert.ok(
+        !chunkCollapses(
+            minified('class u{*#a(){return this.m=1}#b(){return 2}}'),
+            minified('class u{*#a(){return this.m=2}#b(){return 2}}'),
+        ),
+    )
+})
+
+test('a private name in a brand check is not a declaration (STI-589)', () => {
+    // `#a in o` tests a brand. It must not consume a declaration slot, or the
+    // slot counter would depend on how many brand checks a class happens to use.
+    const brand = (x) => minified(`class u{*#${x}(){}f(o){return #${x} in o}}`)
+    assert.ok(chunkCollapses(brand('a'), brand('a')))
+    const normalised = norm(CHUNK, brand('a'))
+    assert.ok(
+        !normalised.includes('\u0000c0\u0000 in o'),
+        'the brand check must keep its own name rather than take a slot',
+    )
+})
+
+test('two swapped bindings that occur only after a spread normalise away (STI-589)', () => {
+    // Hole B, in the exact shape the dump had: neither name is declared or
+    // referenced anywhere else in the chunk, so their ONLY first use is the
+    // spread position — and that position is transposed.
+    const frozen = (a, b) => minified(`const o=Object.freeze({...$f,...${a}});Object.freeze({...${b},body:"",hidden:!1});`)
+    assert.ok(chunkCollapses(frozen('If', 'Pf'), frozen('Pf', 'If')))
+})
+
+test('a renamed binding used only after a spread normalises away (STI-589)', () => {
+    assert.ok(
+        chunkCollapses(
+            minified('const o=Object.freeze({...$f,...Gl});'),
+            minified('const o=Object.freeze({...$f,...Jl});'),
+        ),
+    )
+})
+
+test('content after a spread still moves the digest (STI-589)', () => {
+    // The direction that matters for hole B: the spread fix classifies a NAME,
+    // so a changed property, value or key alongside it must still be visible.
+    assert.ok(
+        !chunkCollapses(
+            minified('const o=Object.freeze({...$f,...If});'),
+            minified('const o=Object.freeze({...$f,...If,extra:1});'),
+        ),
+    )
+    assert.ok(
+        !chunkCollapses(
+            minified('const o=Object.freeze({...$f,...If});Object.freeze({...Pf,body:"",hidden:!1});'),
+            minified('const o=Object.freeze({...$f,...If});Object.freeze({...Pf,body:"",hidden:!0});'),
+        ),
+    )
+    // A member reached THROUGH a spread argument is still a member.
+    assert.ok(
+        !chunkCollapses(
+            minified('const o=f(...a.b);'),
+            minified('const o=f(...a.c);'),
+        ),
+    )
+})
+
+test('a member access after a member access is still a member (STI-589)', () => {
+    // The `...` test must key on the dot RUN, not on having seen a dot: `a.b.c`
+    // ends in a member access, and only the last one is the binding.
+    const normalised = norm(CHUNK, minified('const o=f(a.b.c);'))
+    assert.ok(normalised.includes('.b.'), 'a middle member must survive verbatim')
+})
+
+// ------------------------------------------------- STI-589, round three: QA on #146
+//
+// qa-verifier, on PR #146, found the opposite defect to the one that fix closed:
+// it absorbed CONTENT. The placeholders are NUL-delimited sentinels, and
+// `out.replace(/\0d(\d+)\0/g, ...)` ran over the whole finished output — so a real
+// string literal whose bytes happened to be the sentinel had its text rewritten:
+//
+//   in   class A{m(){this.#x();return "\0d0\0"}#x(){return 1}}
+//   out  ...return "\0c0\0"...
+//
+// A rule that edits a string literal is the exact failure the two negative
+// controls exist to prevent: the digest no longer describes the artifact it is
+// supposed to be hashing. The same whole-output path also reached template text
+// and regex bodies.
+//
+// The fix is NOT to narrow which markers the regex accepts — the marker set has
+// to stay collision-free against the WHOLE output, and any NUL-delimited choice
+// can collide. The fix is to decline the file: `canonicaliseMangledNames` now
+// returns its input untouched when the source already contains a NUL, so the
+// substitution pass can only ever see sentinels it emitted itself.
+//
+// This is the safe direction to fail. A chunk left uncanonicalised can report
+// drift; it can never hide it. The 12 local builds of a19ffaa that pin this
+// behaviour contained zero raw NUL bytes, so the guard does not weaken anything
+// that is actually in the digest today.
+
+/** The sentinel the deferred-read path emits for its first marker, as source bytes. */
+const SENTINEL = '\u0000d0\u0000'
+
+test('a string literal holding the marker bytes is not rewritten (STI-589)', () => {
+    // The regression, exactly as qa-verifier reported it. Before the fix this
+    // returned the class slot (`\0c0\0`) in place of the literal's own bytes.
+    const out = norm(CHUNK, minified(`class A{m(){this.#x();return "${SENTINEL}"}#x(){return 1}}`))
+    assert.ok(
+        out.includes(`"${SENTINEL}"`),
+        `the literal's bytes must survive verbatim; got ${JSON.stringify(out.slice(-90))}`,
+    )
+    assert.ok(!out.includes('\u0000c0\u0000"'), 'a slot placeholder must not be written into a string')
+})
+
+test('template text holding the marker bytes is not rewritten (STI-589)', () => {
+    const out = norm(CHUNK, minified('class A{m(){return `' + SENTINEL + '`}#x(){return 1}}m2(){this.#x()}'))
+    assert.ok(out.includes(SENTINEL), 'template text must survive verbatim')
+})
+
+test('a regex holding the marker bytes is not rewritten (STI-589)', () => {
+    const out = norm(CHUNK, minified(`class A{m(){return/${SENTINEL}/}#x(){return 1}}m2(){this.#x()}`))
+    assert.ok(out.includes(SENTINEL), 'a regex body must survive verbatim')
+})
+
+test('two chunks differing only in marker bytes inside a string do not collapse (STI-589)', () => {
+    // The digest-level statement of the finding: with the rule applied, a change
+    // in string CONTENT must still move the digest. Before the fix these two
+    // hashed the same, because both were rewritten to the same slot placeholder.
+    assert.ok(
+        !chunkCollapses(
+            minified(`class A{m(){this.#x();return "${SENTINEL}"}#x(){return 1}}`),
+            minified(`class A{m(){this.#x();return "${SENTINEL.replace('0', '1')}"}#x(){return 1}}`),
+        ),
+        'a changed string literal must not collapse',
+    )
+})
+
+test('a genuine deferred private read is still resolved when no NUL is present (STI-589)', () => {
+    // The guard must not be a blanket "rule off": the read-before-declare shape it
+    // exists for still has to collapse, or #146's own fix regresses.
+    const readFirst = (a, b) =>
+        minified(`class u{static unsafeExposeInternals(e){return{starts:e.#${a},ttls:e.#${b}}}`
+            + `#${a}=0;#${b}=0;m(){return this.#${a}+this.#${b}}}`)
+    assert.ok(chunkCollapses(readFirst('C', 'k'), readFirst('k', 'C')))
+
+    // And a real difference in that shape must still move the digest.
+    assert.ok(
+        !chunkCollapses(
+            readFirst('C', 'k'),
+            minified('class u{static unsafeExposeInternals(e){return{starts:e.#C,ttls:e.#k}}'
+                + '#C=0;#k=0;m(){return this.#C*this.#k}}'),
+        ),
+        'a changed operator in a deferred-read class must not collapse',
+    )
+})
+
+test('a chunk carrying NUL bytes is left entirely alone (STI-589)', () => {
+    // The guard is all-or-nothing on purpose: a file the rule cannot describe
+    // unambiguously is reported as-is rather than half-rewritten.
+    const source = minified(`const s="${SENTINEL}";class u{#a;f(e){return this.#a+e}}`)
+    assert.equal(norm(CHUNK, source), source)
+})
