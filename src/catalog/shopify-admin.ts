@@ -1,3 +1,4 @@
+import { resolveAdminReadiness } from "./env-readiness.js";
 import type {
   CatalogCollection,
   CatalogProduct,
@@ -44,25 +45,26 @@ export async function mintAdminToken(domain: string, clientId: string, clientSec
 }
 
 export async function buildAdminClient(): Promise<AdminClient> {
-  const domain = process.env.SHOPIFY_ADMIN_STORE_DOMAIN ?? process.env.SHOPIFY_STOREFRONT_DOMAIN ?? "stitch-and-ash.myshopify.com";
+  // Readiness is resolved in one place (src/catalog/env-readiness.ts) so the
+  // doctor and this client can never disagree about which env var names are
+  // real. See the module comment there for the drift this replaced.
+  const readiness = resolveAdminReadiness(process.env);
+  const { domain } = readiness;
 
-  const staticToken = process.env.SHOPIFY_ADMIN_TOKEN;
-  const clientId = process.env.SHOPIFY_CLIENT_ID;
-  const clientSecret = process.env.SHOPIFY_CLIENT_SECRET;
-
-  if (staticToken && !staticToken.startsWith("atkn_")) {
-    return { domain, token: staticToken, source: "static" };
+  if (readiness.authSource === "static") {
+    return { domain, token: process.env.SHOPIFY_ADMIN_TOKEN ?? process.env.SHOPIFY_ADMIN_ACCESS_TOKEN ?? "", source: "static" };
   }
 
-  if (clientId && clientSecret) {
-    const token = await mintAdminToken(domain, clientId, clientSecret);
+  if (readiness.authSource === "client_credentials") {
+    const token = await mintAdminToken(domain, process.env.SHOPIFY_CLIENT_ID!, process.env.SHOPIFY_CLIENT_SECRET!);
     return { domain, token, source: "client_credentials" };
   }
 
   throw new Error(
-    `SHOPIFY_ADMIN_TOKEN missing/invalid and SHOPIFY_CLIENT_ID/SHOPIFY_CLIENT_SECRET not set. ` +
-      `Saw: SHOPIFY_ADMIN_TOKEN=${mask(staticToken)}, SHOPIFY_CLIENT_ID=${mask(clientId)}, ` +
-      `SHOPIFY_CLIENT_SECRET=${mask(clientSecret)}.`,
+    `${readiness.problems.join("; ")}. ` +
+      `Saw: SHOPIFY_ADMIN_TOKEN=${mask(process.env.SHOPIFY_ADMIN_TOKEN ?? process.env.SHOPIFY_ADMIN_ACCESS_TOKEN)}, ` +
+      `SHOPIFY_CLIENT_ID=${mask(process.env.SHOPIFY_CLIENT_ID)}, ` +
+      `SHOPIFY_CLIENT_SECRET=${mask(process.env.SHOPIFY_CLIENT_SECRET)}.`,
   );
 }
 

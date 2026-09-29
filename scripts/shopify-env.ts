@@ -3,6 +3,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
 
+import { resolveAdminReadiness } from "../src/catalog/env-readiness.ts";
+
 const command = process.argv[2] ?? "doctor";
 const args = new Set(process.argv.slice(3));
 const root = process.cwd();
@@ -109,26 +111,34 @@ function runDoctor(): void {
   console.log("shopify: package dependencies");
   console.log(`  ok   @shopify/admin-api-client ${readPackageVersion()}`);
 
-  const storeDomain = env("SHOPIFY_ADMIN_STORE_DOMAIN") ?? env("SHOPIFY_STORE_DOMAIN");
-  const accessToken = env("SHOPIFY_ADMIN_ACCESS_TOKEN");
-  const clientId = env("SHOPIFY_CLIENT_ID");
-  const clientSecret = env("SHOPIFY_CLIENT_SECRET");
-  const storefrontToken = env("SHOPIFY_STOREFRONT_ACCESS_TOKEN");
+  const readiness = resolveAdminReadiness(process.env);
+  const storefrontToken =
+    process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN ?? process.env.SHOPIFY_STOREFRONT_TOKEN;
 
   console.log("shopify: environment (redacted)");
-  console.log(`  ${storeDomain ? "ok  " : "WARN"} SHOPIFY_ADMIN_STORE_DOMAIN ${storeDomain ? storeDomain : "missing"}`);
-  console.log(`  ${accessToken ? "ok  " : "WARN"} SHOPIFY_ADMIN_ACCESS_TOKEN ${mask(accessToken)}`);
-  console.log(`  ${clientId ? "ok  " : "WARN"} SHOPIFY_CLIENT_ID ${mask(clientId)}`);
-  console.log(`  ${clientSecret ? "ok  " : "WARN"} SHOPIFY_CLIENT_SECRET ${mask(clientSecret)}`);
-  console.log(`  ${storefrontToken ? "ok  " : "WARN"} SHOPIFY_STOREFRONT_ACCESS_TOKEN ${mask(storefrontToken)}`);
+  console.log(`  ${readiness.domainSource === "default" ? "WARN" : "ok  "} store domain ${readiness.domain} (from ${readiness.domainSource})`);
+  console.log(`  ${readiness.authSource === "none" ? "WARN" : "ok  "} Admin API auth ${readiness.authSource}`);
+  console.log(`  ok   SHOPIFY_CLIENT_ID ${mask(process.env.SHOPIFY_CLIENT_ID)}`);
+  console.log(`  ok   SHOPIFY_CLIENT_SECRET ${mask(process.env.SHOPIFY_CLIENT_SECRET)}`);
+  console.log(`  ${storefrontToken ? "ok  " : "WARN"} storefront token ${mask(storefrontToken)}`);
 
-  if (!storeDomain) warnings += 1;
-  if (!accessToken && !(clientId && clientSecret)) warnings += 1;
+  if (readiness.domainSource === "default") warnings += 1;
+  if (!readiness.usable) {
+    warnings += 1;
+    for (const problem of readiness.problems) console.log(`  WARN ${problem}`);
+  }
   if (!storefrontToken) warnings += 1;
 
-  if (accessToken?.startsWith("atkn_")) {
-    failures += 1;
-    console.log("  FAIL SHOPIFY_ADMIN_ACCESS_TOKEN looks like a Shopify CLI automation token, not an Admin API token");
+  // This is the check the old doctor could never fire: it tested
+  // SHOPIFY_ADMIN_ACCESS_TOKEN, a name buildAdminClient never read. The
+  // runtime's own token variable is SHOPIFY_ADMIN_TOKEN.
+  if (readiness.staticTokenIsAutomationToken) {
+    console.log(
+      "  NOTE SHOPIFY_ADMIN_TOKEN is a Shopify CLI automation token (atkn_…); it cannot call the Admin API." +
+        (readiness.authSource === "client_credentials"
+          ? " Falling back to client credentials, which works."
+          : " No client credentials are set, so Admin API calls will fail."),
+    );
   }
 
   if (strict && warnings > 0) failures += warnings;
@@ -155,7 +165,7 @@ function printScopes(): void {
 }
 
 function printMcpCommand(): void {
-  const domain = env("SHOPIFY_ADMIN_STORE_DOMAIN") ?? env("SHOPIFY_STORE_DOMAIN") ?? "stitch-and-ash.myshopify.com";
+  const { domain } = resolveAdminReadiness(process.env);
   console.log("# Preferred: OAuth client credentials from the Shopify Dev Dashboard custom app");
   console.log(`hermes mcp add shopify --command "npx -y shopify-mcp --clientId \"$SHOPIFY_CLIENT_ID\" --clientSecret \"$SHOPIFY_CLIENT_SECRET\" --domain ${domain}"`);
   console.log("");
