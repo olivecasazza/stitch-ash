@@ -222,8 +222,24 @@ const canonicaliseMangledNames = (text) => {
 
     // Context stack. "code" parses JS; "template" scans template-literal text;
     // "subst" parses the code inside a `${...}` and is closed by the matching `}`.
-    const stack = [{ kind: 'code', depth: 0 }]
+    //
+    // A frame opened by a CLASS BODY additionally carries `priv`, the private
+    // names declared directly in that class, and `next`, the slot counter that
+    // keys them. See the STI-589 note on canonicaliseMangledNames for why a
+    // private name must not be canonicalised by global first use.
+    const stack = [{ kind: 'code', depth: 0, priv: null, next: 0 }]
     const top = () => stack[stack.length - 1]
+
+    /** The innermost enclosing class body, or null outside any class. */
+    const classFrame = () => {
+        for (let k = stack.length - 1; k >= 0; k--) if (stack[k].priv) return stack[k]
+        return null
+    }
+
+    // Set by a `class` keyword, consumed by the `{` that opens its body. Cleared
+    // by anything else that intervenes, so `x.class` and `{class:1}` cannot open
+    // a scope (those are filtered as member/key reads before this is set).
+    let pendingClass = false
 
     while (i < n) {
         const c = text[i]
@@ -324,6 +340,8 @@ const canonicaliseMangledNames = (text) => {
             top().depth++
             emit(c)
             i++
+            stack.push({ kind: 'code', depth: 0, priv: pendingClass ? new Map() : null, next: 0 })
+            pendingClass = false
             continue
         }
         if (c === '}') {
@@ -336,6 +354,43 @@ const canonicaliseMangledNames = (text) => {
             top().depth--
             emit(c)
             i++
+            if (stack.length > 1) stack.pop()
+            pendingClass = false
+            continue
+        }
+        // --- STI-589: private names are canonicalised by DECLARATION SLOT ---
+        //
+        // A private field's first textual occurrence is its declaration in the
+        // class body, so the global first-use counter assigns slots by that
+        // order. When esbuild swaps the two short names it hands two adjacent
+        // fields, the declarations swap WITH them, the counters swap, and every
+        // later use swaps. The whole file then fails to collapse even though the
+        // two builds are the same program. Keying the placeholder on the slot
+        // position instead makes both builds agree, because the slot is a
+        // property of the class, not of the name it was handed.
+        if (c === '#') {
+            const name = /^[A-Za-z_$][\w$]*/.exec(text.slice(i + 1))
+            if (!name) {
+                emit(c)
+                i++
+                continue
+            }
+            const end = i + 1 + name[0].length
+            const frame = classFrame()
+            // `x.#a` is a read; a bare `#a` followed by `;`, `=` or the closing
+            // brace of the class body is a declaration.
+            const declares = lastChar() !== '.' && /^[ \t]*[;=}]/.test(text.slice(end))
+            if (!frame) {
+                emit(text.slice(i, end))
+            }
+            else if (declares) {
+                if (!frame.priv.has(name[0])) frame.priv.set(name[0], `\u0000c${frame.next++}\u0000`)
+                emit(frame.priv.get(name[0]))
+            }
+            else {
+                emit(frame.priv.has(name[0]) ? frame.priv.get(name[0]) : text.slice(i, end))
+            }
+            i = end
             continue
         }
         if (isIdentStart(c)) {
@@ -355,6 +410,10 @@ const canonicaliseMangledNames = (text) => {
                 emit(names.get(word))
             }
             else {
+                // `class` is the one keyword whose body opens a private-name
+                // scope. Read as a member (`x.class`) or a key (`{class:1}`) it
+                // does not, so it must not arm the flag in those positions.
+                if (word === 'class' && !isMember && !isKey) pendingClass = true
                 emit(word)
             }
             i = j
