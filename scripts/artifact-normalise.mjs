@@ -202,23 +202,35 @@ const canonicaliseMangledNames = (text) => {
     const n = text.length
 
     /**
-     * Last non-whitespace character emitted, used to read the token context.
+     * The last TWO non-whitespace characters emitted, used to read the token
+     * context.
      *
      * Tracked in a variable rather than read back off `out`. Indexing a rope
      * flattens it, so scanning `out` backwards for every identifier in the file
      * is quadratic: it cost 32s on the 458KB nitro chunk, against 0.4s for the
      * whole digest without this rule. `emit` keeps the two in step.
+     *
+     * Two are needed, not one, because `...` and `.` are made of the same
+     * character. A single last-character test cannot tell a spread from a member
+     * access, and that is not a theoretical gap: see the spread note below.
      */
     let lastNonSpace = ''
+    let prevNonSpace = ''
 
     const emit = (s) => {
         out += s
-        if (s.length === 0) return
-        const tail = s[s.length - 1]
-        if (!/\s/.test(tail)) lastNonSpace = tail
+        // Walk backwards over the non-whitespace tail, shifting the two-slot
+        // history. A multi-character token (`static`, a string literal) shifts
+        // once per character, so it lands on its own last two characters.
+        for (let k = s.length - 1; k >= 0; k--) {
+            if (/\s/.test(s[k])) continue
+            prevNonSpace = lastNonSpace
+            lastNonSpace = s[k]
+        }
     }
 
     const lastChar = () => lastNonSpace
+    const prevChar = () => prevNonSpace
 
     // Context stack. "code" parses JS; "template" scans template-literal text;
     // "subst" parses the code inside a `${...}` and is closed by the matching `}`.
@@ -227,8 +239,32 @@ const canonicaliseMangledNames = (text) => {
     // names declared directly in that class, and `next`, the slot counter that
     // keys them. See the STI-589 note on canonicaliseMangledNames for why a
     // private name must not be canonicalised by global first use.
-    const stack = [{ kind: 'code', depth: 0, priv: null, next: 0 }]
+    const stack = [{ kind: 'code', depth: 0, priv: null, next: 0, pending: null }]
     const top = () => stack[stack.length - 1]
+
+    // A private METHOD can be READ before it is DECLARED. In minified output the
+    // class body puts `static unsafeExposeInternals(e){...e.#P(1)...}` ahead of
+    // the `#P(...){}` it calls, which is legal: method bodies run after the
+    // whole class body has been evaluated, so the read is fine at runtime while
+    // being textually first. Resolving a read on the spot would therefore key
+    // it on READ order, and the transposition would come back.
+    //
+    // So a read of a name this class has not declared yet gets a unique marker
+    // and is resolved when the class body closes, by which time every slot is
+    // known. Markers are substituted in ONE pass over the finished string
+    // afterwards; resolving each read as it is met would need a second scan per
+    // class, and slicing `out` per class is the quadratic trap documented above.
+    const resolved = new Map()
+    let deferredId = 0
+
+    const resolveDeferred = (frame) => {
+        for (const d of frame.pending) {
+            // A name the class never declares — a nested class reaching the
+            // OUTER class's private names, say — keeps its exact source form.
+            resolved.set(d.id, frame.priv.get(d.name) ?? `#${d.name}`)
+        }
+        frame.pending.length = 0
+    }
 
     /** The innermost enclosing class body, or null outside any class. */
     const classFrame = () => {
@@ -340,7 +376,13 @@ const canonicaliseMangledNames = (text) => {
             top().depth++
             emit(c)
             i++
-            stack.push({ kind: 'code', depth: 0, priv: pendingClass ? new Map() : null, next: 0 })
+                stack.push({
+                    kind: 'code',
+                    depth: 0,
+                    priv: pendingClass ? new Map() : null,
+                    next: 0,
+                    pending: pendingClass ? [] : null,
+                })
             pendingClass = false
             continue
         }
@@ -354,20 +396,40 @@ const canonicaliseMangledNames = (text) => {
             top().depth--
             emit(c)
             i++
-            if (stack.length > 1) stack.pop()
+            if (stack.length > 1) {
+                const closed = stack.pop()
+                if (closed.priv) resolveDeferred(closed)
+            }
             pendingClass = false
             continue
         }
         // --- STI-589: private names are canonicalised by DECLARATION SLOT ---
         //
-        // A private field's first textual occurrence is its declaration in the
+        // A private member's first textual occurrence is its declaration in the
         // class body, so the global first-use counter assigns slots by that
         // order. When esbuild swaps the two short names it hands two adjacent
-        // fields, the declarations swap WITH them, the counters swap, and every
+        // members, the declarations swap WITH them, the counters swap, and every
         // later use swaps. The whole file then fails to collapse even though the
         // two builds are the same program. Keying the placeholder on the slot
         // position instead makes both builds agree, because the slot is a
         // property of the class, not of the name it was handed.
+        //
+        // A declaration is a name that is not reached through `.`, so the only
+        // remaining question is what FOLLOWS it. Both member forms count:
+        //
+        //   field    `#a;`  `#a=v`  `#a}`   -- the shape the first fix matched
+        //   method   `#a()`  `get #a()`  `set #a(v)`  `static #a()`  `*#a()`
+        //
+        // Only the field form was matched, so a private METHOD was never
+        // registered in the class frame and every reference to it was emitted
+        // raw. Measured on the real dump from CI run 36630363851: one build held
+        // 8 raw `#P` and 5 raw `#I`, the other 5 and 8, and the whole 525KB file
+        // emitted zero slot placeholders -- the rule never fired once.
+        //
+        // `#a in o` is a brand check, not a declaration, and must not take a
+        // slot. A getter and a setter of one name take a slot each, which is two
+        // slots for one binding; that is still deterministic, because both
+        // builds lay them out in the same order.
         if (c === '#') {
             const name = /^[A-Za-z_$][\w$]*/.exec(text.slice(i + 1))
             if (!name) {
@@ -377,9 +439,14 @@ const canonicaliseMangledNames = (text) => {
             }
             const end = i + 1 + name[0].length
             const frame = classFrame()
-            // `x.#a` is a read; a bare `#a` followed by `;`, `=` or the closing
-            // brace of the class body is a declaration.
-            const declares = lastChar() !== '.' && /^[ \t]*[;=}]/.test(text.slice(end))
+            const after = text.slice(end)
+            // `x.#a` is a read. A name that is not reached through `.`, and is
+            // not a brand check, is declared at the position it sits in.
+            const declares = lastChar() !== '.' && (
+                /^[ \t]*[;=}]/.test(after)
+                || (!/^[ \t]*in[ \t]/.test(after)
+                    && /^[ \t]*(?:static[ \t]+|get[ \t]+|set[ \t]+|async[ \t]+|\*[ \t]*)*\(/.test(after))
+            )
             if (!frame) {
                 emit(text.slice(i, end))
             }
@@ -388,7 +455,17 @@ const canonicaliseMangledNames = (text) => {
                 emit(frame.priv.get(name[0]))
             }
             else {
-                emit(frame.priv.has(name[0]) ? frame.priv.get(name[0]) : text.slice(i, end))
+                const known = frame.priv.get(name[0])
+                if (known !== undefined) {
+                    emit(known)
+                }
+                else {
+                    // Read before declaration, or declared by an enclosing
+                    // class. Either way it is settled when this class body ends.
+                    const id = String(deferredId++)
+                    frame.pending.push({ id, name: name[0] })
+                    emit(`\u0000d${id}\u0000`)
+                }
             }
             i = end
             continue
@@ -402,7 +479,15 @@ const canonicaliseMangledNames = (text) => {
             // object-literal key, and a key is content, not a binding.
             let k = j
             while (k < n && /\s/.test(text[k])) k++
-            const isMember = lastChar() === '.'
+            const isMember = lastChar() === '.' && prevChar() !== '.'
+            // `...x` is a spread and `x` is a BINDING; `.x` is a member access
+            // and `x` is CONTENT. Both end in a dot, so the test above has to
+            // look at the run length, via the second-to-last character. Reading
+            // the last character alone is not a theoretical gap: in the real
+            // dump from run 36630363851, `If` and `Pf` each occurred exactly
+            // once in the whole 525KB chunk, both immediately after a spread,
+            // so both were misread as members, never entered the first-use map,
+            // and their transposition survived into the digest.
             const isKey = text[k] === ':' && (lastChar() === '{' || lastChar() === ',')
 
             if (MANGLED_NAME.test(word) && !NEVER_MANGLED.has(word) && !isMember && !isKey) {
@@ -423,7 +508,10 @@ const canonicaliseMangledNames = (text) => {
         i++
     }
 
-    return out
+    // One linear pass to settle every deferred read. A marker that no class
+    // resolved is left exactly as written, so a private name outside any class
+    // keeps its source form.
+    return deferredId === 0 ? out : out.replace(/\u0000d(\d+)\u0000/g, (m, id) => resolved.get(id) ?? m)
 }
 
 /** Positions after which a `/` opens a regex literal rather than a division. */
