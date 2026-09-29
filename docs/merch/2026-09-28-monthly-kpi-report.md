@@ -38,9 +38,9 @@ is the one that governs this entire report.
 
 | # | Fact | Evidence (this run) |
 |---|---|---|
-| 1 | The storefront runs **real** commerce. It is **not** mock. | `nuxt.config.ts:37` on `origin/main` `5872b7f` is `mock: false,` |
+| 1 | The storefront runs **real** commerce. It is **not** mock. | `nuxt.config.ts:37` on `origin/main` `8bacf83` is `mock: false,` (re-verified 2026-09-29) |
 | 2 | The commerce path **works end to end up to the last step.** | Real Shopify product, real variant, `cartCreate` returns a real `checkoutUrl` ([STI-327](/STI/issues/STI-327), [STI-545](/STI/issues/STI-545)) |
-| 3 | **No customer can complete a purchase.** | `https://www.stitch-ash.com` → `HTTP 200`, `104906` bytes, final URL `https://www.stitch-ash.com/password`, body `Enter password` / `Protected` |
+| 3 | **No customer can complete a purchase.** | `https://www.stitch-ash.com` → `HTTP 200`, final URL `https://www.stitch-ash.com/password`, body `Enter password` / `Protected` |
 
 So the honest one-line provenance statement for September 2026 is:
 
@@ -52,6 +52,40 @@ So the honest one-line provenance statement for September 2026 is:
 channel lock ([STI-457](/STI/issues/STI-457)). It blocks *Admin* reads, which
 blocks the reporting pipeline in Section 5. It does not block the Storefront
 path a customer uses, and the cart provably builds.
+
+### Amendment 2026-09-29 — the gate is *edge-level and total* (no number changed)
+
+Fact 3 was previously stated only as "the apex is password-gated." Re-fetched this
+run, it is stronger and more specific than that, and the specificity is what
+makes the $0 attribution airtight. **No revenue figure, unit count, or margin
+figure in this report changed.** This adds the *mechanism* behind Fact 3.
+
+The gate intercepts **every path at the edge, before routing**:
+
+| Path | `preview` | `www` (apex) |
+|---|---|---|
+| `/` | 200 `/` | 200 → `/password` |
+| `/products` | 200 `/products` | 200 → `/password` |
+| `/cart` | **404** (genuine route miss) | 200 → `/password` |
+| `/cart/c/{id}?key=…` | — | 200 → `/password` |
+| `/collections/all` | — | 200 → `/password` |
+| `/nope-does-not-exist-xyz` | **404** | 200 → `/password` |
+
+The last row is the load-bearing one: preview answers a non-existent path with a
+real `404`, and the apex answers the *same* path with `200 /password`. A site
+that responds before it routes is gating ahead of the application. The served
+body is Shopify's own password template (`password-form`, `shopify` ×68,
+`Enter password`).
+
+**Consequence, and it is the correct way to read this report:** a real cart id is
+*issued* and then routed to a page no customer can pass. A fresh cart was created
+this run to confirm the cart is genuinely live rather than a replay —
+`POST /api/checkout` returned `cart/c/hWNHNLHYVcBJo4kdkLoJcqHQ?key=…`, a **new**
+id distinct from the one recorded in the 2026-09-28 evidence — and following that
+permalink on the apex landed on `/password` after 3 redirects. So "the cart
+works" and "a customer can buy" are not two descriptions of one state; on this
+deployment they are **mutually exclusive**, and the $0 in Section 1 is fully
+accounted for with no second hidden cause.
 
 > **A note on which rule I applied.** My own agent instructions still carry the
 > stale `clients.storefront.mock = true` claim ([STI-428](/STI/issues/STI-428),
@@ -221,11 +255,12 @@ workaround: it is customer-facing and returns no order or revenue data.
 
 ## Section 6 — Standing risks and gate status
 
-Verified state as of 2026-09-28.
+Verified state as of 2026-09-29 (Section 6 re-fetched this run; all other
+sections as published 2026-09-28).
 
 | Risk | State | Evidence (this run) | Owner |
 |---|---|---|---|
-| **Customers cannot purchase** | **OPEN — the only revenue blocker** | `www.stitch-ash.com` → `/password`, `Enter password` / `Protected` | operator — [STI-492](/STI/issues/STI-492) `todo`, [STI-519](/STI/issues/STI-519) `blocked` |
+| **Customers cannot purchase** | **OPEN — the only revenue blocker** | Edge-level, site-wide gate: `www.stitch-ash.com` → `/password` on **every** path incl. `/nope-does-not-exist-xyz`, where preview returns a real `404`; a fresh real cart permalink dead-ends there in 3 redirects | operator — [STI-492](/STI/issues/STI-492) `todo`, [STI-519](/STI/issues/STI-519) `blocked` |
 | Admin channel lock (blocks reporting) | OPEN | [STI-457](/STI/issues/STI-457) | operator |
 | No Admin read path for the KPI (blocks reporting) | OPEN | [STI-418](/STI/issues/STI-418) `in_review` | operator, via GM |
 | **Product photography missing, all 3 SKUs** | **OPEN** | `featuredImage` absent from live Storefront data; PDP renders an SVG mark (`aria-label="Embroidered Hoodie"`), **zero `<img>` elements** | storefront-lead — [STI-309](/STI/issues/STI-309) `blocked` by [STI-318](/STI/issues/STI-318) |
