@@ -74,9 +74,19 @@ jobs:
       # or below zero inventory. This suite pins that exact fixture so the
       # false green cannot come back, and pins that a missing nixlab tree is
       # reported SKIPPED rather than passed. Needs no Node and no secrets.
+      #
+      # STI-569: the suite used to point at an agent-host nixlab path that does
+      # not exist on a runner, so this job was red on every PR and the red
+      # meant nothing. The conflicting terranix is now checked in at
+      # scripts/ci/fixtures/catalog-status-ownership/nixlab/, so the assertion
+      # is reproducible on a fresh clone.
       - name: Test catalog status ownership gate
         run: ./scripts/ci/catalog-status-ownership-gate.test.sh
 
+      # This step alone is still cross-repo blind on a runner: it checks out
+      # only this repo, finds no nixlab tree, reports SKIPPED and exits 0.
+      # Closing that needs a second checkout — tracked as STI-531/STI-561,
+      # deliberately not folded into STI-569.
       - name: Run catalog status ownership gate
         run: ./scripts/ci/catalog-status-ownership-gate.sh
 
