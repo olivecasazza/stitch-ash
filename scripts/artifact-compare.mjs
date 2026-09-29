@@ -18,7 +18,12 @@
  * the two bytes can be recovered and diffed directly:
  *
  *   node scripts/artifact-compare.mjs dist-a dist-b
+ *   node scripts/artifact-compare.mjs dist-a dist-b --scope=browser
  *   node scripts/artifact-compare.mjs dist-a dist-b --dump
+ *
+ * `--scope` narrows the report to one half of the artifact, using the same
+ * partition scripts/artifact-hash.mjs hashes with, so a file this reports is
+ * a file that scope's digest would reject.
  *
  * `--dump` also writes each side's normalised bytes to .artifact-compare/ so
  * they can be inspected with an ordinary diff tool.
@@ -32,7 +37,7 @@ import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "n
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { exclusionReason, normalise } from "./artifact-normalise.mjs";
+import { exclusionReason, inScope, normalise, parseScope } from "./artifact-normalise.mjs";
 
 /**
  * @param {string} dir absolute path to a build output
@@ -56,11 +61,13 @@ const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
 
 /**
  * @param {string} dir
+ * @param {"browser"|"worker"|"all"} scope
  * @returns {Map<string, {path: string, reason: string|null, digest: string, bytes: Buffer}>}
  */
-const index = (dir) => {
+const index = (dir, scope) => {
   const map = new Map();
   for (const path of walk(dir)) {
+    if (!inScope(path, scope)) continue;
     const reason = exclusionReason(path);
     const bytes = normalise(path, readFileSync(join(dir, path)));
     map.set(path, { path, reason, digest: sha256(bytes), bytes });
@@ -72,7 +79,7 @@ const [, , aArg, bArg, ...rest] = process.argv;
 
 if (!aArg || !bArg) {
   console.error(
-    "usage: node scripts/artifact-compare.mjs <dist-a> <dist-b> [--dump]",
+    "usage: node scripts/artifact-compare.mjs <dist-a> <dist-b> [--scope=browser|worker|all] [--dump]",
   );
   process.exit(2);
 }
@@ -81,11 +88,19 @@ const dirA = resolve(aArg);
 const dirB = resolve(bArg);
 const dump = rest.includes("--dump");
 
+let scope;
+try {
+  scope = parseScope(rest);
+} catch (err) {
+  console.error(`[artifact-compare] ${err.message}`);
+  process.exit(2);
+}
+
 let a;
 let b;
 try {
-  a = index(dirA);
-  b = index(dirB);
+  a = index(dirA, scope);
+  b = index(dirB, scope);
 } catch (err) {
   console.error(`[artifact-compare] could not read a build directory: ${err.message}`);
   process.exit(2);
@@ -115,7 +130,7 @@ const lines = [
 
 if (lines.length === 0 && excludedButDiffering.length > 0) {
   console.log(
-    `[artifact-compare] ${aArg} and ${bArg} agree on all ${a.size} hashed files.\n` +
+    `[artifact-compare] ${aArg} and ${bArg} agree on all ${a.size} hashed files (scope: ${scope}).\n` +
       "These files differ but are excluded from the digest, so it would not move:",
   );
   for (const p of excludedButDiffering) console.log(`  ${p} — ${a.get(p).reason}`);
@@ -123,11 +138,11 @@ if (lines.length === 0 && excludedButDiffering.length > 0) {
 }
 
 if (lines.length === 0) {
-  console.log(`[artifact-compare] ${aArg} and ${bArg} agree on all ${a.size} hashed files.`);
+  console.log(`[artifact-compare] ${aArg} and ${bArg} agree on all ${a.size} hashed files (scope: ${scope}).`);
   process.exit(0);
 }
 
-console.log(`[artifact-compare] ${lines.length} difference(s) the digest would catch:`);
+console.log(`[artifact-compare] ${lines.length} difference(s) the ${scope} digest would catch:`);
 for (const line of lines) console.log(`  ${line}`);
 
 if (differing.length > 0) {

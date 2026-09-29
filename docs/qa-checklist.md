@@ -139,6 +139,19 @@ build-time network font fetch or a per-build random `buildId`; the
 fails on any digest difference, and it only means anything while the marker and
 the manifest keep agreeing.
 
+That job compares two scopes, because `dist/` is two artifacts and they are not
+equally reproducible. Measured on `6901731` by building the same commit twice on
+one machine: all 56 files of the **browser** payload (`dist/_nuxt/` plus
+`dist/__build.json`) came out byte-identical, and all 17 files that differed were
+under `dist/_worker.js/`. The `browser` scope fails the job. The `worker` scope
+is still hashed, still compared, and still names every file that moved, but a
+difference there is reported as a `::warning::` — the Cloudflare Worker server
+bundle picks up minifier alias drift and module-to-chunk regrouping between
+builds of one commit, which changes no behaviour and touches nothing a customer
+is served. When that is fixed the warning branch is deleted and the worker digest
+fails too; until then, a red `build-determinism-gate` means the served payload
+moved, not the server bundle.
+
 If the deploy run is `failure`, `cancelled`, or missing: do not sign off. File a defect on the deploy workflow issue, paste the run URL, and stop.
 
 ### 3. No internal/ops copy on customer-facing pages

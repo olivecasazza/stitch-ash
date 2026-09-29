@@ -133,3 +133,56 @@ test("a missing directory is an error, not an empty success", () => {
     rmSync(a, { recursive: true, force: true });
   }
 });
+
+test("a worker-only difference is invisible when the browser scope is asked for", () => {
+  // STI-542 follow-up. The two halves of dist/ are not equally reproducible:
+  // dist/_worker.js/ picks up minifier alias drift and module->chunk regrouping
+  // between builds of ONE commit, while dist/_nuxt/ is byte-identical. If
+  // `--scope=browser` still reported worker churn, the gate would be red for a
+  // difference the browser digest cannot see — and a gate that ignores its own
+  // scope is worse than no gate.
+  const a = fixture({ "_nuxt/a.js": "AAA", "_worker.js/chunks/nitro/nitro.mjs": "AAA" });
+  const b = fixture({ "_nuxt/a.js": "AAA", "_worker.js/chunks/nitro/nitro.mjs": "BBB" });
+  try {
+    const browser = run(a, b, "--scope=browser");
+    assert.equal(browser.status, 0, "the browser payload is identical, so the browser digest must not move");
+    assert.doesNotMatch(browser.stdout, /nitro\.mjs/);
+
+    const worker = run(a, b, "--scope=worker");
+    assert.equal(worker.status, 1, "the worker digest did move and must be reported");
+    assert.match(worker.stdout, /nitro\.mjs/);
+  } finally {
+    rmSync(a, { recursive: true, force: true });
+    rmSync(b, { recursive: true, force: true });
+  }
+});
+
+test("a browser difference is still reported when the worker scope is asked for", () => {
+  // The mirror of the test above, and the one that would catch a scope filter
+  // written as a blocklist instead of an allowlist.
+  const a = fixture({ "_nuxt/a.js": "AAA", "_worker.js/index.js": "AAA" });
+  const b = fixture({ "_nuxt/a.js": "BBB", "_worker.js/index.js": "AAA" });
+  try {
+    const browser = run(a, b, "--scope=browser");
+    assert.equal(browser.status, 1);
+    assert.match(browser.stdout, /_nuxt\/a\.js/);
+
+    const worker = run(a, b, "--scope=worker");
+    assert.equal(worker.status, 0);
+  } finally {
+    rmSync(a, { recursive: true, force: true });
+    rmSync(b, { recursive: true, force: true });
+  }
+});
+
+test("an unknown scope is an error, not a silent fall back to hashing everything", () => {
+  const a = fixture({ "_nuxt/a.js": "AAA" });
+  const b = fixture({ "_nuxt/a.js": "BBB" });
+  try {
+    const { status } = run(a, b, "--scope=brwoser");
+    assert.equal(status, 2, "a typo must not report a scope nobody asked for");
+  } finally {
+    rmSync(a, { recursive: true, force: true });
+    rmSync(b, { recursive: true, force: true });
+  }
+});

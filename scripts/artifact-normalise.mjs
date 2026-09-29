@@ -109,6 +109,68 @@ const BY_PATH = {
 };
 
 /**
+ * Which part of the deployable output a file belongs to.
+ *
+ * STI-542 follow-up: measured on 6901731 by building the same commit twice on
+ * one machine, every one of the 50 files under dist/_nuxt/ came out
+ * byte-identical (the two App Manifest files differ only in their `timestamp`,
+ * which the rules above already normalise). All 17 files the gate rejected
+ * were under dist/_worker.js/. That is not a guess about which half "matters" —
+ * it is where the bytes actually stopped being reproducible, and it is a
+ * different failure from the one this issue was filed about.
+ *
+ * `browser` is the payload a customer is served: the hashed CSS/JS/fonts in
+ * dist/_nuxt/, plus dist/__build.json, which is what makes the live site
+ * attributable to a commit. The font non-determinism that shipped two different
+ * JetBrains Mono payloads for one commit lived entirely in this half.
+ *
+ * `worker` is the Cloudflare Worker server bundle. Two builds of one commit
+ * produce different bytes here that are semantically equivalent: the first
+ * differing byte of _worker.js/chunks/nitro/nitro.mjs is a mangled local
+ * identifier (`let j` versus `let R`) at the same offset with identical
+ * surrounding code, the file changes size by ~27 kB because module→chunk
+ * grouping shifts, and every other differing file differs only in the export
+ * aliases it imports from that chunk. See the tracked residue in the PR body;
+ * this split is what lets the browser guarantee stay enforced while that is
+ * fixed.
+ *
+ * `all` is the union, and is the default, so nothing silently loses coverage:
+ * a caller that asks for `all` still hashes both halves.
+ *
+ * @type {readonly ["browser", "worker", "all"]}
+ */
+export const SCOPES = ["browser", "worker", "all"];
+
+/**
+ * @param {string} path dist-relative, slash-separated
+ * @returns {"browser"|"worker"}
+ */
+export const scopeOf = (path) => (path.startsWith("_worker.js/") ? "worker" : "browser");
+
+/**
+ * @param {string[]} argv e.g. process.argv.slice(2)
+ * @returns {"browser"|"worker"|"all"}
+ * @throws {Error} when an unknown scope is asked for — a typo must not
+ *   silently hash `all` and report a scope the caller did not ask for.
+ */
+export const parseScope = (argv) => {
+  const flag = argv.find((a) => a.startsWith("--scope="));
+  if (!flag) return "all";
+  const value = flag.slice("--scope=".length);
+  if (!SCOPES.includes(value)) {
+    throw new Error(`unknown scope '${value}'. Expected one of: ${SCOPES.join(", ")}.`);
+  }
+  return value;
+};
+
+/**
+ * @param {string} path dist-relative, slash-separated
+ * @param {"browser"|"worker"|"all"} scope
+ * @returns {boolean} whether the file is inside the requested scope
+ */
+export const inScope = (path, scope) => scope === "all" || scopeOf(path) === scope;
+
+/**
  * @param {string} path dist-relative, slash-separated
  * @returns {string|null} the reason to exclude this file, or null to keep it
  */

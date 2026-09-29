@@ -20,10 +20,21 @@
  * comments name every rule and why it is safe.
  *
  * Usage:
- *   node scripts/artifact-hash.mjs            # print the digest
- *   node scripts/artifact-hash.mjs --json     # print {commit, digest, ...}
+ *   node scripts/artifact-hash.mjs                       # digest over all of dist/
+ *   node scripts/artifact-hash.mjs --scope=browser       # only the served payload
+ *   node scripts/artifact-hash.mjs --scope=worker        # only the Worker bundle
+ *   node scripts/artifact-hash.mjs --json
  *
- * Exit codes: 0 on success, 1 if dist/ is missing, empty or unreadable.
+ * `--scope` partitions dist/ into the browser payload and the Worker server
+ * bundle (see scopeOf in scripts/artifact-normalise.mjs for the measurement
+ * that split them). It filters which files are hashed; it never changes how a
+ * file is normalised. A content byte that moves inside the requested scope
+ * still moves the digest, and a file outside the requested scope is not
+ * hashed at all — which is why the default stays `all`.
+ *
+ * Exit codes: 0 on success, 1 if dist/ is missing, empty or unreadable, 1 if
+ * the requested scope contains no files at all (a scope that silently hashes
+ * nothing is a green gate over nothing).
  */
 
 import { createHash } from "node:crypto";
@@ -31,11 +42,19 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { exclusionReason, normalise } from "./artifact-normalise.mjs";
+import { exclusionReason, inScope, normalise, parseScope } from "./artifact-normalise.mjs";
 import { readBuildCommit } from "./read-build-commit.mjs";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 const distDir = join(rootDir, "dist");
+
+let scope;
+try {
+  scope = parseScope(process.argv.slice(2));
+} catch (err) {
+  console.error(`[artifact-hash] ${err.message}`);
+  process.exit(1);
+}
 
 /** @returns {string[]} every file path under `dist/`, relative and slash-normalised */
 const walk = (dir) => {
@@ -67,11 +86,20 @@ if (files.length === 0) {
   process.exit(1);
 }
 
+const scoped = files.filter((f) => inScope(f, scope));
+if (scoped.length === 0) {
+  console.error(
+    `[artifact-hash] no files in the '${scope}' scope of ${distDir}.\n` +
+      "  A scope that hashes nothing would report every pair of builds as identical.",
+  );
+  process.exit(1);
+}
+
 const hash = createHash("sha256");
 // NUL-terminate the path before the bytes so a file rename cannot collide with
 // a content change.
 const excluded = new Map();
-for (const file of files) {
+for (const file of scoped) {
   const reason = exclusionReason(file);
   if (reason) {
     excluded.set(file, reason);
@@ -95,8 +123,9 @@ if (process.argv.includes("--json")) {
       {
         commit,
         digest,
-        hashed: files.length - excluded.size,
-        total: files.length,
+        scope,
+        hashed: scoped.length - excluded.size,
+        total: scoped.length,
         excluded: Object.fromEntries(excluded),
       },
       null,
@@ -105,7 +134,7 @@ if (process.argv.includes("--json")) {
   );
 } else {
   console.log(
-    `${digest}  ${files.length - excluded.size} hashed ` +
-      `(${excluded.size} excluded)  ${commit ?? "commit unknown"}`,
+    `${digest}  ${scoped.length - excluded.size} hashed ` +
+      `(${excluded.size} excluded)  ${scope}  ${commit ?? "commit unknown"}`,
   );
 }
