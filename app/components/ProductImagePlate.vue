@@ -161,10 +161,32 @@ const resolvedMark = computed(() => resolveProductMark(props.mark, props.name, p
   stroke: var(--grey-400);
   stroke-width: 1;
 }
+/* STI-549 — DESIGN.md -> "Scaled SVG text (the `viewBox` trap)". This is a CSS
+   declaration, not a presentation attribute, but the trap is identical: a
+   `font-size` on a <text> inside a `viewBox` is in viewBox USER UNITS, so the
+   size that reaches the shopper is `declared x (plateWidth / 600)`. Measured
+   against the deployed preview on 2026-09-29, the plate renders 286-520px wide
+   across 320-1920px viewports, i.e. a scale of 0.4267 (the grid's 16rem
+   minmax floor, 256px) to 0.866.
+
+   The old 20px was a legitimate `text-xl` step read as if it were screen px:
+   at the 0.4389 scale measured at 900px it rendered 8.78px, and 10.52px at
+   1440x900. Both under the 11px floor.
+
+   Sized per the rule: the step that must appear on screen is `text-xs` (11px,
+   the `label` floor — this is tracked uppercase), the worst-case scale is
+   256/600 = 0.4267, so 11 / 0.4267 = 25.78, rounded UP to 26 user units.
+   That renders 11.09px at the narrowest plate the grid can produce and 13.68px
+   on the 3-up desktop grid, never below the floor.
+
+   DO NOT replace 26px with a `var(--text-*)` step. A ramp token would put the
+   step back into screen px and re-break the floor; the number is a derived user
+   -unit count, not a scale step, which is why DESIGN.md declares no
+   `typography:` key for it. */
 .product-plate__caption {
   fill: var(--grey-400);
   font-family: var(--font-mono);
-  font-size: 20px;
+  font-size: 26px;
   letter-spacing: 0.12em;
   text-anchor: middle;
 }
