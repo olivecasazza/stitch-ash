@@ -165,12 +165,20 @@ issue, if any of the following appear:
 - any non-zero `border-radius`
 - any editorial serif (Playfair Display, etc.)
 - a colour outside the palette: warm bone `#F7F3EC`, thread-gold
-  `#B08D57`, error-ember `#9F3A2F`, ash-silver `#C0C0C0`, near-black
-  `#0E0E0E`
+  `#B08D57`, error-ember `#9F3A2F`, ash-silver `#C0C0C0`
 - a change to `app/assets/css/tokens.css` without a matching `DESIGN.md`
   change in the same PR
 - a `DESIGN.md` change where `npx @google/design.md lint DESIGN.md` is
   not clean
+
+**`#0E0E0E` is not a rejected colour.** An earlier revision of this list
+lumped `near-black #0E0E0E` in with the forbidden four. It is wrong and
+has been corrected. `charcoal #0E0E0E` *is* the brand ground — DESIGN.md
+(`colors.charcoal`) uses it for the page surface, cards, modals and image
+framing plates, and `tokens.css` defines it as `--charcoal`. Flagging it
+as a STYLE regression would be a false positive on every page in the store.
+The forbidden set is exactly four: `#F7F3EC`, `#B08D57`, `#9F3A2F`,
+`#C0C0C0`.
 
 WCAG AA contrast is still required and is checked against the `DESIGN.md`
 grey scale, not ad-hoc.
