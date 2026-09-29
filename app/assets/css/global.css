@@ -189,8 +189,26 @@ body {
 .product-card:hover,
 .product-card:focus-visible {
   border-color: var(--grey-400);
-  outline: none;
   transform: translateY(-2px);
+}
+
+/* STI-588: the card is a focusable anchor, so `:hover, :focus-visible { outline:
+   none }` suppressed the focus ring for keyboard users specifically. The lift
+   and the border-colour swap are hover affordances and stay above; the focus
+   indicator is a real ring.
+
+   This is `components.focus-ring` — the same treatment `.btn-primary:focus-visible`
+   already carries and the one `colors.focus` declares: 2px stroke (line weight,
+   deliberately off-grid) at 4px offset (spacing, snaps to the base unit). No new
+   token is introduced and DESIGN.md/tokens.css are untouched: `focus (#FFFFFF)`
+   and `components.focus-ring` already exist and already say this, so the card
+   was failing to consume the canonical token rather than missing one.
+
+   The 1px `--bone` base rule further down this file is a separate divergence
+   and is not touched here — see its comment and STI-521. */
+.product-card:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
 }
 
 .product-card__image-wrap {
