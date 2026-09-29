@@ -109,9 +109,12 @@ const selected = computed({
     border-color: var(--white);
   }
 
-  /* Focus ring on swatch when input is focused */
+  /* Focus ring on swatch when input is focused. 1px stroke as declared,
+     4px offset per the `focus` token (STI-578). The swatch is the ring's
+     sibling target, not the focusable element, so the ring is drawn around
+     the visible control either way. */
   .size-selector__input:focus-visible + .size-selector__swatch {
     outline: 1px solid var(--bone);
-    outline-offset: 2px;
+    outline-offset: 4px;
   }
 </style>

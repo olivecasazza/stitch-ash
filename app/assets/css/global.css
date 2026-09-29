@@ -343,7 +343,8 @@ body {
 }
 /* components.input — backgroundColor colors.charcoal, textColor colors.bone,
    typography.body (0.8125rem/1.55, weight 400), rounded none, padding
-   10px 12px. Shipped as `background: transparent` on --text-lg with 12px 16px
+   8px 12px (STI-578: was 10px 12px, off the 4px base grid; block -2px, inline
+   unchanged). Shipped as `background: transparent` on --text-lg with 12px 16px
    padding, i.e. every field of the token off except textColor and the
    boundary (STI-486 F3). `font: inherit` already carries the body line-height
    (1.55) and the body face. */
@@ -356,7 +357,7 @@ body {
   color: var(--bone);
   font: inherit;
   font-size: var(--text-base);
-  padding: 10px 12px;
+  padding: 8px 12px;
 }
 /* The CTA keeps its intrinsic width so the input takes the remaining space
    in the row. */
@@ -364,7 +365,7 @@ body {
   flex: 0 0 auto;
 }
 /* One height for the waitlist pair. components.input and
-   components.button-primary declare different paddings (10px 12px vs
+   components.button-primary declare different paddings (8px 12px vs
    12px 16px) and different typographies (body 13px vs label 11px), so their
    natural border-box heights differ and neither sits on the 4px grid.
    `min-height` alone was not enough: measured live at 1440x900, the input
@@ -374,7 +375,16 @@ body {
    controls to the same 44px box so neither component token's intrinsic
    padding can push the pair apart. It is a layout equaliser, not a new
    token: both component tokens still read exactly as DESIGN.md declares
-   them, so the top-down chain holds. */
+   them, so the top-down chain holds.
+
+   STI-578 recomputed the arithmetic after `components.input` went
+   `10px 12px` -> `8px 12px`. Natural border-box heights, now:
+     input   13 x 1.55 = 20.15 + 16 padding + 2 border = 38.15px
+     button  11 x 1.3  = 14.3  + 24 padding + 2 border = 40.3px
+   Both are still under 44px, so the pin still binds and the pair still
+   aligns — the input's natural height drops by exactly 4px and its slack
+   under the pin goes from 1.85px to 5.85px. The equaliser is unchanged and
+   `height: 44px` is retained; the row's rendered height does not move. */
 .signup input[type="email"],
 .signup button {
   height: 44px;
@@ -412,13 +422,15 @@ body {
   color: var(--ink-black);
   border-color: var(--grey-200);
 }
+/* components.focus-ring — 2px stroke (deliberately off-grid, it is a line
+   weight), 4px offset (spacing, snaps to the base unit). STI-578. */
 .signup button:focus-visible,
 .btn-primary:focus-visible {
   background: var(--white);
   color: var(--ink-black);
   border-color: var(--white);
   outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: 4px;
 }
 .signup .note {
   margin-block-start: var(--space-lg);
@@ -483,7 +495,9 @@ body {
 /* ── Badge ──────────────────────────────────────────────────────────────── */
 /* components.badge — textColor colors.grey-400, typography.label
    (JetBrains Mono 500 / 0.6875rem / 1.3 / 0.12em / 'tnum' 1), rounded.none,
-   padding 2px 6px. Shipped 600 / 0.14em / 1.6 (STI-515 F3).
+   padding 0px 8px (STI-578: was 2px 6px, off the 4px base grid; block -2px to
+   0, inline +2px to 8 because the tracked uppercase would crowd the hairline
+   at 4px). Shipped 600 / 0.14em / 1.6 (STI-515 F3).
 
    The same rule lives in app/components/Badge.vue. That one is `scoped`, so
    both copies always reach a rendered <Badge>; they must therefore be
@@ -502,7 +516,7 @@ body {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   white-space: nowrap;
-  padding: 2px 6px;
+  padding: 0px 8px;
   font-feature-settings: "tnum" 1;
   background: var(--grey-950);
   color: var(--grey-400);
@@ -527,7 +541,15 @@ body {
 }
 
 /* ── Focus ──────────────────────────────────────────────────────────────── */
+/* The site default for focusable surfaces with no rule of their own. Only the
+   offset is in scope here: the `focus` token's 4px offset (STI-578, was 2px).
+   The STROKE is deliberately not part of that change — the token's ring is
+   2px in `colors.focus`, this base rule is a 1px hairline in `--bone`, and
+   that divergence predates STI-578 and is unchanged by it. Reconciling the
+   two is design-lead's call (STI-521 already carries the badge
+   background/border duplicate for the same reason), not a side effect of
+   snapping an offset to the grid. */
 :focus-visible {
   outline: 1px solid var(--bone);
-  outline-offset: 2px;
+  outline-offset: 4px;
 }

@@ -51,6 +51,6 @@
 .skip-link:focus {
   top: var(--space-lg);
   outline: 2px solid var(--bone);
-  outline-offset: 2px;
+  outline-offset: 4px;
 }
 </style>
