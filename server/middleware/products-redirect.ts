@@ -50,7 +50,11 @@ export default defineEventHandler((event) => {
     // contract URLs and fall through to the normal 404.
     const match = /^\/products\/([^/]+)\/?$/.exec(pathname)
     if (!match) return
+    // `noUncheckedIndexedAccess` types a capture group as `string | undefined`.
+    // The `+` quantifier guarantees a non-empty segment, but the type system
+    // does not, so narrow it here rather than asserting.
     const handle = match[1]
+    if (!handle) return
 
     // Unknown handle: no redirect. Falling through lets the router produce the
     // 404 at the URL the customer actually typed — no false 308 in the SEO
