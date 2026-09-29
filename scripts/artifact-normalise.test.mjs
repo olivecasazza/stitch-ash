@@ -307,3 +307,94 @@ test('a path outside the generated chunks is never rewritten', () => {
     assert.equal(norm('_nuxt/entry.abc.js', long), long)
     assert.equal(norm('some/other/long.mjs', long), long)
 })
+
+// ---------------------------------------------------------------- STI-589
+//
+// The intermittency this pins is measured, not hypothetical. Two builds of
+// a19ffaa run with the gate's own command (`rm -rf .nuxt dist` before each)
+// produced two different digests, differing ONLY in
+// `_worker.js/chunks/nitro/nitro.mjs`; `__build.json` was byte-identical.
+// The difference was two private fields of one class in unjs/cacheable:
+
+//   cold-2  ...#j;#C;#k;#E;   static unsafeExposeInternals(e){return{starts:e.#C,ttls:e.#k,...
+//   cold-3  ...#j;#k;#C;#E;   static unsafeExposeInternals(e){return{starts:e.#k,ttls:e.#C,...
+
+// `#k` had 11 references in one and 9 in the other, `#C` the reverse, and every
+// other private name counted the same: 61 distinct names, 487 references, and
+// the same 458462-byte file. esbuild swapped the two short names it handed two
+// adjacent fields, which is STI-573's frequency-table mechanism landing on a
+// tie close enough to flip.
+//
+// First-use order CANNOT absorb this, and that is the whole defect: a private
+// field's first occurrence is its declaration in the class body, so swapping
+// the names swaps the declarations, which swaps the counters, which swaps every
+// later use. The placeholder has to be keyed on the declaration SLOT.
+
+/** A class with two adjacent private fields, in the shape esbuild emits. */
+const swapPair = (a, b) =>
+    minified(`class u{#h;#${a};#${b};#E;static get(e){return{starts:e.#${a},ttls:e.#${b}}}` +
+        `m(e){this.#${a}=e;this.#${b}=e}get s(){return this.#${a}}}`)
+
+test('two swapped private field names in a minified class normalise away (STI-589)', () => {
+    // The field list, the static accessor and the two assignments all follow the
+    // swap, exactly as they did in the real 458KB chunk.
+    assert.ok(chunkCollapses(swapPair('C', 'k'), swapPair('k', 'C')))
+})
+
+test('a private field rename inside a class normalises away (STI-589)', () => {
+    // A swap is the hard case; a plain rename is the easy one and must keep working.
+    assert.ok(
+        chunkCollapses(
+            minified('class u{#a;f(e){this.#a=e}return this.#a}'),
+            minified('class u{#z;f(e){this.#z=e}return this.#z}'),
+        ),
+    )
+})
+
+test('the same private name in two classes is not collapsed across them (STI-589)', () => {
+    // Private names are class-scoped, so `#a` in one class and `#a` in another
+    // are two different slots. Canonicalising them together — as a single global
+    // map did — would make a real change to either class invisible.
+    const twoClasses = (x, y) => minified(`class u{#a;f(){return this.#${x}}}` +
+        `class v{#a;f(){return this.#${y}}}`)
+    assert.ok(!chunkCollapses(twoClasses('a', 'a'), twoClasses('a', 'b')))
+})
+
+test('a different private field set still moves the digest (STI-589)', () => {
+    // Slot assignment must not make the rule blind: adding, removing or moving a
+    // field changes the slots, and that has to reach the digest.
+    assert.ok(
+        !chunkCollapses(
+            minified('class u{#a;#b;f(){return this.#a+this.#b}}'),
+            minified('class u{#a;#b;#c;f(){return this.#a+this.#b+this.#c}}'),
+        ),
+    )
+    assert.ok(
+        !chunkCollapses(
+            minified('class u{#a;#b;f(){return this.#a+this.#b}}'),
+            minified('class u{#a;f(){return this.#a}}'),
+        ),
+    )
+})
+
+test('a private field ASSIGNMENT value is content, not a name (STI-589)', () => {
+    // `this.#a = 1` and `this.#a = 2` differ in behaviour and must not collapse,
+    // even though the only thing that moved is on a line that also names a field.
+    assert.ok(
+        !chunkCollapses(
+            minified('class u{#a;f(){this.#a=1;return this.#a}}'),
+            minified('class u{#a;f(){this.#a=2;return this.#a}}'),
+        ),
+    )
+})
+
+test('`class` as a member or a key does not open a private-name scope (STI-589)', () => {
+    // The scope is armed by the `class` KEYWORD. Read as `o.class` or written as
+    // an object key it is an ordinary name, and arming on those would hand a
+    // `#a` outside any class the same slot as a `#a` inside one.
+    const normalised = norm(CHUNK, minified('const o={class:1};f(o.class,x.class,y.#a);'))
+    assert.ok(
+        normalised.includes('.#a)'),
+        'a private name with no enclosing class must be emitted verbatim, not slotted',
+    )
+})
