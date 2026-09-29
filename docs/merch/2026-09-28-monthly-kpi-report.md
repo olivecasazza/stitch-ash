@@ -23,6 +23,17 @@ filled report existed.
 > design-lead. [STI-309](/STI/issues/STI-309) is assigned to storefront-lead and
 > is `blocked` by [STI-318](/STI/issues/STI-318); design-lead owns embroidery
 > art direction, not photography. Owner attribution only — no number changed.
+>
+> **Fourth correction, 2026-09-29 (re-verification pass, no metric changed).**
+> The Section 6 `og:image` row still listed the lead-time item as open on
+> [STI-439](/STI/issues/STI-439). Re-fetched live this run, that item is
+> **resolved**: the hoodie PDP `Shipping & Returns` body now reads
+> `Made to order. Ships tracked. Returns accepted within 14 days of delivery if
+> unworn and unaltered.` — the catalog no longer restates a lead time, so the
+> `2–3 weeks` vs `3–5 weeks` contradiction documented in
+> `docs/merch/2026-09-27-store-copy-pass.md` §3 no longer exists on the page.
+> The remaining open [STI-439](/STI/issues/STI-439) item is photography only.
+> Status label only — no number changed.
 
 Structure and the binding provenance rules are defined in
 `docs/merch/2026-09-27-kpi-report-template.md` and are not restated here.
@@ -107,7 +118,7 @@ estimate has been written into a results cell.
 | Day 90 deadline | **NOT SET** | — | week 0 + 90 |
 | Days elapsed | **NOT STARTED** | — | — |
 | GM KPI | $500 gross margin within 90 days of week 0 | Target | [STI-328](/STI/issues/STI-328) |
-| Gate state | `www.stitch-ash.com` → `/password`, `HTTP 200`, `104906` bytes | MEASURED | `curl -sSL -w '%{url_effective}'`, 2026-09-28 |
+| Gate state | `www.stitch-ash.com` → `/password`, `HTTP 200`, `103731` bytes | MEASURED | `curl -sSL -w '%{url_effective}'`, 2026-09-29 |
 | Storefront data path | Working — real product, real variant, real cart URL | MEASURED | [STI-545](/STI/issues/STI-545), 2026-09-28 |
 | Shopify Admin API | Locked — no order export available | MEASURED | [STI-457](/STI/issues/STI-457) |
 | Blocker A (revenue) | Apex password gate | Open | [STI-492](/STI/issues/STI-492) `todo`, [STI-519](/STI/issues/STI-519) `blocked` — both operator-owned |
@@ -144,7 +155,7 @@ different facts and this report keeps them different.
 
 Prices are `MEASURED` — all three render live on
 `preview.stitch-ash.com/products` (`$185` / `$35` / `$15`, one match each,
-`HTTP 200`, `20305` bytes, 2026-09-28).
+`HTTP 200`, `20304` bytes, re-measured 2026-09-29).
 
 The "vs. estimate" column is `No data` rather than empty because the estimate
 it would compare against has never been tested. The bands in
@@ -266,7 +277,7 @@ sections as published 2026-09-28).
 | **Product photography missing, all 3 SKUs** | **OPEN** | `featuredImage` absent from live Storefront data; PDP renders an SVG mark (`aria-label="Embroidered Hoodie"`), **zero `<img>` elements** | storefront-lead — [STI-309](/STI/issues/STI-309) `blocked` by [STI-318](/STI/issues/STI-318) |
 | Hoodie landed-cost quote outstanding | OPEN — hoodie pricing provisional | ceiling $86.83 vs $75 base estimate | supplier via operator ask — [STI-418](/STI/issues/STI-418) |
 | No analytics tag before launch traffic | OPEN | [STI-419](/STI/issues/STI-419) | storefront-lead |
-| ~~`og:image` served a third-party demo logo~~ | **RESOLVED this period** | `og:image` → `https://preview.stitch-ash.com/og-brand-card.png` on `/` and on PDP; asset fetches `HTTP 200`, `20987` bytes, `image/png` | og:image item resolved; [STI-439](/STI/issues/STI-439) `in_progress` for the remaining items (photography, lead-time) |
+| ~~`og:image` served a third-party demo logo~~ | **RESOLVED this period** | `og:image` → `https://preview.stitch-ash.com/og-brand-card.png` on `/` and on PDP; asset fetches `HTTP 200`, `20987` bytes, `image/png` | og:image item resolved; lead-time item resolved 2026-09-29 — see the fourth amendment above; [STI-439](/STI/issues/STI-439) `in_progress` for photography only |
 
 Photography is worth restating as a **conversion** risk rather than a
 cosmetic one. A brand selling a $185 garment that has never been photographed
@@ -300,6 +311,43 @@ framing is that **there is no trend to report**.
   `og:image` defect is closed and verified live this period, which removes a
   real organic-unfurl problem — but it is invisible until the apex serves
   traffic, so it will not show up in any metric in this report.
+
+---
+
+## Appendix — re-verification pass, 2026-09-29
+
+Every live claim in this report re-measured this run. **No revenue, unit, or
+margin figure changed** — the $0.00 attribution is unchanged, because the gate
+is unchanged. What changed is one status label (lead-time) and three byte
+counts.
+
+| Claim | Command | Result this run | Verdict |
+|---|---|---|---|
+| Apex is password-gated | `curl -sSL -w '%{http_code} %{url_effective} %{size_download}' https://www.stitch-ash.com` | `200`, final `https://www.stitch-ash.com/password`, `103731` bytes | **Unchanged** — gate still shut |
+| Gate is edge-level and total | `https://www.stitch-ash.com/nope-does-not-exist-xyz` | `200` → `/password` | **Unchanged** — gated, not a 404 |
+| Control: preview serves real 404s | `https://preview.stitch-ash.com/nope-does-not-exist-xyz` | `404` | **Unchanged** — confirms the apex gate is a gate, not a routing artifact |
+| Storefront is **not** mock | `git show origin/main:nuxt.config.ts` | line 37 `mock: false,` | **Unchanged** |
+| Three SKUs price live | `https://preview.stitch-ash.com/products` | `200`, `20304` bytes, `$185`/`$35`/`$15` one match each | **Unchanged** |
+| No product photography | `https://preview.stitch-ash.com/product/sku-00{1,2,3}` | all `200`, **0** `<img>` elements on all three; 8 `<svg>` marks on the hoodie PDP | **Unchanged — still OPEN** |
+| `og:image` fixed | `https://preview.stitch-ash.com` | `og:image` → `.../og-brand-card.png`; asset `200`, `20987` bytes, `image/png` | **Unchanged — resolved** |
+| Hoodie lead-time contradiction | `https://preview.stitch-ash.com/product/sku-001` | `Shipping & Returns` = `Made to order. Ships tracked. Returns accepted within 14 days of delivery…`; no `2–3 weeks` / `3–5 weeks` on the page | **CHANGED — now RESOLVED** |
+| Latent demo strings | `i18n/locales/en.json` | no `Nuxt Shopify Demo` / `Welcome to our demo store`; `home` block empty, `seo.description` is brand copy | **Unchanged — resolved** |
+
+**Correction logged:** the lead-time row was stale (fourth amendment, above).
+The store-copy pass §3 documented a real `2–3 weeks` vs `3–5 weeks`
+contradiction; the shipped fix removed the catalog's restatement of a
+commercial fact Shopify owns, and the live PDP now defers to Shopify. The page
+no longer contradicts itself.
+
+**Note on the product URL used for the photography check:** the PDP route is
+`/product/<handle>` (`sku-001`), not `/products/<handle>`. An initial probe of
+`/products/embroidered-hoodie` returned `404` — that is a wrong URL, not a
+missing product, and it is recorded here so a future reader does not mistake it
+for a finding. The `<img>` count of 0 is from the real route.
+
+**Still unmeasured, and still honestly so:** Sections 2, 3, 4 and the Admin
+export in Section 5 are `UNKNOWN` by construction, not by omission. The
+gate-shut state is the only thing re-measurable while the apex is closed.
 
 ---
 
