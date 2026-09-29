@@ -280,7 +280,7 @@ jobs:
               # Deliberately not `exit 1` on the compare's own status: the
               # digest already failed, and a compare that cannot read a
               # directory must not replace the real error with a louder one.
-              node scripts/artifact-compare.mjs .dist-build-1 dist || true
+              node scripts/artifact-compare.mjs .dist-build-1 dist --dump || true
               exit 1
             fi
           done
