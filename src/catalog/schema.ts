@@ -184,7 +184,43 @@ export interface ShopifyShippingZone {
     rateKind?: "fixed_rate" | "carrier_calculated";
     /** The operator's surcharge on a carrier-calculated rate. Never the total. */
     carrierSurcharge?: string | null;
+    /**
+     * STI-597: the conditions under which THIS row is the one that applies.
+     *
+     * Two active rows sharing a name are only a customer-visible defect if both
+     * can be offered at once. A rate range is not that: the live store's
+     * Domestic zone has two active rows both named "Standard", and the second
+     * carries `TOTAL_PRICE >= 70.00` while the first carries no condition. That
+     * is a free-shipping threshold, not a duplicate — exactly one row is
+     * offered per cart, and which one is decided by the cart total. Verified
+     * against the live Storefront API this run: a $35 cart is offered
+     * "Standard"=8.00 and a $70 cart is offered "Standard"=0.00, never both.
+     *
+     * Without this field the reconciler could only see two names and two
+     * prices, so it reported "customers are charged different rates for the
+     * same service name, and a buyer is shown one label for 2 differently-priced
+     * options with nothing to tell them apart" — an overclaim that describes a
+     * defect the store does not have and sends the operator to fix a working
+     * offer. `undefined` means the Admin API returned no conditions for the row.
+     */
+    conditions?: DeliveryMethodCondition[];
   }[];
+}
+
+/**
+ * A `DeliveryCondition` from the Admin API, reduced to what decides whether a
+ * row is offered. `criteria` is a union (`MoneyV2` for TOTAL_PRICE, `Weight`
+ * for TOTAL_WEIGHT), so both members are carried rather than coerced to one.
+ */
+export interface DeliveryMethodCondition {
+  field: "TOTAL_PRICE" | "TOTAL_WEIGHT" | string;
+  operator: string;
+  /** Present for a money criteria; absent for a weight one. */
+  amount?: string | null;
+  currency?: string | null;
+  /** Present for a weight criteria; absent for a money one. */
+  value?: number | null;
+  unit?: string | null;
 }
 
 export interface ShopifyShippingProfile {
