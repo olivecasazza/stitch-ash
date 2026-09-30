@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
-import { ShippingPolicySchema, type ShippingDiff, type ShippingPolicy, type ShopifyShippingProfile, type ShopifyShippingZone } from "./schema.js";
+import { ShippingPolicySchema, type DeliveryMethodCondition, type ShippingDiff, type ShippingPolicy, type ShopifyShippingProfile, type ShopifyShippingZone } from "./schema.js";
 
 /**
  * STI-507: shipping YAML is validated with the same schema machinery as products
@@ -100,14 +100,68 @@ function formatRate(method: ZoneMethod, fallbackCurrency: string): string {
 }
 
 /**
+ * Render one rate condition in the words an operator reads in the Admin UI.
+ *
+ * The criteria is a union, so a price condition and a weight condition are
+ * rendered from the member that actually came back. An unrecognised one is
+ * printed as unreadable rather than dropped, because a condition the plan
+ * cannot describe is the one the operator most needs to see.
+ */
+function formatCondition(condition: DeliveryMethodCondition, fallbackCurrency: string): string {
+  const field = condition.field === "TOTAL_PRICE" ? "order total" : condition.field === "TOTAL_WEIGHT" ? "order weight" : condition.field;
+  const operator = condition.operator.replace(/_/g, " ").toLowerCase();
+  if (condition.amount != null) {
+    return `${field} ${operator} ${condition.amount} ${condition.currency ?? fallbackCurrency}`.trim();
+  }
+  if (condition.value != null) {
+    return `${field} ${operator} ${condition.value}${condition.unit ?? ""}`.trim();
+  }
+  return `${field} ${operator} <unreadable criteria>`;
+}
+
+/**
+ * Describe a set of same-name rows that are a RATE RANGE rather than a
+ * collision: some rows carry a condition and at least one does not, so exactly
+ * one row is offered per cart and the cart decides which.
+ *
+ * This is the live store's Domestic zone. The verdict states the real customer
+ * behaviour — one option, one price, chosen by the cart total — and surfaces
+ * the threshold, because a free-shipping threshold is a commercial decision
+ * that no other line in the plan reports: `catalog/shipping/default.yaml`
+ * declares one flat domestic rate and has no way to express a range, so this
+ * is a genuine catalog blind spot even though the store is not defective.
+ */
+function rateRangeVerdict(offered: readonly ZoneMethod[], conditioned: readonly ZoneMethod[], fallbackCurrency: string): string {
+  const unconditioned = offered.filter(m => (m.conditions?.length ?? 0) === 0);
+  const parts: string[] = [];
+  for (const method of unconditioned) {
+    parts.push(`"${method.name}" [${method.id}]=${formatRate(method, fallbackCurrency)} (no condition)`);
+  }
+  for (const method of conditioned) {
+    const conditions = (method.conditions ?? []).map(c => formatCondition(c, method.currency ?? fallbackCurrency)).join(" AND ");
+    parts.push(`"${method.name}" [${method.id}]=${formatRate(method, fallbackCurrency)} when ${conditions}`);
+  }
+  return (
+    `THIS IS A RATE RANGE, NOT A DUPLICATE — the ${offered.length} same-named rows are mutually exclusive by ` +
+    `condition, so a buyer is offered exactly ONE "${offered[0]?.name}" option at a single price decided by the ` +
+    `cart, never ${offered.length} differently-priced options: ${parts.join(", ")}. ` +
+    `A rate range is not a pricing defect. It IS invisible to the catalog: catalog/shipping declares one flat ` +
+    `rate per destination and cannot express a threshold, so this free-shipping boundary has no declared ` +
+    `source of truth and cannot drift-check against one`
+  );
+}
+
+/**
  * Decide how bad a same-name collision is, from the rows that share a name.
  *
  * Only ACTIVE rows are judged, because only an active row can be offered to a
  * buyer. Two inactive rows that share a name are untidy; an inactive row
- * shadowing a live one is latent, not a current charge. A disagreement among
- * the active rows is the live money bug: the buyer cannot tell the options
- * apart, so which one they are quoted is decided by the rate condition rather
- * than by anything they can see.
+ * shadowing a live one is latent, not a current charge.
+ *
+ * A disagreement among the active rows is the live money bug ONLY when both
+ * rows can be offered at once. If some carry a rate condition and some do not,
+ * they are a rate range and the verdict says so (STI-597) — see
+ * `rateRangeVerdict`, which is checked before the price comparison below.
  *
  * Agreement is only ever claimed for rows the Admin API actually priced. A
  * rate the API does not return cannot be shown to match another, so two
@@ -118,13 +172,30 @@ function formatRate(method: ZoneMethod, fallbackCurrency: string): string {
  * two rows both described as "carrier-calculated" is otherwise not enough
  * information to act on.
  */
-function collisionVerdict(rows: readonly ZoneMethod[]): string {
+function collisionVerdict(rows: readonly ZoneMethod[], fallbackCurrency: string): string {
   const offered = rows.filter(m => m.active);
   if (offered.length < 2) {
     return (
       `only ${offered.length} of them is active, so no buyer is quoted two rates today, but the name is ` +
       `reused and must be made unique before a second active row can be added under it`
     );
+  }
+
+  // STI-597: a same-name disagreement is only a customer-visible defect if both
+  // rows can be offered at once. A rate range cannot, and the live store's
+  // Domestic zone is exactly that: "Standard"=8.00 unconditioned and
+  // "Standard"=0.00 carrying TOTAL_PRICE >= 70.00. That is a free-shipping
+  // threshold — one row per cart, chosen by the cart total — so reporting it as
+  // "a buyer is shown one label for 2 differently-priced options" describes a
+  // defect the store does not have and points the operator at a working offer.
+  //
+  // Verified against the live Storefront API: a $35 cart is offered
+  // "Standard"=8.00, a $70 cart is offered "Standard"=0.00, and no cart is
+  // ever offered both. Read the conditions before the price comparison, because
+  // the price difference is exactly what a rate range looks like.
+  const conditioned = offered.filter(m => (m.conditions?.length ?? 0) > 0);
+  if (conditioned.length > 0 && conditioned.length < offered.length) {
+    return rateRangeVerdict(offered, conditioned, fallbackCurrency);
   }
 
   // A rate the Admin API will not price cannot be compared to another one, so
@@ -259,7 +330,7 @@ export function diffShipping(
       actions.push(
         `shipping policy ${policy.id}: zone "${zone.name}" has ${rows.length} services all named "${name}" ` +
           `and no declared rule covers that name, so the catalog cannot check any of them: ` +
-          `${collisionRowsText(rows, policy.currencyCode)}. ${collisionVerdict(rows)}`,
+          `${collisionRowsText(rows, policy.currencyCode)}. ${collisionVerdict(rows, policy.currencyCode)}`,
       );
     }
   }
@@ -306,7 +377,7 @@ export function diffShipping(
         `shipping rule ${rule.id}: zone "${zone.name}" has ${namedMatches.length} services all named ` +
           `"${rule.serviceName}", so the declared ${rule.price} ${policy.currencyCode} cannot be checked ` +
           `against one rate: ${collisionRowsText(namedMatches, policy.currencyCode)}. ` +
-          collisionVerdict(namedMatches),
+          collisionVerdict(namedMatches, policy.currencyCode),
       );
       continue;
     }

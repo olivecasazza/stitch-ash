@@ -8,6 +8,7 @@ import type {
   ShopifyShippingProfile,
   ShopifyShippingZone,
   ShopifyVariant,
+  DeliveryMethodCondition,
 } from "./schema.js";
 
 export type AdminClient = { domain: string; token: string; source: "static" | "client_credentials" };
@@ -498,6 +499,16 @@ export const DELIVERY_PROFILE_QUERY = `
                       price { amount currencyCode }
                     }
                   }
+                  methodConditions {
+                    id
+                    field
+                    operator
+                    conditionCriteria {
+                      __typename
+                      ... on MoneyV2 { amount currencyCode }
+                      ... on Weight { value unit }
+                    }
+                  }
                 }
               }
             }
@@ -508,8 +519,47 @@ export const DELIVERY_PROFILE_QUERY = `
   }
 `;
 
-export async function getDeliveryProfiles(client: AdminClient): Promise<ShopifyShippingProfile[]> {
-  const data = await shopifyAdminFetch(client, DELIVERY_PROFILE_QUERY) as {
+/**
+ * STI-597: reduce a method's `methodConditions` to the shape the reconciler
+ * reasons about.
+ *
+ * The criteria is a union — `MoneyV2` for a price condition, `Weight` for a
+ * weight one — so the two members are read off whichever `__typename` came
+ * back rather than assuming money. Reading `amount` off a weight condition
+ * would yield `undefined` and quietly drop the condition, which is the one
+ * thing that must not be lost: without it a rate range is indistinguishable
+ * from a duplicate service name.
+ *
+ * A row with no conditions returns `[]`, never undefined, so "unconditioned" is
+ * a value the caller can test rather than an absence it has to guard.
+ */
+function normalizeMethodConditions(
+  conditions:
+    | { id?: string | null; field?: string | null; operator?: string | null; conditionCriteria?: { __typename?: string | null; amount?: string | null; currencyCode?: string | null; value?: number | null; unit?: string | null } | null }[]
+    | null
+    | undefined,
+): DeliveryMethodCondition[] {
+  if (!conditions || conditions.length === 0) return [];
+  const out: DeliveryMethodCondition[] = [];
+  for (const condition of conditions) {
+    // A condition with no field cannot decide anything. Dropping it silently
+    // would make the row look unconditioned, so it is kept with empty strings
+    // and reported as unknown by the caller.
+    if (!condition?.field) continue;
+    const criteria = condition.conditionCriteria;
+    out.push({
+      field: condition.field,
+      operator: condition.operator ?? "",
+      amount: criteria?.amount ?? null,
+      currency: criteria?.currencyCode ?? null,
+      value: criteria?.value ?? null,
+      unit: criteria?.unit ?? null,
+    });
+  }
+  return out;
+}
+
+export async function getDeliveryProfiles(client: AdminClient): Promise<ShopifyShippingProfile[]> {  const data = await shopifyAdminFetch(client, DELIVERY_PROFILE_QUERY) as {
     deliveryProfiles: {
       nodes: {
         id: string;
@@ -531,6 +581,24 @@ export async function getDeliveryProfiles(client: AdminClient): Promise<ShopifyS
                     fixedFee?: { amount: string; currencyCode: string } | null;
                     price?: { amount: string; currencyCode: string } | null;
                   } | null;
+                  /**
+                   * STI-597: the rate conditions on this row. Required to tell
+                   * a free-shipping threshold apart from two services that
+                   * happen to share a name. Absent from the response for an
+                   * unconditioned row, which is the ordinary case.
+                   */
+                  methodConditions?: {
+                    id?: string | null;
+                    field?: string | null;
+                    operator?: string | null;
+                    conditionCriteria?: {
+                      __typename?: string | null;
+                      amount?: string | null;
+                      currencyCode?: string | null;
+                      value?: number | null;
+                      unit?: string | null;
+                    } | null;
+                  }[] | null;
                 }[];
               };
             }[];
@@ -563,6 +631,12 @@ export async function getDeliveryProfiles(client: AdminClient): Promise<ShopifyS
             // live international services, i.e. free international shipping
             // that the store does not charge. So the total price is only ever
             // read from the shape that actually carries it.
+            //
+            // The rate conditions are attached here (STI-597) and are what make
+            // a rate range readable as a rate range. They apply to the row
+            // whatever shape carries its rate, so they are computed once and
+            // spread onto each branch rather than repeated.
+            const conditions = normalizeMethodConditions(method.methodConditions);
             const rp = method.rateProvider;
             if (rp?.__typename === "DeliveryRateDefinition" && rp.price) {
               return {
@@ -572,6 +646,7 @@ export async function getDeliveryProfiles(client: AdminClient): Promise<ShopifyS
                 price: rp.price.amount,
                 currency: rp.price.currencyCode,
                 rateKind: "fixed_rate" as const,
+                conditions,
               };
             }
             if (rp?.__typename === "DeliveryParticipant") {
@@ -585,6 +660,7 @@ export async function getDeliveryProfiles(client: AdminClient): Promise<ShopifyS
                 currency: null,
                 rateKind: "carrier_calculated" as const,
                 carrierSurcharge: rp.fixedFee?.amount ?? null,
+                conditions,
               };
             }
             return {
@@ -595,6 +671,7 @@ export async function getDeliveryProfiles(client: AdminClient): Promise<ShopifyS
               // null keeps "unknown" distinguishable from "free".
               price: null,
               currency: null,
+              conditions,
             };
           }),
         });

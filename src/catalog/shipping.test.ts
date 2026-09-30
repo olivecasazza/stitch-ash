@@ -501,6 +501,147 @@ describe("diffShipping compares declared rules against the store (STI-507)", () 
     assert.doesNotMatch(diff.actions[0]!, /shipping rule/);
   });
 
+  it("calls the live $8.00/$0.00 'Standard' pair a RATE RANGE, not a duplicate (STI-597)", () => {
+    // The live Domestic zone, read from the Admin API this run. The second
+    // "Standard" row carries `TOTAL_PRICE >= 70.00`; the first carries no
+    // condition. That is a free-shipping threshold.
+    //
+    // It was reported as: THEY DISAGREE (2 distinct prices) — customers are
+    // charged different rates for the same service name, and a buyer is shown
+    // one label for 2 differently-priced options with nothing to tell them
+    // apart. Every clause of that is false. Verified against the live
+    // Storefront API: a $35 cart is offered "Standard"=8.00, a $70 cart is
+    // offered "Standard"=0.00, and NO cart is offered both. A buyer sees one
+    // option at one price.
+    //
+    // So the overclaim is not a wording nit: it points the operator at a
+    // working offer and invites a "fix" that would delete free shipping.
+    const live = profile();
+    live.zones[0]!.methods = [
+      {
+        id: "gid://shopify/DeliveryMethodDefinition/825665028141",
+        name: "Standard",
+        active: true,
+        price: "8.0",
+        currency: "USD",
+        rateKind: "fixed_rate",
+        conditions: [],
+      },
+      {
+        id: "gid://shopify/DeliveryMethodDefinition/825665028141?source=RateRangeCondition&source_id=198824656941",
+        name: "Standard",
+        active: true,
+        price: "0.0",
+        currency: "USD",
+        rateKind: "fixed_rate",
+        conditions: [
+          { field: "TOTAL_PRICE", operator: "GREATER_THAN_OR_EQUAL_TO", amount: "70.0", currency: "USD" },
+        ],
+      },
+      {
+        id: "gid://shopify/DeliveryMethodDefinition/825665060909",
+        name: "Express",
+        active: true,
+        price: "15.0",
+        currency: "USD",
+        rateKind: "fixed_rate",
+        conditions: [],
+      },
+    ];
+
+    const diff = diffShipping(policy(), live);
+    const line = diff.actions.find(a => /all named "Standard"/.test(a));
+    assert.ok(line, "the zone must still be reported");
+    assert.match(line, /THIS IS A RATE RANGE, NOT A DUPLICATE/);
+    // The specific overclaim must be gone, clause by clause.
+    assert.doesNotMatch(line, /THEY DISAGREE/);
+    assert.doesNotMatch(line, /customers are charged different rates/);
+    assert.doesNotMatch(line, /shown one label for 2 differently-priced options/);
+    // The threshold is the thing an operator needs, and it must be legible.
+    assert.match(line, /order total greater than or equal to 70\.0 USD/);
+    assert.match(line, /exactly ONE "Standard" option at a single price/);
+    // Both rows stay individually identifiable.
+    assert.match(line, /825665028141\]=8\.0 USD \(no condition\)/);
+    assert.match(line, /source_id=198824656941\]=0\.0 USD when order total/);
+  });
+
+  it("still reports a same-name disagreement when NEITHER row has a condition", () => {
+    // The rate-range branch must not swallow a genuine duplicate. Two
+    // unconditioned active rows at different prices really can be quoted in the
+    // same cart, so the STI-577 verdict has to survive for that case.
+    const realDuplicate = profile();
+    realDuplicate.zones[0]!.methods = [
+      { id: "gid://shopify/DeliveryMethodDefinition/1", name: "Standard", active: true, price: "8.0", currency: "USD", conditions: [] },
+      { id: "gid://shopify/DeliveryMethodDefinition/2", name: "Standard", active: true, price: "0.0", currency: "USD", conditions: [] },
+    ];
+    const diff = diffShipping(policy(), realDuplicate);
+    const line = diff.actions.find(a => /all named "Standard"/.test(a));
+    assert.ok(line);
+    assert.match(line, /THEY DISAGREE \(2 distinct prices\)/);
+    assert.doesNotMatch(line, /THIS IS A RATE RANGE/);
+  });
+
+  it("still reports a disagreement when EVERY same-name row is conditioned", () => {
+    // If all rows carry a condition, none of them is the unconditional
+    // fallback, so mutual exclusivity is NOT established and the safe verdict
+    // is the existing one. Assuming a range here would invent a green.
+    const allConditioned = profile();
+    allConditioned.zones[0]!.methods = [
+      {
+        id: "gid://shopify/DeliveryMethodDefinition/1", name: "Standard", active: true, price: "8.0", currency: "USD",
+        conditions: [{ field: "TOTAL_PRICE", operator: "GREATER_THAN_OR_EQUAL_TO", amount: "10.0", currency: "USD" }],
+      },
+      {
+        id: "gid://shopify/DeliveryMethodDefinition/2", name: "Standard", active: true, price: "0.0", currency: "USD",
+        conditions: [{ field: "TOTAL_PRICE", operator: "GREATER_THAN_OR_EQUAL_TO", amount: "70.0", currency: "USD" }],
+      },
+    ];
+    const diff = diffShipping(policy(), allConditioned);
+    const line = diff.actions.find(a => /all named "Standard"/.test(a));
+    assert.ok(line);
+    assert.doesNotMatch(line, /THIS IS A RATE RANGE/);
+    assert.match(line, /THEY DISAGREE/);
+  });
+
+  it("renders a weight condition from the union member that came back", () => {
+    // `conditionCriteria` is a union. Reading `amount` off a weight condition
+    // yields undefined, which would silently print "<unreadable criteria>" for a
+    // perfectly good condition and could drop a real rate range.
+    const byWeight = profile();
+    byWeight.zones[0]!.methods = [
+      { id: "gid://shopify/DeliveryMethodDefinition/1", name: "Standard", active: true, price: "8.0", currency: "USD", conditions: [] },
+      {
+        id: "gid://shopify/DeliveryMethodDefinition/2", name: "Standard", active: true, price: "0.0", currency: "USD",
+        conditions: [{ field: "TOTAL_WEIGHT", operator: "GREATER_THAN_OR_EQUAL_TO", value: 5, unit: "KILOGRAMS", amount: null }],
+      },
+    ];
+    const diff = diffShipping(policy(), byWeight);
+    const line = diff.actions.find(a => /all named "Standard"/.test(a));
+    assert.ok(line);
+    assert.match(line, /THIS IS A RATE RANGE/);
+    assert.match(line, /order weight greater than or equal to 5KILOGRAMS/);
+    assert.doesNotMatch(line, /unreadable criteria/);
+  });
+
+  it("says the rate range is a catalog blind spot, not a store defect", () => {
+    // The store is correct here. The gap is that catalog/shipping/*.yaml
+    // declares one flat rate per destination and cannot express a threshold, so
+    // the free-shipping boundary has no declared source of truth. Saying only
+    // "not a duplicate" would drop the one part an operator can act on.
+    const live = profile();
+    live.zones[0]!.methods = [
+      { id: "gid://shopify/DeliveryMethodDefinition/1", name: "Standard", active: true, price: "8.0", currency: "USD", conditions: [] },
+      {
+        id: "gid://shopify/DeliveryMethodDefinition/2", name: "Standard", active: true, price: "0.0", currency: "USD",
+        conditions: [{ field: "TOTAL_PRICE", operator: "GREATER_THAN_OR_EQUAL_TO", amount: "70.0", currency: "USD" }],
+      },
+    ];
+    const diff = diffShipping(policy(), live);
+    const line = diff.actions.find(a => /all named "Standard"/.test(a))!;
+    assert.match(line, /A rate range is not a pricing defect/);
+    assert.match(line, /no declared source of truth and cannot drift-check against one/);
+  });
+
   it("checks each declared rule against its own zone", () => {
     const twoZones = profile();
     twoZones.zones.push({
