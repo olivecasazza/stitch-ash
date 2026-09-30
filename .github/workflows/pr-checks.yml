@@ -90,6 +90,26 @@ jobs:
       - name: Run catalog status ownership gate
         run: ./scripts/ci/catalog-status-ownership-gate.sh
 
+      # STI-552: the step above cannot be made cross-repo aware in CI, because
+      # nixlab is a private repo and this workflow has no access to it. So the
+      # conflict stays invisible to CI by construction, and the gate that is
+      # supposed to hold it is never actually evaluated in the place where a
+      # green result would be believed.
+      #
+      # The guard below is the part that does not need nixlab: it checks the
+      # GENERATED config.tf.json -- the bytes a `tofu apply` would send to
+      # Shopify -- against this repo's catalog, and refuses a plan that would
+      # de-list a catalog-ACTIVE product or deny checkout on a catalog-CONTINUE
+      # one. It is the check that stands between the terranix declaration and a
+      # live store, independent of whether the two repos are co-located.
+      #
+      # It runs its own fixture suite here. The suite pins the status-only
+      # "fix" that made the v1 ownership gate go green while
+      # inventory_policy = "deny" stood untouched, and pins that an unreadable
+      # or empty config is a failure rather than a pass.
+      - name: Test deploy-shopify preflight guard
+        run: ./scripts/ci/deploy-shopify-preflight.test.sh
+
   internal-copy-gate:
     runs-on: ubuntu-latest
     permissions:

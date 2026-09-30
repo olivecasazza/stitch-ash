@@ -1,6 +1,7 @@
 # Catalog source of truth: one owner for product status and inventory policy
 
-- **Date:** 2026-09-28, amended 2026-09-29 (STI-557), amended 2026-09-29 (STI-552)
+- **Date:** 2026-09-28, amended 2026-09-29 (STI-557), amended 2026-09-29 and
+  2026-09-30 (STI-552 — the pre-apply guard)
 - **Status:** **Owner decision already settled** — see "The owner was already
   ratified" below. What remains open is execution of the terranix removal
   (STI-531), not the choice of owner.
@@ -239,3 +240,81 @@ artifact precisely so the flip would not run. The live store has served
 (`docs/test-purchase-handoff.md`). Settling the owner does not settle the values;
 if the values should ever change, that is a fresh `catalog:plan` diff put to the
 operator as its own decision.
+
+## The gate was red and still protected nothing (added 2026-09-30, STI-552)
+
+Re-verified this run, on `main` at `9d598a7`:
+
+```
+$ NIXLAB_DIR=<real nixlab clone> ./scripts/ci/catalog-status-ownership-gate.sh
+CONFLICT on sku-001/002/003:  status catalog=ACTIVE terranix=draft
+                             inventory_policy catalog=CONTINUE terranix=deny
+FAIL: 3 product(s) ...          exit 1
+```
+
+So the gate is red on the real tree, exactly as intended. The problem is that a
+red gate in the wrong repo stops nobody. Two measured facts:
+
+1. **CI can never evaluate this gate's cross-repo half.** nixlab is a private
+   repo (`casazza-info/nixlab`, `visibility=private`, read from the GitHub API
+   on 2026-09-30). `pr-checks.yml` checks out only this repo, so on a runner the
+   gate prints `NOT REACHABLE — cross-repo comparison SKIPPED (not a pass)` and
+   exits 0. Verified: `NIXLAB_DIR=/nonexistent ./…-gate.sh` → `exit 0`. The green
+   CI job is a single-repo invariant check wearing the name of the cross-repo
+   one.
+2. **Nothing runs a check between `tofu plan` and `tofu apply`.**
+   `apps/deploy-shopify.nix` has zero references to this repo's catalog, gate, or
+   `catalog:plan` (`grep -c` → `0`). Its only pre-apply interaction is
+   `read -rp "Apply? (yes/no)"`, and `--auto-approve` sets `CONFIRM=yes` with no
+   prompt at all.
+
+Between them: the hazard is detected in a repo that cannot see it, and enforced
+nowhere at the point where it would land. That is the gap this ADR's remaining
+section closes.
+
+## The pre-apply guard: `scripts/ci/deploy-shopify-preflight.sh`
+
+A guard that runs **inside the deploy**, against the artifact the deploy would
+actually send. It reads the **generated `config.tf.json`** — the exact bytes
+`tofu apply` would PUT to Shopify, after terranix has rendered them — and exits
+non-zero when the plan would:
+
+- set a catalog-`ACTIVE` product to any other status (**de-listing**), or
+- set `deny` on a catalog-`CONTINUE` product (**checkout-blocking**, and silent
+  — the product stays listed, priced and reachable), or
+- set `mixed` inventory policies across a product's variants (the outcome then
+  depends on which variant the buyer picks, and neither side can represent it), or
+- omit `inventory_policy` entirely, which under `update_method = "PUT"` is a
+  whole-product rewrite and therefore a silent policy change, not a no-op, or
+- manage a product the catalog does not declare at all.
+
+It also fails, rather than passing, when it cannot read the config, when the
+config declares zero products, and when a terranix shape change leaves it
+unable to find any product. **Silence is never reported as a pass** — the same
+invariant the ownership gate was widened for in STI-557.
+
+### Why it reads `config.tf.json` and not `terranix.nix`
+
+Re-parsing the Nix would be a second implementation of terranix's own semantics,
+and it would be wrong the moment terranix renders a field the parser does not
+model. `config.tf.json` is the artifact that is actually applied, so this needs
+no Nix evaluation, needs no access to the private repo, and catches the hazard
+regardless of which file declared it. That is what makes it usable in CI, where
+the ownership gate is structurally blind.
+
+### Wiring
+
+`scripts/ci/deploy-shopify-preflight.test.sh` — **16 assertions**, runs in
+`pr-checks.yml` on every PR, no Node and no secrets. It includes the
+status-only "fix" fixture, so the false green that STI-557 had to correct
+cannot come back through this door either. `scripts/ci/render-terranix-fixture.py`
+renders the committed terranix fixture into the JSON shape the real deploy
+produces, so the suite tests the **real** declaration rather than a hand-typed
+reduction; the last assertion runs against a live nixlab clone when
+`NIXLAB_DIR` is set, and reports **SKIPPED (not a pass)** when it is not.
+
+**What it does not do:** it does not remove the terranix fields, and it does not
+decide the owner. The hazard is now *blocked* rather than *fixed*; the fix is
+still [STI-531](/STI/issues/STI-531), still operator-side, still not done. A
+guard that turns a loud silent-failure into a loud refusal is not a reason to
+leave the declaration in place.
