@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PRODUCTS } from '~/data/products'
+import { resolvePdpResolution, resolveSizeValues, resolveVariantId } from '~/utils/pdp-product'
 
 definePageMeta({
   validate: route => typeof route.params.handle === 'string',
@@ -8,13 +9,6 @@ definePageMeta({
 const route = useRoute()
 const handle = computed(() => route.params.handle as string)
 const staticProduct = computed(() => PRODUCTS.find(p => p.handle === handle.value))
-
-if (!staticProduct.value) {
-  throw createError({
-    statusCode: 404,
-    statusMessage: `Product not found: ${route.fullPath}`,
-  })
-}
 
 const carousel = useTemplateRef('carousel')
 
@@ -66,6 +60,28 @@ const { data, error } = await useStorefrontData(`product-${handle.value}`, `#gra
 const productExistsInShopify = computed(() => !!data.value?.product)
 const isPreview = computed(() => !productExistsInShopify.value || !!error.value)
 
+// STI-579 follow-on: this gate used to sit ABOVE the Shopify query, which made
+// the hardcoded `PRODUCTS` array the authority on which product URLs exist. A
+// product added through Shopify Admin — a new SKU, a seasonal drop — would be
+// live and sellable everywhere else and 404 on its own PDP. Shopify answers
+// first; the static array is enrichment/preview only, never the gate.
+// A store error is NOT proof of absence, so it cannot 404 — it falls through to
+// the preview badge and whatever data we have.
+// See app/utils/pdp-product.ts and src/catalog/pdp-provenance.test.ts.
+const resolution = resolvePdpResolution({
+  hasShopifyProduct: productExistsInShopify.value,
+  hasStaticProduct: Boolean(staticProduct.value),
+})
+
+if (resolution === 'not_found') {
+  // STI-444: no `fatal: true`, matching the sibling collection/blog routes —
+  // it makes nitro's prod handler replace the real message with "Server Error".
+  throw createError({
+    statusCode: 404,
+    statusMessage: `Product not found: ${route.fullPath}`,
+  })
+}
+
 // 2. Resolve display values
 const displayName = computed(() => data.value?.product?.title ?? staticProduct.value?.name ?? '')
 const displayDescription = computed(() => data.value?.product?.description ?? staticProduct.value?.description ?? '')
@@ -79,13 +95,31 @@ const resolvedVariants = computed(() => {
   return (data.value?.product?.variants?.edges || []).map((edge: any) => edge.node)
 })
 
-const variantId = computed(() => {
-  return resolvedVariants.value.find((v: any) => v.availableForSale)?.id ?? null
+const sizeValues = computed(() =>
+  resolveSizeValues({
+    variantTitles: resolvedVariants.value.map((v: any) => v?.title),
+    staticLabels: (staticProduct.value?.sizes || []).map(s => s.label),
+  }),
+)
+
+const hasRealSizes = computed(() => sizeValues.value.length > 1)
+
+const selectedSize = ref(sizeValues.value[0] || 'One size')
+
+// Keep the selection valid when the option list changes under it.
+watch(sizeValues, sizes => {
+  if (!sizes.includes(selectedSize.value)) selectedSize.value = sizes[0] || 'One size'
 })
 
-const hasRealSizes = computed(() => (staticProduct.value?.sizes?.length ?? 0) > 1)
-const sizeValues = computed(() => (staticProduct.value?.sizes || []).map(s => s.label))
-const selectedSize = ref(sizeValues.value[0] || 'One size')
+// The selected size must select THAT variant. Taking the first purchasable
+// variant regardless of the selection silently served the wrong size — a
+// customer picking XXL was sent the S. See resolveVariantId's test.
+const variantId = computed(() =>
+  resolveVariantId({
+    variants: resolvedVariants.value,
+    selectedSize: hasRealSizes.value ? selectedSize.value : null,
+  }),
+)
 
 const productImages = computed(() => {
   if (!data.value?.product?.images?.edges?.length) return []
@@ -133,7 +167,7 @@ useSeoMeta({
           :alt="`${displayName}`"
           :mark="staticProduct?.mark"
           :name="displayName"
-          :handle="staticProduct?.handle"
+          :handle="handle"
         />
       </div>
 
