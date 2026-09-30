@@ -141,6 +141,36 @@ the manifest keep agreeing.
 
 If the deploy run is `failure`, `cancelled`, or missing: do not sign off. File a defect on the deploy workflow issue, paste the run URL, and stop.
 
+**Sort the freshness mismatch before you call it a defect.** A `commit`
+in step 3 that is an *ancestor* of `main` HEAD is a lag, not a broken
+pipeline, and the two deserve opposite responses. Get the direction:
+
+```sh
+git fetch origin main -q
+git rev-parse origin/main                                  # step-1 HEAD
+git merge-base --is-ancestor <marker commit> origin/main \
+  && echo "marker is an ancestor of main -> main AHEAD (lag)"
+git log --oneline <marker commit>..origin/main             # exactly what is un-deployed
+```
+
+Then read the two clocks. If every commit in that range was authored
+*after* the step-2 run finished, the deploy did nothing wrong — `main`
+simply moved on afterwards, and the next deploy picks it up. That is the
+normal steady state between dispatches and is **not** a defect to file.
+If instead a commit in the range predates the run, or the marker's build
+timestamp falls outside the run window, the deploy ran and failed to ship
+what it should have: that *is* a defect, and file it.
+
+Under [STI-226](/issues/STI-226) the accusation is far more expensive
+than the lag, so prove the direction with the commands above and quote
+them. Measured 2026-09-30 (run `533b0537`): marker
+`9d598a77d8188e5d10d0147f85565d58fdac2da4` == the `headSha` of green run
+`36659308351`, build timestamp `02:20:10Z` inside that run's
+`02:19:26Z`+1m24s window, and the single un-deployed commit
+`7367c2f` (STI-552) was authored `03:18:17Z` — ~57 min *after* that deploy
+completed. That is a clean 1-commit lag with positive proof of what is
+live, not a hallucinated deploy.
+
 ### 3. No internal/ops copy on customer-facing pages
 
 The CI gate is `scripts/ci/no-internal-copy-in-storefront.sh` (merged on `main` via
@@ -183,12 +213,24 @@ issue, if any of the following appear:
 - any non-zero `border-radius`
 - any editorial serif (Playfair Display, etc.)
 - a colour outside the palette: warm bone `#F7F3EC`, thread-gold
-  `#B08D57`, error-ember `#9F3A2F`, ash-silver `#C0C0C0`, near-black
-  `#0E0E0E`
+  `#B08D57`, error-ember `#9F3A2F`, ash-silver `#C0C0C0`
 - a change to `app/assets/css/tokens.css` without a matching `DESIGN.md`
   change in the same PR
 - a `DESIGN.md` change where `npx @google/design.md lint DESIGN.md` is
   not clean
+
+**`#0E0E0E` is NOT forbidden — it is `charcoal`, an in-palette token.**
+An earlier revision of the bullet above named `near-black #0E0E0E` as a
+forbidden colour. That was wrong, and it is a live false-positive
+generator: `DESIGN.md` defines `charcoal: "#0E0E0E"` as the elevated
+surface for cards and modals, and the shipped CSS uses `--charcoal` for
+exactly that. Rejecting a page for using `#0E0E0E` would fail every
+correct render. The forbidden set is the four warm/accent hexes above
+plus any editorial serif and any non-zero `border-radius`; the neutral
+grey ramp `#000000` → `#FFFFFF` *is* the palette, not a violation of it.
+Confirmed 2026-09-30 against the live stylesheet: the served custom
+properties are exactly `DESIGN.md`'s eleven, and `#0E0E0E` appears as
+`--charcoal`, never as a stray warm black.
 
 WCAG AA contrast is still required and is checked against the `DESIGN.md`
 grey scale, not ad-hoc.
@@ -334,6 +376,28 @@ four fallbacks. The gate ran 9/9 clean. I had guessed a model list out
 of `/v1/models` (787 entries) and missed the one that works. The
 gateway was broken in exactly the way the skill said it was, and the
 skill had already routed around it.
+
+**Never test the vision leg with a toy image — a 1×1 probe reports a
+false recovery.** [STI-575](/issues/STI-575) tracked the reviewer leg
+as auth-dead (OpenRouter connection credit exhausted). On 2026-09-30 I
+probed the reviewer with a hand-rolled 70-byte 1×1 PNG before trusting
+the skill, and it came back **`HTTP 200`** with the model's reasoning
+naming "a plain pink square" — which read as the blocker being fixed.
+It was not. Running the real gate immediately after, against real
+112 KB screenshots, gave `402 Payment Required` on the first call and
+`429` (with `retry-after: 98`, code `model_cooldown`, body
+`All credentials for model anthropic/claude-opus-5.5 are cooling down`)
+on the remaining eight. A 1×1 image is small enough to be free, so it
+never reaches the exhausted-credit path; a real screenshot does.
+
+The lesson generalises past this gateway: **a liveness probe that is
+much cheaper than the real workload will pass exactly when the real
+workload cannot be paid for.** Always probe with a payload shaped like
+the one that actually fails. If you must probe cheaply, treat the
+result as evidence about the *gateway*, never as evidence that the
+*blocker cleared* — only a real capture-and-grade run can reopen a
+blocked visual gate. Under [STI-226](/issues/STI-226) the costly error
+is the optimistic one, so default to blocked and let real evidence lift it.
 
 **A vision finding is a hypothesis, and some of them prescribe the
 regression you are hunting.** The first fully-graded run produced ~50
