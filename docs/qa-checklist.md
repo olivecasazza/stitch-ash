@@ -66,6 +66,33 @@ CI green is necessary, never sufficient. Verify the deploy in this order:
 
 1. `git ls-remote origin main` → record the `main` HEAD SHA.
 2. `gh run list --workflow deploy.yml --branch main --limit 1 --json databaseId,conclusion,headSha,url` → must show a `success` run whose `headSha` matches the `main` HEAD from step 1. Older successful runs are stale and do not count. Record the run's `createdAt`/`updatedAt` window.
+2b. **A `success` run conclusion is NOT proof the deploy ran.** Check the
+   `deploy` job's own conclusion before you call anything deployed:
+
+   ```sh
+   gh api "repos/olivecasazza/stitch-ash/actions/runs/<runId>/jobs" \
+     --jq '.jobs[]|{name,conclusion}'
+   # fresh-check: success
+   # deploy:      skipped      <-- the run published NOTHING, and still reports success
+   ```
+
+   `deploy.yml` has a `fresh-check` gate that returns `needed=false` when main is
+   already live, which **skips** the `deploy` job while the run as a whole still
+   reports `conclusion: success`. `gh run list` calls such a run a success and
+   names it the latest successful deploy. It is a green no-op.
+
+   Measured 2026-10-01T05:26Z on run [36803396902](https://github.com/olivecasazza/stitch-ash/actions/runs/36803396902):
+   run = `success`, `fresh-check` = `success`, `deploy` = **`skipped`**. Runs
+   36785970511, 36755982087 and 36713695403 are the same shape. The last run
+   whose `deploy` job actually concluded `success` was
+   [36675330287](https://github.com/olivecasazza/stitch-ash/actions/runs/36675330287)
+   at `2026-09-30T05:51:31Z`.
+
+   So "the latest successful deploy.yml run" is ambiguous and you must resolve
+   it. Quote the **job** conclusion, not the run conclusion. Filed as
+   [STI-601](/STI/issues/STI-601): the `fresh-check` predicate asks "does a green
+   run exist for main's HEAD" when it should ask "did a run actually deploy
+   main's HEAD", which makes the self-healing backstop a green no-op.
 3. Read the build marker the artifact itself carries:
 
    ```sh
@@ -141,6 +168,36 @@ the manifest keep agreeing.
 
 If the deploy run is `failure`, `cancelled`, or missing: do not sign off. File a defect on the deploy workflow issue, paste the run URL, and stop.
 
+**Sort the freshness mismatch before you call it a defect.** A `commit`
+in step 3 that is an *ancestor* of `main` HEAD is a lag, not a broken
+pipeline, and the two deserve opposite responses. Get the direction:
+
+```sh
+git fetch origin main -q
+git rev-parse origin/main                                  # step-1 HEAD
+git merge-base --is-ancestor <marker commit> origin/main \
+  && echo "marker is an ancestor of main -> main AHEAD (lag)"
+git log --oneline <marker commit>..origin/main             # exactly what is un-deployed
+```
+
+Then read the two clocks. If every commit in that range was authored
+*after* the step-2 run finished, the deploy did nothing wrong — `main`
+simply moved on afterwards, and the next deploy picks it up. That is the
+normal steady state between dispatches and is **not** a defect to file.
+If instead a commit in the range predates the run, or the marker's build
+timestamp falls outside the run window, the deploy ran and failed to ship
+what it should have: that *is* a defect, and file it.
+
+Under [STI-226](/issues/STI-226) the accusation is far more expensive
+than the lag, so prove the direction with the commands above and quote
+them. Measured 2026-09-30 (run `533b0537`): marker
+`9d598a77d8188e5d10d0147f85565d58fdac2da4` == the `headSha` of green run
+`36659308351`, build timestamp `02:20:10Z` inside that run's
+`02:19:26Z`+1m24s window, and the single un-deployed commit
+`7367c2f` (STI-552) was authored `03:18:17Z` — ~57 min *after* that deploy
+completed. That is a clean 1-commit lag with positive proof of what is
+live, not a hallucinated deploy.
+
 ### 3. No internal/ops copy on customer-facing pages
 
 The CI gate is `scripts/ci/no-internal-copy-in-storefront.sh` (merged on `main` via
@@ -183,15 +240,80 @@ issue, if any of the following appear:
 - any non-zero `border-radius`
 - any editorial serif (Playfair Display, etc.)
 - a colour outside the palette: warm bone `#F7F3EC`, thread-gold
-  `#B08D57`, error-ember `#9F3A2F`, ash-silver `#C0C0C0`, near-black
-  `#0E0E0E`
+  `#B08D57`, error-ember `#9F3A2F`, ash-silver `#C0C0C0`
 - a change to `app/assets/css/tokens.css` without a matching `DESIGN.md`
   change in the same PR
 - a `DESIGN.md` change where `npx @google/design.md lint DESIGN.md` is
   not clean
 
+**`#0E0E0E` is NOT forbidden — it is `charcoal`, an in-palette token.**
+An earlier revision of the bullet above named `near-black #0E0E0E` as a
+forbidden colour. That was wrong, and it is a live false-positive
+generator: `DESIGN.md` defines `charcoal: "#0E0E0E"` as the elevated
+surface for cards and modals, and the shipped CSS uses `--charcoal` for
+exactly that. Rejecting a page for using `#0E0E0E` would fail every
+correct render. The forbidden set is the four warm/accent hexes above
+plus any editorial serif and any non-zero `border-radius`; the neutral
+grey ramp `#000000` → `#FFFFFF` *is* the palette, not a violation of it.
+Confirmed 2026-09-30 against the live stylesheet: the served custom
+properties are exactly `DESIGN.md`'s eleven, and `#0E0E0E` appears as
+`--charcoal`, never as a stray warm black.
+
 WCAG AA contrast is still required and is checked against the `DESIGN.md`
 grey scale, not ad-hoc.
+
+#### When the grader leg is down, measure contrast yourself
+
+`visual_review.py` has two legs: **render** (browserless/chrome, in-cluster) and
+**grade** (OmniRoute vision model). They fail independently. When only the
+grade leg is dead you can still produce machine evidence instead of guessing —
+and a machine measurement of rendered pixels is stronger than a vision
+model's opinion, because it is reproducible.
+
+Run the capture with `--no-review` to get all nine PNGs:
+
+```sh
+python3 "$VQA" --full --no-review \
+  --viewport 1440x900 --viewport 820x1180 --viewport 390x844 \
+  https://preview.stitch-ash.com/ \
+  https://preview.stitch-ash.com/collections/all \
+  https://preview.stitch-ash.com/product/sku-001
+```
+
+Then take the modal colour as the page ground and cluster the high-count
+colours far from it; antialiased edges form a gradient between the two, so the
+purest high-count cluster is the declared text colour. Compute the WCAG ratio
+per cluster:
+
+```python
+def lum(rgb):
+    out = []
+    for c in rgb:
+        c /= 255
+        out.append(c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4)
+    return 0.2126 * out[0] + 0.7152 * out[1] + 0.0722 * out[2]
+
+def ratio(a, b):
+    hi, lo = sorted((lum(a), lum(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+```
+
+This measures what the user actually sees. It does **not** replace the graded
+review for layout, spacing, type scale or "looks wrong" — those stay
+**unverified** while the grader is down, and saying so is the honest call.
+Contrast and palette are the two checks this substitutes for cleanly.
+
+**Grader outage log** (the error changes; re-measure, do not assume):
+
+| Date | Error | Meaning |
+| --- | --- | --- |
+| 2026-09-29 | `401 Unauthorized` | first report; key looked dead |
+| 2026-09-30 | `402 Payment Required`, then `429` on the retries | OpenRouter credit exhausted; one 402 tripped the only credential into cooldown |
+| 2026-10-01 | `403 Forbidden`, `{"code":"insufficient_quota","type":"permission_error"}`, message: `OpenCode's free tier can only be used from within OpenCode` | Different error again. Text completions still succeed (`HTTP 200`, `Pong`); only the `image_url` block is refused. |
+
+Tracked on [STI-575](/STI/issues/STI-575). This is credential/spend authority, so
+it goes to the operator under HARD RULE 5 — do not retry it into cooldown and do
+not paste key material into an issue.
 
 ### 5. Defect lifecycle
 
@@ -334,6 +456,28 @@ four fallbacks. The gate ran 9/9 clean. I had guessed a model list out
 of `/v1/models` (787 entries) and missed the one that works. The
 gateway was broken in exactly the way the skill said it was, and the
 skill had already routed around it.
+
+**Never test the vision leg with a toy image — a 1×1 probe reports a
+false recovery.** [STI-575](/issues/STI-575) tracked the reviewer leg
+as auth-dead (OpenRouter connection credit exhausted). On 2026-09-30 I
+probed the reviewer with a hand-rolled 70-byte 1×1 PNG before trusting
+the skill, and it came back **`HTTP 200`** with the model's reasoning
+naming "a plain pink square" — which read as the blocker being fixed.
+It was not. Running the real gate immediately after, against real
+112 KB screenshots, gave `402 Payment Required` on the first call and
+`429` (with `retry-after: 98`, code `model_cooldown`, body
+`All credentials for model anthropic/claude-opus-5.5 are cooling down`)
+on the remaining eight. A 1×1 image is small enough to be free, so it
+never reaches the exhausted-credit path; a real screenshot does.
+
+The lesson generalises past this gateway: **a liveness probe that is
+much cheaper than the real workload will pass exactly when the real
+workload cannot be paid for.** Always probe with a payload shaped like
+the one that actually fails. If you must probe cheaply, treat the
+result as evidence about the *gateway*, never as evidence that the
+*blocker cleared* — only a real capture-and-grade run can reopen a
+blocked visual gate. Under [STI-226](/issues/STI-226) the costly error
+is the optimistic one, so default to blocked and let real evidence lift it.
 
 **A vision finding is a hypothesis, and some of them prescribe the
 regression you are hunting.** The first fully-graded run produced ~50
