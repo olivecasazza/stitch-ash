@@ -97,8 +97,7 @@ unquoted.
 **Correct position:** the `Shipping & Returns` contradiction is genuinely fixed.
 The hoodie carries a **single, consistent, unconfirmed** lead-time claim. That
 is better than September 1 and worse than "no lead time", and it must not be
-reported as verified. It is handed to design-lead/copy as
-[STI-610](/STI/issues/STI-610).
+reported as verified. It is filed as [STI-609](/STI/issues/STI-609).
 
 **No revenue figure changed.** The $0.00 is a gate fact, untouched by copy.
 
@@ -152,7 +151,7 @@ comparability break is permanently invisible once the data is gone.
 | Admin read path for revenue export | **OPEN** — channel locked | [STI-457](/STI/issues/STI-457), [STI-418](/STI/issues/STI-418) |
 | Landed cost per SKU quoted | **OPEN** — hoodie is the exposure | [STI-418](/STI/issues/STI-418) |
 | Product photography, all 3 SKUs | **OPEN** | [STI-309](/STI/issues/STI-309) |
-| Hoodie lead time confirmed by supplier | **OPEN** — new this run | [STI-610](/STI/issues/STI-610) |
+| Hoodie lead time confirmed by supplier | **OPEN** — new this run | [STI-609](/STI/issues/STI-609) |
 
 The photography item is a **conversion** blocker, not a cosmetic one: a $185
 garment that has never been photographed cannot convert on it, whatever the
@@ -201,4 +200,4 @@ guessed, or inferred from a public surface.
 - `docs/merch/2026-09-27-kpi-report-template.md` — the binding provenance rules
 - `docs/merch/2026-09-27-store-copy-pass.md` — the copy audit that found the original lead-time contradiction
 - `docs/merch/2026-09-27-pricing-margin.md` — unquoted cost bands and the 50% CM ceilings
-- [STI-610](/STI/issues/STI-610) — hoodie lead time is a single unconfirmed claim (new, this run)
+- [STI-609](/STI/issues/STI-609) — hoodie lead time is a single unconfirmed claim (new, this run)

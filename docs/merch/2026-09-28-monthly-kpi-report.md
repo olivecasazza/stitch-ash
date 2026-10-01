@@ -45,7 +45,7 @@ filled report existed.
 > (no longer self-contradictory) stands; the *stated mechanism* does not, and
 > the surviving value is an unconfirmed customer-facing promise. Full correction
 > with evidence: `docs/merch/2026-10-01-september-period-close.md` § Correction 1,
-> and [STI-610](/STI/issues/STI-610). **No revenue figure changed** — the $0.00
+> and [STI-609](/STI/issues/STI-609). **No revenue figure changed** — the $0.00
 > is a gate fact, independent of copy.
 
 Structure and the binding provenance rules are defined in
