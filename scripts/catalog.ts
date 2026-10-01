@@ -7,6 +7,7 @@ import {
   applyProduct,
   createShopifyAdminClient,
   diffCollection,
+  diffInventory,
   diffProduct,
   getCollectionByHandle,
   getDeliveryProfiles,
@@ -222,12 +223,46 @@ async function main() {
     );
   }
 
+  // STI-605: stock drift is reported, never applied.
+  //
+  // `diffProduct` cannot see `inventoryQuantity` because no ProductInput field
+  // carries it, so all 7 live variants sat at or below zero while the plan
+  // printed `no changes` for every product — a false green on the exact field
+  // most likely to be selling past zero. This is the same reported-only channel
+  // shipping uses: it is deliberately NOT counted in `changeCount`, because
+  // `catalog:apply` cannot write inventory and a stock number in the pending
+  // action total would be a claim the run cannot honour.
+  const inventoryDrift: string[] = [];
+  const inventoryNotes: string[] = [];
+  for (const diff of diffs) {
+    const inv = diffInventory(diff.product, diff.remote);
+    inventoryNotes.push(...inv.notes);
+    inventoryDrift.push(...inv.actions.map(action => `inventory: ${action}`));
+  }
+
+  if (inventoryNotes.length > 0) {
+    console.log("");
+    for (const note of inventoryNotes) console.log(`inventory: ${note}`);
+  }
+
+  if (inventoryDrift.length > 0) {
+    console.log("");
+    console.log(
+      `inventory: ${inventoryDrift.length} stock difference(s) found (reported only — catalog:apply does NOT write inventory):`,
+    );
+    for (const line of inventoryDrift) console.log(`  - ${line}`);
+  }
+
   if (command === "plan") {
     const shippingNote =
       shippingDrift.length > 0
         ? `; ${shippingDrift.length} shipping difference(s) reported (not applied)`
         : "";
-    console.log(`catalog: plan complete; ${changeCount} pending product actions${shippingNote}`);
+    const inventoryNote =
+      inventoryDrift.length > 0
+        ? `; ${inventoryDrift.length} inventory difference(s) reported (not applied)`
+        : "";
+    console.log(`catalog: plan complete; ${changeCount} pending product actions${shippingNote}${inventoryNote}`);
     return;
   }
 

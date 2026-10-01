@@ -2,6 +2,7 @@ import type {
   CatalogCollection,
   CatalogProduct,
   CollectionDiff,
+  InventoryDiff,
   ProductDiff,
   ShopifyCollection,
   ShopifyProduct,
@@ -274,6 +275,91 @@ export function diffProduct(product: CatalogProduct, remote: ShopifyProduct | nu
   }
 
   return { product, remote, actions };
+}
+
+/**
+ * STI-605: compare stock for a product against the store.
+ *
+ * PR #157 closed the *silent-drop* half of the inventory gap: a catalog that
+ * declares `inventoryQuantity` used to be validated and then discarded by
+ * `buildProductInput` with every stage reporting success. That path now refuses
+ * loudly (`assertNoDeclaredInventoryQuantity`).
+ *
+ * This is the other half. Every one of the 7 live variants sits at or below
+ * zero (`sku-001-L` is at -1), and `catalog:plan` printed
+ * `no changes` for all three products, because `diffProduct` has no
+ * `inventoryQuantity` branch — a declared-vs-store stock difference is not an
+ * action `catalog:apply` can perform. Putting it in `ProductDiff.actions` would
+ * make the plan lie in the worst way: an approver reads `- set inventory:
+ * 0 -> 24` and apply changes nothing.
+ *
+ * So this mirrors `diffShipping` exactly — a separate reported-only channel that
+ * is never summed into `changeCount` and never becomes a pending action.
+ *
+ * A NEGATIVE quantity is reported distinctly from zero. Zero means empty;
+ * negative means the store has already oversold, which is the one row a
+ * customer can actually be harmed by today.
+ */
+export function diffInventory(product: CatalogProduct, remote: ShopifyProduct | null): InventoryDiff {
+  const actions: string[] = [];
+  const notes: string[] = [];
+
+  if (!remote) {
+    notes.push(`${product.id}: not on the store, so there is no stock to compare`);
+    return { product, remote: null, actions, notes };
+  }
+
+  // A null quantity is Shopify saying "not tracked". It is not zero, and
+  // reporting it as zero would invent an outage that does not exist.
+  const untracked: string[] = [];
+  const empty: string[] = [];
+  const oversold: string[] = [];
+  const undeclared: string[] = [];
+
+  const remoteVariants = new Map(remote.variants.map(v => [v.sku, v]));
+  for (const variant of product.variants) {
+    const rv = remoteVariants.get(variant.sku);
+    if (!rv) continue; // a missing variant is `diffProduct`'s action, not stock drift.
+
+    if (rv.inventoryQuantity === null) {
+      untracked.push(variant.sku);
+      continue;
+    }
+
+    if (rv.inventoryQuantity < 0) oversold.push(`${variant.sku}=${rv.inventoryQuantity}`);
+    else if (rv.inventoryQuantity === 0) empty.push(variant.sku);
+
+    // A catalog that declares a quantity disagrees with the store, and
+    // `catalog:apply` refuses to run at all in that case — so this is reported
+    // rather than counted, keeping the drift visible without lying about what
+    // apply would do.
+    if (variant.inventoryQuantity !== undefined && variant.inventoryQuantity !== rv.inventoryQuantity) {
+      undeclared.push(`${variant.sku}: catalog declares ${variant.inventoryQuantity}, store has ${rv.inventoryQuantity}`);
+    }
+  }
+
+  notes.push(`${product.id}: compared stock for ${remote.variants.length} live variant(s)`);
+
+  if (oversold.length > 0) {
+    actions.push(
+      `${product.id}: ${oversold.length} variant(s) are at NEGATIVE stock, so the store has ALREADY oversold: ` +
+        `${oversold.join(", ")}. This is a customer-harm case, not an empty shelf`,
+    );
+  }
+  if (empty.length > 0) {
+    actions.push(
+      `${product.id}: ${empty.length} variant(s) are at zero stock: ${empty.join(", ")}. ` +
+        `Every one of these sells at inventoryPolicy CONTINUE, so the storefront keeps offering them`,
+    );
+  }
+  if (undeclared.length > 0) {
+    actions.push(`${product.id}: declared inventoryQuantity disagrees with the store: ${undeclared.join("; ")}`);
+  }
+  if (untracked.length > 0) {
+    notes.push(`${product.id}: ${untracked.length} variant(s) are untracked on the store (quantity null), not counted as zero: ${untracked.join(", ")}`);
+  }
+
+  return { product, remote, actions, notes };
 }
 
 /**

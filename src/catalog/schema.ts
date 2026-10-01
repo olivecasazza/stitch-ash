@@ -253,6 +253,23 @@ export interface ShippingDiff {
   notes: string[];
 }
 
+/**
+ * STI-605: the shape of a stock comparison.
+ *
+ * Deliberately NOT a `ProductDiff` field. `actions` here is reported-only and
+ * must never be counted as a pending product action, because `catalog:apply`
+ * cannot write inventory (see `assertNoDeclaredInventoryQuantity`). Modelling it
+ * with an `actions` array is deliberate anyway so the shipping precedent stays
+ * legible, but the array is never summed into `changeCount`.
+ */
+export interface InventoryDiff {
+  product: CatalogProduct;
+  remote: ShopifyProduct | null;
+  actions: string[];
+  /** Human-readable record of what was actually compared, for the plan body. */
+  notes: string[];
+}
+
 export interface CollectionDiff {
   collection: CatalogCollection;
   remote: ShopifyCollection | null;
