@@ -1,12 +1,16 @@
 <script setup lang="ts">
+import { resolveNotFoundCopy } from '~/utils/not-found'
+
 definePageMeta({
     validate: route => typeof route.params.handle === 'string',
 })
 
 const { shopify: { shopName } } = useAppConfig()
 const localePath = useLocalePath()
-const { locale } = useI18n()
+const { locale, t } = useI18n()
 const route = useRoute()
+
+const notFoundCopy = resolveNotFoundCopy({ resource: 'collection', translate: t })
 
 const handle = computed(() => route.params.handle as string)
 
@@ -42,10 +46,20 @@ if (!collection.value || error.value) {
     // It also logs every bad collection URL as `[fatal]`. The sibling blog
     // throws are byte-for-byte the same without that flag and report their real
     // message ("Blog not found" / "Article not found") — keep it consistent.
+    //
+    // STI-556: `statusText` used to be `${$t('error.notFound')}: ${route.fullPath}`,
+    // and error.vue renders `statusMessage` first, so the customer read
+    // "Page not found: /collection/all". The path is ops-voiced, tells a shopper
+    // nothing, and hands back the exact failing URL. It still reaches operators
+    // on `error.url` and in the server log.
+    //
+    // `message` no longer falls back to `error.value?.message` either: that is
+    // the upstream Storefront API's own error text, which is the same class of
+    // leak on the field error.vue falls through to.
     throw createError({
         status: 404,
-        statusText: `${$t('error.notFound')}: ${route.fullPath}`,
-        message: error.value?.message || $t('error.collection'),
+        statusText: notFoundCopy.statusText,
+        message: notFoundCopy.statusText,
     })
 }
 
