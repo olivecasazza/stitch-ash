@@ -12,6 +12,19 @@ import {
   getDeliveryProfiles,
   getProductByHandle,
 } from "../src/catalog/shopify-admin.ts";
+import { describeReachability, PROBE_POSTAL_CODES, verdictFor } from "../src/catalog/checkout-rates.ts";
+import { probeCheckoutRates, storefrontClientFromEnv } from "../src/catalog/storefront-rates.ts";
+
+/**
+ * STI-539: representative countries for a `REST_OF_WORLD` shipping rule.
+ *
+ * A `REST_OF_WORLD` rule declares a price for every country Shopify does not
+ * put in another zone. Probing one country proves nothing about the rest, and
+ * probing all of them is a hundred-plus API calls on every plan. This spread is
+ * deliberately multi-region: a single-country probe would pass while whole
+ * continents stayed unsellable.
+ */
+const REST_OF_WORLD_PROBES = ["CA", "GB", "DE", "AU", "JP"] as const;
 
 const command = process.argv[2] ?? "validate";
 const root = process.cwd();
@@ -131,6 +144,82 @@ async function main() {
       `shipping: ${shippingDrift.length} declared-vs-store difference(s) found (reported only — catalog:apply does NOT write delivery profiles):`,
     );
     for (const line of shippingDrift) console.log(`  - ${line}`);
+  }
+
+  // STI-539: the Admin-side diff above is structurally incapable of seeing
+  // whether a buyer can actually complete checkout. The live store lists
+  // services in its International zone that are all `DeliveryParticipant` with
+  // `fixedFee=0.0`, so the zone reads as configured and Admin reports no drift
+  // for it -- while a buyer in any of those countries is quoted NOTHING.
+  //
+  // This block is the only one that measures the customer outcome, so it is
+  // reported from the Storefront API with a real cart. It is strictly additive:
+  // it never contributes to `changeCount` and never becomes an action, because
+  // `catalog:apply` does not write delivery profiles and a shipping rate change
+  // is operator authority regardless (HARD RULE 5).
+  const blockedDestinations: string[] = [];
+  const storefront = storefrontClientFromEnv();
+  if (command === "plan" && storefront && shippingPolicies.length > 0 && products.length > 0) {
+    // Probe one real sellable variant: shipping reachability is a property of
+    // the delivery profile and the destination, not of a particular variant.
+    const probeProduct = products.find(p => p.variants.some(v => v.sku));
+    const probeVariant = probeProduct?.variants.find(v => v.sku);
+    if (!probeProduct || !probeVariant) {
+      console.log("shipping: no variant available to probe checkout reachability; SKIPPED (not a pass)");
+    } else {
+      // The Storefront API takes a merchant GID, not a SKU, so the live variant
+      // is resolved through Admin. Going via the catalog's own product keeps the
+      // probe pinned to a variant the catalog actually declares.
+      const remote = await getProductByHandle(client, probeProduct.handle);
+      const variantGid = remote?.variants?.find(v => v.sku === probeVariant.sku)?.id;
+      if (!variantGid) {
+        console.log(
+          `shipping: could not resolve a live variant GID for ${probeVariant.sku}; checkout reachability SKIPPED (not a pass)`,
+        );
+      } else {
+        // The catalog declares destinations as `US` and `REST_OF_WORLD`, and
+        // `REST_OF_WORLD` is not a country code. Probing US alone would be
+        // exactly the blind spot this block exists to close, so REST_OF_WORLD
+        // is probed as a representative multi-region spread. US is always
+        // included as the control: without a destination known to work, an
+        // all-blocked result is indistinguishable from a broken probe.
+        const declared = new Set<string>();
+        let declaresRestOfWorld = false;
+        for (const policy of shippingPolicies) {
+          for (const rule of policy.rules) {
+            if (rule.destination === "US") continue;
+            if (rule.destination === "REST_OF_WORLD") declaresRestOfWorld = true;
+            else declared.add(rule.destination);
+          }
+        }
+        const countries = ["US", ...(declaresRestOfWorld ? REST_OF_WORLD_PROBES : []), ...declared];
+        console.log("");
+        console.log(`shipping: probing real checkout rates for ${countries.join(", ")} (via ${probeVariant.sku}) ...`);
+        for (const countryCode of countries) {
+          try {
+            const result = await probeCheckoutRates(storefront, variantGid, countryCode, PROBE_POSTAL_CODES[countryCode] ?? "");
+            console.log(`shipping: ${describeReachability(result)}`);
+            if (verdictFor(result) === "no_options") blockedDestinations.push(`${countryCode} ${result.postalCode}`);
+          } catch (error) {
+            // A probe that could not run is reported as unverified, never as a
+            // pass and never as a defect.
+            console.log(
+              `shipping: checkout reachability ${countryCode}: UNVERIFIED - ${(error as Error).message.slice(0, 200)}`,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  if (blockedDestinations.length > 0) {
+    console.log("");
+    console.log(
+      `shipping: CHECKOUT-BLOCKING - ${blockedDestinations.length} destination(s) are quoted NO shipping option ` +
+        `at all, so checkout cannot complete there: ${blockedDestinations.join(", ")}. ` +
+        `That is a customer-visible outage, not a price drift: the catalog declares prices these buyers can never be charged. ` +
+        `Reported for operator decision (HARD RULE 5); catalog:apply does NOT write delivery profiles.`,
+    );
   }
 
   if (command === "plan") {
