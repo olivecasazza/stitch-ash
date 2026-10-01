@@ -35,6 +35,21 @@ export const ProductVariantSchema = z.object({
   option3: z.string().nullable().optional(),
   inventoryManagement: z.string().optional(),
   inventoryPolicy: z.enum(["CONTINUE", "DENY"]).optional(),
+  /**
+   * STI-532: DECLARED BUT NOT APPLIED. Read the comment before using this.
+   *
+   * `ProductInput` has no inventory field, so `catalog:apply` cannot write it —
+   * stock moves only through `inventoryAdjustQuantities` against an
+   * `inventoryItemId`, which this reconciler does not resolve. Setting it here
+   * used to pass validation and then vanish at apply time, so an operator could
+   * approve a diff believing it set stock and it would not.
+   *
+   * It is kept in the schema (rather than deleted) because it is genuinely
+   * readable catalog data, but `applyProduct` now REFUSES any product that
+   * declares it instead of dropping it quietly. `normalizeVariant` must also
+   * keep omitting it, so a declared quantity never prints a phantom drift
+   * action against the live store — same allowlist rule as `landedCost` above.
+   */
   inventoryQuantity: z.number().int().nonnegative().optional(),
 });
 

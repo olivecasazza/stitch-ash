@@ -276,21 +276,15 @@ export function diffProduct(product: CatalogProduct, remote: ShopifyProduct | nu
   return { product, remote, actions };
 }
 
-export async function applyProduct(
-  client: AdminClient,
-  product: CatalogProduct,
-  remote: ShopifyProduct | null,
-): Promise<string> {
-  const mutation = remote
-    ? `
-      mutation updateProduct($input: ProductInput!) {
-        productUpdate(input: $input) { product { id } userErrors { field message } } }
-    `
-    : `
-      mutation createProduct($input: ProductInput!) {
-        productCreate(input: $input) { product { id } userErrors { field message } } }
-    `;
-
+/**
+ * Build the `ProductInput` payload for productCreate / productUpdate.
+ *
+ * Exported so the tests can assert on the exact mutation body without a live
+ * store. Anything `ProductInput` cannot carry MUST stay out of this object —
+ * see `inventoryQuantity` below, which is a schema field but not a ProductInput
+ * field.
+ */
+export function buildProductInput(product: CatalogProduct, remote: ShopifyProduct | null): Record<string, unknown> {
   const input: Record<string, unknown> = {
     title: product.title,
     handle: product.handle,
@@ -309,6 +303,59 @@ export async function applyProduct(
   };
 
   if (remote) input.id = remote.id;
+  return input;
+}
+
+/**
+ * STI-532: refuse, loudly, a catalog that declares stock it cannot apply.
+ *
+ * `ProductVariantSchema` declares `inventoryQuantity`, so a YAML author can
+ * write `inventoryQuantity: 24` and `catalog:validate` will pass it. But
+ * `ProductInput` has no inventory field — stock is written through
+ * `inventoryAdjustQuantities` against an `inventoryItemId`, which this
+ * reconciler does not resolve. Before this guard the value was accepted,
+ * validated, and then silently discarded by `buildProductInput`.
+ *
+ * That is the STI-421 shape one layer down: the dangerous part was not the
+ * missing value, it was that everything reported success. An operator could
+ * approve a catalog:apply believing the diff set stock, and the store would
+ * keep selling from whatever it already had — while all three live products
+ * sit at zero or below it. A loud refusal is strictly safer than a silent drop,
+ * so this throws BEFORE any mutation is sent: a partial write is worse than a
+ * stopped run.
+ */
+function assertNoDeclaredInventoryQuantity(product: CatalogProduct): void {
+  const declared = product.variants
+    .filter(v => v.inventoryQuantity !== undefined)
+    .map(v => `${v.sku}=${v.inventoryQuantity}`);
+  if (declared.length === 0) return;
+
+  throw new Error(
+    `Refusing to apply ${product.id}: catalog declares inventoryQuantity for ${declared.join(", ")}, ` +
+      `but catalog:apply cannot write inventory (ProductInput has no inventory field; it requires ` +
+      `inventoryAdjustQuantities against an inventoryItemId). Remove the declared quantities, or ` +
+      `restock the store by hand and keep the catalog stock-free so the diff stays honest.`,
+  );
+}
+
+export async function applyProduct(
+  client: AdminClient,
+  product: CatalogProduct,
+  remote: ShopifyProduct | null,
+): Promise<string> {
+  assertNoDeclaredInventoryQuantity(product);
+
+  const mutation = remote
+    ? `
+      mutation updateProduct($input: ProductInput!) {
+        productUpdate(input: $input) { product { id } userErrors { field message } } }
+    `
+    : `
+      mutation createProduct($input: ProductInput!) {
+        productCreate(input: $input) { product { id } userErrors { field message } } }
+    `;
+
+  const input = buildProductInput(product, remote);
 
   const data = await shopifyAdminFetch(client, mutation, { input }) as {
     productCreate?: { product: { id: string }; userErrors: { field: string; message: string }[] };
