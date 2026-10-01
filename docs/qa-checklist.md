@@ -66,6 +66,33 @@ CI green is necessary, never sufficient. Verify the deploy in this order:
 
 1. `git ls-remote origin main` → record the `main` HEAD SHA.
 2. `gh run list --workflow deploy.yml --branch main --limit 1 --json databaseId,conclusion,headSha,url` → must show a `success` run whose `headSha` matches the `main` HEAD from step 1. Older successful runs are stale and do not count. Record the run's `createdAt`/`updatedAt` window.
+2b. **A `success` run conclusion is NOT proof the deploy ran.** Check the
+   `deploy` job's own conclusion before you call anything deployed:
+
+   ```sh
+   gh api "repos/olivecasazza/stitch-ash/actions/runs/<runId>/jobs" \
+     --jq '.jobs[]|{name,conclusion}'
+   # fresh-check: success
+   # deploy:      skipped      <-- the run published NOTHING, and still reports success
+   ```
+
+   `deploy.yml` has a `fresh-check` gate that returns `needed=false` when main is
+   already live, which **skips** the `deploy` job while the run as a whole still
+   reports `conclusion: success`. `gh run list` calls such a run a success and
+   names it the latest successful deploy. It is a green no-op.
+
+   Measured 2026-10-01T05:26Z on run [36803396902](https://github.com/olivecasazza/stitch-ash/actions/runs/36803396902):
+   run = `success`, `fresh-check` = `success`, `deploy` = **`skipped`**. Runs
+   36785970511, 36755982087 and 36713695403 are the same shape. The last run
+   whose `deploy` job actually concluded `success` was
+   [36675330287](https://github.com/olivecasazza/stitch-ash/actions/runs/36675330287)
+   at `2026-09-30T05:51:31Z`.
+
+   So "the latest successful deploy.yml run" is ambiguous and you must resolve
+   it. Quote the **job** conclusion, not the run conclusion. Filed as
+   [STI-601](/STI/issues/STI-601): the `fresh-check` predicate asks "does a green
+   run exist for main's HEAD" when it should ask "did a run actually deploy
+   main's HEAD", which makes the self-healing backstop a green no-op.
 3. Read the build marker the artifact itself carries:
 
    ```sh
@@ -234,6 +261,59 @@ properties are exactly `DESIGN.md`'s eleven, and `#0E0E0E` appears as
 
 WCAG AA contrast is still required and is checked against the `DESIGN.md`
 grey scale, not ad-hoc.
+
+#### When the grader leg is down, measure contrast yourself
+
+`visual_review.py` has two legs: **render** (browserless/chrome, in-cluster) and
+**grade** (OmniRoute vision model). They fail independently. When only the
+grade leg is dead you can still produce machine evidence instead of guessing —
+and a machine measurement of rendered pixels is stronger than a vision
+model's opinion, because it is reproducible.
+
+Run the capture with `--no-review` to get all nine PNGs:
+
+```sh
+python3 "$VQA" --full --no-review \
+  --viewport 1440x900 --viewport 820x1180 --viewport 390x844 \
+  https://preview.stitch-ash.com/ \
+  https://preview.stitch-ash.com/collections/all \
+  https://preview.stitch-ash.com/product/sku-001
+```
+
+Then take the modal colour as the page ground and cluster the high-count
+colours far from it; antialiased edges form a gradient between the two, so the
+purest high-count cluster is the declared text colour. Compute the WCAG ratio
+per cluster:
+
+```python
+def lum(rgb):
+    out = []
+    for c in rgb:
+        c /= 255
+        out.append(c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4)
+    return 0.2126 * out[0] + 0.7152 * out[1] + 0.0722 * out[2]
+
+def ratio(a, b):
+    hi, lo = sorted((lum(a), lum(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+```
+
+This measures what the user actually sees. It does **not** replace the graded
+review for layout, spacing, type scale or "looks wrong" — those stay
+**unverified** while the grader is down, and saying so is the honest call.
+Contrast and palette are the two checks this substitutes for cleanly.
+
+**Grader outage log** (the error changes; re-measure, do not assume):
+
+| Date | Error | Meaning |
+| --- | --- | --- |
+| 2026-09-29 | `401 Unauthorized` | first report; key looked dead |
+| 2026-09-30 | `402 Payment Required`, then `429` on the retries | OpenRouter credit exhausted; one 402 tripped the only credential into cooldown |
+| 2026-10-01 | `403 Forbidden`, `{"code":"insufficient_quota","type":"permission_error"}`, message: `OpenCode's free tier can only be used from within OpenCode` | Different error again. Text completions still succeed (`HTTP 200`, `Pong`); only the `image_url` block is refused. |
+
+Tracked on [STI-575](/STI/issues/STI-575). This is credential/spend authority, so
+it goes to the operator under HARD RULE 5 — do not retry it into cooldown and do
+not paste key material into an issue.
 
 ### 5. Defect lifecycle
 
