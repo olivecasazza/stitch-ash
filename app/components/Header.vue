@@ -117,7 +117,30 @@ const { quantity, open } = useCart()
 .cart-pill:focus-visible {
   background: var(--white);
   color: var(--ink-black);
-  outline: none;
+}
+
+/* STI-608: the cart pill is a real button, so `:hover, :focus-visible { outline:
+   none }` suppressed the focus ring for keyboard users. The white fill was
+   left as the only focus affordance, and white-on-bone is ~1.06:1 — invisible
+   against the near-black header. That is a WCAG 2.4.7 failure, and 1.4.11
+   fails too because the indicator has no perceivable boundary.
+
+   The hover fill swap stays above; the focus indicator becomes its own
+   declaration taking `components.focus-ring` — 2px stroke in `colors.focus`
+   at 4px offset — the same treatment `.btn-primary:focus-visible` and
+   `.product-card:focus-visible` already carry.
+
+   DESIGN.md and tokens.css are untouched: `focus (#FFFFFF)` and
+   `components.focus-ring` already exist and already declare exactly this, so
+   the pill was failing to consume the canonical token rather than missing one.
+   No new custom property, so the top-down rule holds with nothing to mirror.
+
+   The nav links above are deliberately left alone: their `outline: none` is
+   correct because `.nav-link:focus-visible::after` scales a bone underline to
+   full width, which is a visible indicator. */
+.cart-pill:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
 }
 
   /* typography.numeric — tabular figures on every count. Shipped 0.7rem (a
