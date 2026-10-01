@@ -87,4 +87,13 @@ Required status checks before merge:
 
 ### Release flow
 
-On push to `main`, `release-plz` reads the conventional commits since the last tag and opens a release PR (or pushes a tag) automatically. No manual versioning needed.
+There is none, by design. This repo is a Nuxt storefront deployed to Cloudflare
+Pages; it publishes no package to any registry, so there is no version to bump
+and no artifact to attach a release to. `.github/workflows/release-plz.yml` and
+`release-plz.toml` were removed because `release-plz` is a Rust-crates tool: it
+requires a `Cargo.toml`, and it failed 90 of 90 runs from 2026-05-18 until it was
+deleted. Do not reintroduce it.
+
+Conventional-commit PR titles are still meaningful here — `semver-label.yml`
+reads them to set the `semver:*` label that `auto-merge.yml` gates merges on —
+but they drive merge policy, not versioning.
