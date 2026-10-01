@@ -1,2 +1,0 @@
-[workspace]
-publish_allow_list = [] # Not publishing anything to crates.io
