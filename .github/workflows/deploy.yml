@@ -192,6 +192,14 @@ jobs:
           SHOPIFY_STOREFRONT_TOKEN: ${{ secrets.SHOPIFY_STOREFRONT_ACCESS_TOKEN }}
         run: pnpm build
 
+      # STI-415: this is the only placement that stops a non-zero border-radius
+      # from reaching Cloudflare. Until now deploy.yml built and published with
+      # zero verification in between, which is how five non-zero radius literals
+      # shipped live. pr-checks.yml also runs this gate, but a gate that only
+      # exists on a PR cannot protect the artifact a deploy publishes.
+      - name: Built-CSS radius gate
+        run: ./scripts/ci/built-css-radius-gate.sh --strict-ratchet
+
       # STI-241: cloudflare/pages-action was deleted upstream (repo now 404),
       # breaking deploys with "Unable to resolve action `cloudflare/pages-action`".
       # Publish via wrangler-action + `wrangler pages deploy` instead — same

@@ -1,0 +1,40 @@
+# scripts/ci/border-radius-ratchet.txt
+#
+# STI-415 — values built-css-radius-gate.sh TOLERATES instead of failing.
+#
+# This is a ratchet, not an allowlist. Anything not listed here fails the gate,
+# so the tolerated set can only shrink. Each entry must state which selectors
+# emit it and why no source edit can remove it. An entry that stops occurring is
+# reported (and fails under --strict-ratchet) so it gets deleted.
+#
+# None of the selectors below is referenced from app/ — verified 2026-10-01:
+#   grep -rnoE '\brounded(-(sm|md|lg|xl|2xl|full|none))?\b' app/
+# returns only rounded-none and prose mentions in comments. These rules are
+# dead CSS emitted because node_modules asks for the utilities.
+#
+# ---------------------------------------------------------------------------
+# .25rem  — selector: .rounded
+# Emitted by Tailwind v4 because @nuxt/ui's own component styles use the bare
+# `rounded` utility. Not reachable from app/ source.
+#
+# 3.40282e+38px — selectors: .rounded-full, .after\:rounded-full:after,
+# :is(.\*\:rounded-full>*)
+# Tailwind's "full" value, same cause as .rounded above.
+#
+# inherit — selectors: .rounded-\[inherit\], .before\:rounded-\[inherit\]:before
+# Tailwind's `rounded-[inherit]` arbitrary value, same cause. Counted as a
+# violation in principle (uncontrolled radius that can resolve non-zero); pinned
+# here only because @nuxt/ui requests the utility and app/ cannot stop it.
+#
+# .3125rem — selector: .prose :where(kbd):not(:where([class~=not-prose],...))
+# .375rem  — selector: .prose :where(pre):not(:where([class~=not-prose],...))
+# Hard-coded inside @tailwindcss/typography ^0.5.19. Nothing in app/ uses prose
+# styling, so these are unreachable, but the plugin ships them unconditionally
+# and app/ cannot configure its per-element radius.
+# ---------------------------------------------------------------------------
+
+.25rem
+3.40282e+38px
+inherit
+.3125rem
+.375rem

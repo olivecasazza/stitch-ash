@@ -135,6 +135,44 @@ jobs:
       - name: Run internal-copy gate
         run: ./scripts/ci/no-internal-copy-in-storefront.sh
 
+  # STI-415: the built stylesheet shipped five non-zero border-radius literals
+  # (.25rem, 3.40282e+38px, inherit, .3125rem, .375rem) even though every
+  # rounded-* call site in app/ was already rounded-none. They come from
+  # node_modules — @nuxt/ui's own component styles and @tailwindcss/typography —
+  # so no source-only grep can see them, and both STI-402 DoD checks could go
+  # green with a violating stylesheet live. This gate reads the build artifact.
+  # --strict-ratchet also fails if a pinned tolerance stops occurring, so the
+  # tolerated set can only shrink.
+  radius-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build site
+        env:
+          SHOPIFY_STOREFRONT_TOKEN: ${{ secrets.SHOPIFY_STOREFRONT_ACCESS_TOKEN }}
+        run: pnpm build
+
+      - name: Self-test the radius gate
+        run: ./scripts/ci/built-css-radius-gate.test.sh
+
+      - name: Run built-CSS radius gate
+        run: ./scripts/ci/built-css-radius-gate.sh --strict-ratchet
+
   # STI-446: 30 custom properties sat in tokens.css with no DESIGN.md token for
   # weeks — caught by the STI-423 daily drift run, but nothing prevented them.
   # This gate makes the top-down chain mechanical: every property in tokens.css
