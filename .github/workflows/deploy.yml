@@ -95,15 +95,26 @@ on:
   #     deploy, the run does not disappear), so absent runs are a real signal
   #     here — but the sample is too small to attribute a cause, and the
   #     GitHub API exposes none. Best-effort self-heal, not a guarantee.
-  #   * `repository_dispatch` — the only untested mechanism, and the only one
-  #     not suppressed for a GITHUB_TOKEN actor (nor is `workflow_dispatch`).
-  #     NOTE: it does NOT require auto-merge.yml to replace native auto-merge.
-  #     STI-469 evaluated that variant and declined it: the native merge can
-  #     stay exactly as it is, and auto-merge.yml can dispatch the post-merge
-  #     SHA once the merge commit exists. Keeping the merge and adding the
-  #     dispatch is strictly less work than taking the merge over. Tracked in
-  #     docs/STI-469-trigger-audit.md §3; the plumbing is deliberately NOT
-  #     implemented unilaterally because it changes merge automation repo-wide.
+  #   * `repository_dispatch` — THE FIX, and it needs no new secret. GitHub
+  #     documents the recursion guard as: "With the exception of
+  #     `workflow_dispatch` and `repository_dispatch`, other
+  #     GITHUB_TOKEN-triggered events do not create workflow runs at all."
+  #     (docs.github.com, "Events that trigger workflows" -> `pull_request`.)
+  #     So the ONE credential change STI-433 asked for (a PAT) is not required
+  #     to close the bot-merge gap: `GITHUB_TOKEN` can dispatch directly.
+  #
+  #     STI-433 implemented it on 2026-10-01. auto-merge.yml now waits for the
+  #     merge commit to actually exist (bounded), then dispatches this event
+  #     carrying that SHA. Unlike `workflow_run` (rejected above because the
+  #     payload carries no post-merge commit and the run completes too early),
+  #     the SHA is read from the API after the merge lands, so it is the real
+  #     post-merge commit every time.
+  #
+  #     `client_payload.sha` is authoritative when present. The job refetches
+  #     main and falls back to it when absent, so a dispatch written by an older
+  #     auto-merge.yml still deploys the right thing rather than nothing.
+  repository_dispatch:
+    types: [deploy-main]
   pull_request:
     types: [closed]
   # The schedule is a BACKSTOP, not the primary trigger. STI-434 measured zero
@@ -165,8 +176,26 @@ jobs:
     # or published. The merge commit itself is only reachable via the base
     # branch, so resolve the deploy target once and use it for the checkout and
     # the Cloudflare branch alike.
+    #
+    # STI-433: a repository_dispatch run has no meaningful github.ref_name —
+    # the dispatch carries the commit in client_payload. Deploy THAT commit, not
+    # "whatever main points at now": the payload is the only thing that
+    # distinguishes the post-merge commit from a later one, and publishing a
+    # commit the dispatcher did not ask for is the failure mode this whole issue
+    # is about. The empty-string arm is the guard — a dispatch with no payload
+    # SHA falls back to main rather than checking out "".
     env:
-      DEPLOY_REF: ${{ github.event_name == 'pull_request' && 'main' || github.ref_name }}
+      DEPLOY_SHA: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.sha || '' }}
+      DEPLOY_REF: ${{ github.event_name == 'pull_request' && 'main'
+                    || (github.event_name == 'repository_dispatch' && (github.event.client_payload.sha || 'main'))
+                    || github.ref_name }}
+      # STI-433: what gets CHECKED OUT and what Cloudflare calls the production
+      # branch are different questions. Every path here publishes to the Pages
+      # production branch named `main`; only the checkout varies. Reusing
+      # DEPLOY_REF for --branch would publish a dispatch to a branch literally
+      # named after a 40-char SHA, which Cloudflare treats as a preview branch:
+      # the deploy would report success and the site would not change at all.
+      PAGES_BRANCH: main
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -210,7 +239,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: '3'
-          command: pages deploy dist --project-name=stitch-ash-web --branch=${{ env.DEPLOY_REF }} --commit-dirty=true
+          command: pages deploy dist --project-name=stitch-ash-web --branch=${{ env.PAGES_BRANCH }} --commit-dirty=true
 
   # STI-433: skip a scheduled deploy when main is already live. Without this the
   # cron rebuilds and republishes an identical artifact every 10 minutes,
