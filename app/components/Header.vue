@@ -44,7 +44,27 @@ const { quantity, open } = useCart()
 .logo-link:hover,
 .logo-link:focus-visible {
   opacity: 0.8;
-  outline: none;
+}
+
+/* STI-614. `:hover, :focus-visible { outline: none }` left the keyboard focus
+   state with nothing but `opacity: 0.8` as its affordance, and hover already
+   sets that same 0.8 — so focusing the link after hovering produced no visible
+   change whatsoever. A wordmark is a link, so SC 2.4.7 applies, and the
+   indicator had no perceivable boundary (SC 1.4.11).
+
+   The focus indicator becomes its own declaration consuming the canonical
+   `components.focus-ring` — 2px stroke in `colors.focus` at 4px offset — the
+   same treatment `.btn-primary:focus-visible`, `.product-card:focus-visible`
+   and `.cart-pill:focus-visible` already carry. `--focus: #FFFFFF` on the
+   near-black header is 21.0:1.
+
+   DESIGN.md and tokens.css are untouched: `focus (#FFFFFF)` and
+   `components.focus-ring` already exist and already declare exactly this, so
+   the link was failing to consume the canonical token rather than missing one.
+   No new custom property, so the top-down rule holds with nothing to mirror. */
+.logo-link:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
 }
 
 .nav-menu {
@@ -135,9 +155,11 @@ const { quantity, open } = useCart()
    the pill was failing to consume the canonical token rather than missing one.
    No new custom property, so the top-down rule holds with nothing to mirror.
 
-   The nav links above are deliberately left alone: their `outline: none` is
-   correct because `.nav-link:focus-visible::after` scales a bone underline to
-   full width, which is a visible indicator. */
+   The nav links above are left alone, and this time it is checked rather than
+   assumed. `.nav-link:focus-visible::after` scales the bone underline to full
+   width, so the link does have a real indicator of its own — verified in the
+   shipped bundle, not inferred. STI-614 re-checked all four `outline: none`
+   call sites; the nav links were the only survivors. */
 .cart-pill:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 4px;
