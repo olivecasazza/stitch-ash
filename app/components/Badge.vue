@@ -42,6 +42,5 @@ const label = computed(() => labels[props.variant] ?? props.variant)
   background: transparent;
   color: var(--grey-400);
   border: 1px solid var(--primary);
-  border-radius: .5rem;
 }
 </style>
