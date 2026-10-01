@@ -61,3 +61,74 @@ export function resolveNotFoundCopy(input: NotFoundCopyInput): NotFoundCopy {
     const translated = (input.translate(notFoundI18nKey(input.resource)) ?? '').trim()
     return { statusText: translated === '' ? 'Not found' : translated }
 }
+
+/** Inputs for {@link customerVisibleNotFoundMessage}. */
+export interface CustomerVisibleNotFoundInput extends NotFoundCopyInput {
+    /**
+     * The error string arriving from wherever the 404 was raised.
+     *
+     * Trusted only after {@link embedsRequestPath} clears it. On the four typed
+     * routes this is a string built by {@link resolveNotFoundCopy} and is kept;
+     * for a URL that matched no route at all it is Nuxt's own catch-all string,
+     * which carries the path and is therefore replaced.
+     */
+    candidate: string | undefined
+    /**
+     * The path the customer requested, when the caller has it.
+     *
+     * An exact comparison is stronger than the shape heuristic, so it is worth
+     * passing. `NuxtError.url` is not used for this: on a 404 it is the
+     * requesting URL, which is what we are trying to keep off the screen.
+     */
+    requestPath?: string
+}
+
+/**
+ * Does this error string hand the requester's own URL back to them?
+ *
+ * Catches both shapes the string can arrive in: the exact request path, and any
+ * bare route-shaped token (`/collection/all`, `/blog/x/y?a=1`). A customer
+ * sentence never contains one, so a false positive costs at most a plainer
+ * message — while a false negative leaks the failing URL to whoever asked for
+ * it.
+ */
+export function embedsRequestPath(text: string, requestPath?: string): boolean {
+    if (requestPath) {
+        const pathOnly = requestPath.split(/[?#]/)[0]
+        if (pathOnly.length > 1 && (text.includes(requestPath) || text.includes(pathOnly))) {
+            return true
+        }
+    }
+
+    // A token that starts at a `/` and runs to whitespace is route-shaped. This
+    // is what catches Nuxt's ``Page not found: ${to.fullPath}``, where the path
+    // is the last token and may carry a query string.
+    return /(?:^|\s)\/\S*/.test(text)
+}
+
+/**
+ * The sentence a customer is shown for a 404, with the URL guaranteed absent.
+ *
+ * STI-556 removed the path from the four typed routes, but it could not reach
+ * the common case: Nuxt raises that 404 from framework code
+ * (`nuxt/dist/pages/runtime/plugins/router.js`, ``statusText: `Page not found:
+ * ${to.fullPath}` ``) with no app-level hook to intercept it. `app/error.vue` is
+ * the one place every 404 passes through regardless of origin, so the last-line
+ * scrub lives here.
+ *
+ * A candidate that is already clean is returned untouched — that is what keeps
+ * "Collection not found" and "Product not found" on screen. Only a candidate
+ * that leaks the path is replaced, with the generic localized `page` string.
+ *
+ * Non-404s are returned as-is: this owns the not-found case, and inventing copy
+ * for a server fault would hide the operator's text.
+ */
+export function customerVisibleNotFoundMessage(input: CustomerVisibleNotFoundInput): string {
+    const candidate = (input.candidate ?? '').trim()
+
+    if (candidate !== '' && !embedsRequestPath(candidate, input.requestPath)) {
+        return candidate
+    }
+
+    return resolveNotFoundCopy({ resource: 'page', translate: input.translate }).statusText
+}

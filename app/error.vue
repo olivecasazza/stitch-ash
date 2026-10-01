@@ -3,6 +3,8 @@ import type { NuxtError } from '#app'
 
 import * as locales from '@nuxt/ui/locale'
 
+import { customerVisibleNotFoundMessage } from '~/utils/not-found'
+
 const props = defineProps<{
     error: NuxtError
 }>()
@@ -11,9 +13,32 @@ const { shopify: { shopName } } = useAppConfig()
 const { language } = useLocalization()
 const { id, init, get } = useCart()
 const localePath = useLocalePath()
+const { t } = useI18n()
+const route = useRoute()
 
 const lang = computed(() => locales[language.value].code)
 const dir = computed(() => locales[language.value].dir)
+
+/**
+ * STI-444: the 404 sentence a customer is shown, with the request path removed.
+ *
+ * `statusMessage` is rendered here, and for a URL that matched no route Nuxt
+ * builds it as `Page not found: ${to.fullPath}` in framework code, so every
+ * mistyped link echoed the failing URL back at the requester. The path also
+ * arrives in `error.url` and the server log, which is where operators want it.
+ */
+const errorMessage = computed(() => {
+    if (props.error.statusCode !== 404) {
+        return props.error.statusMessage || props.error.message
+    }
+
+    return customerVisibleNotFoundMessage({
+        resource: 'page',
+        translate: t,
+        candidate: props.error.statusMessage || props.error.message,
+        requestPath: route.path,
+    })
+})
 
 useHead({
     htmlAttrs: {
@@ -32,7 +57,7 @@ watch(id, value => !value ? init().then(get) : get(), { immediate: true })
             <main class="error-page wrap measure">
                 <div class="error-card">
                     <h1 class="error-code">{{ props.error.statusCode }}</h1>
-                    <p class="error-message">{{ props.error.statusMessage || props.error.message }}</p>
+                    <p class="error-message">{{ errorMessage }}</p>
                     <NuxtLink
                         :to="localePath('/')"
                         class="error-link"
