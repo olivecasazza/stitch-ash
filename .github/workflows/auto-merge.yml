@@ -33,8 +33,15 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      # STI-433: no extra scope is declared for the dispatch below, and that is
+      # deliberate. There is no "repository-dispatch" permission — actionlint
+      # rejects it, and GitHub rejects an unrecognised key inside `permissions`
+      # outright, which would make THIS ENTIRE WORKFLOW invalid and stop every
+      # PR from auto-merging. Worse than the bug being fixed. The dispatch is
+      # created with the same GITHUB_TOKEN as the merge, and any failure is
+      # caught and degraded to the */30 cron backstop rather than thrown.
     steps:
-      - name: Evaluate and enable auto-merge
+      - name: Arm auto-merge, then dispatch the merge commit for deploy
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -171,6 +178,7 @@ jobs:
 
             // Enable GitHub native auto-merge (squash)
             // This is idempotent — calling it when already enabled is fine.
+            let armed = false;
             try {
               await github.graphql(`
                 mutation EnableAutoMerge($prId: ID!) {
@@ -179,6 +187,7 @@ jobs:
                   }
                 }
               `, { prId: pr.node_id });
+              armed = true;
               core.info(`Auto-merge (squash) enabled on PR #${prNumber}.`);
             } catch (err) {
               // Enabling can legitimately fail while required checks are still
@@ -188,4 +197,94 @@ jobs:
               // workflow_run above, re-enters this job and the call is idempotent.
               core.warning(`enablePullRequestAutoMerge: ${err.message}`);
             }
+
+            // STI-433: dispatch the merge commit so it deploys.
+            //
+            // Auto-merge does NOT merge the instant it is enabled. The required
+            // checks are still reporting at this moment, so the merge happens
+            // some time after this job finishes — which is exactly why the
+            // rejected `workflow_run` chain (see deploy.yml) could not work:
+            // it fires on THIS run completing, before the merge commit exists.
+            //
+            // So wait for the merge to actually land, then tell deploy.yml which
+            // commit to publish. This needs no new secret: GitHub documents
+            // "With the exception of workflow_dispatch and repository_dispatch,
+            // other GITHUB_TOKEN-triggered events do not create workflow runs at
+            // all", so GITHUB_TOKEN can dispatch this itself.
+            //
+            // Bounds, because a job that waits forever is worse than no fix:
+            //   * mergeWait  — hard ceiling on the wait (5 min).
+            //   * backstop   — this is belt-and-braces with deploy.yml's */30
+            //                  cron, so a miss here costs at most one cron
+            //                  window, not a stuck site.
+            // A PR that is never merged simply times out and returns cleanly.
+            const mergeWait  = 5 * 60 * 1000;
+            const mergeStep  = 10 * 1000;
+            const mergeUntil = Date.now() + mergeWait;
+
+            const readMergedSha = async () => {
+              const { data: latest } = await github.rest.pulls.get({
+                owner, repo, pull_number: prNumber,
+              });
+              if (!latest.merged || !latest.merge_commit_sha) return null;
+              // merge_commit_sha can name a commit not yet reachable from the
+              // base branch; confirm it exists before handing it to a deploy.
+              try {
+                await github.rest.repos.getCommit({
+                  owner, repo, ref: latest.merge_commit_sha,
+                });
+              } catch {
+                return null;
+              }
+              return latest.merge_commit_sha;
+            };
+
+            const dispatchDeploy = async sha => {
+              try {
+                await github.rest.repos.createDispatchEvent({
+                  owner, repo,
+                  event_type: 'deploy-main',
+                  client_payload: {
+                    sha,
+                    pr: String(prNumber),
+                    source: 'auto-merge',
+                  },
+                });
+                core.info(`Dispatched deploy-main for ${sha}.`);
+              } catch (err) {
+                // Not fatal: the */30 cron in deploy.yml still reconciles drift,
+                // so a dispatch failure degrades to the pre-existing backstop
+                // rather than failing this run and masking the merge.
+                core.warning(`createDispatchEvent: ${err.message}`);
+              }
+            };
+
+            // This job re-enters on every check_suite/status/synchronize event
+            // and on the Semver Label workflow_run, so this block runs many
+            // times per PR. Most of those invocations are AFTER the merge, and
+            // waiting 5 minutes on each would burn a lot of CI time to
+            // rediscover a fact already true. Check the answer first and only
+            // wait when the merge genuinely has not happened yet.
+            const alreadyMergedSha = await readMergedSha();
+            if (alreadyMergedSha) {
+              core.info(`PR #${prNumber} already merged as ${alreadyMergedSha} — dispatching deploy.`);
+              await dispatchDeploy(alreadyMergedSha);
+              return;
+            }
+
+            core.info('Auto-merge armed; waiting for the merge to land…');
+            let mergeSha = null;
+            while (Date.now() < mergeUntil) {
+              await new Promise(r => setTimeout(r, mergeStep));
+              mergeSha = await readMergedSha();
+              if (mergeSha) break;
+            }
+
+            if (!mergeSha) {
+              core.info('PR did not merge within the wait — deploy.yml cron backstop will catch it.');
+              return;
+            }
+
+            core.info(`PR #${prNumber} merged as ${mergeSha} — dispatching deploy.`);
+            await dispatchDeploy(mergeSha);
 
