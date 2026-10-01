@@ -69,6 +69,14 @@ rounded:
   # it needs its own zeroed token. Mirrored as `--ui-radius: 0` in
   # app/assets/css/tokens.css.
   ui:   "0px"
+  # `prose` is the second vendor bridge (STI-603). @tailwindcss/typography
+  # hard-codes `border-radius: .375rem` on `.prose pre` and `.3125rem` on
+  # `.prose kbd` and exposes `--tw-prose-*` for COLOR only — there is no
+  # radius variable to set, so the plugin cannot be configured to emit 0.
+  # Zeroing it therefore needs an unlayered override rule, not a config
+  # value. Mirrored as `--radius-prose: 0` plus a `.prose` override in
+  # app/assets/css/tokens.css. See "Prose radius bridge (`rounded.prose`)".
+  prose: "0px"
 components:
   button-primary:
     backgroundColor: "{colors.white}"
@@ -452,6 +460,34 @@ edges takes `rounded-none` (or inherits the zeroed root), never `rounded`,
 `rounded-sm`, or `rounded-full`. `rounded-full` in particular is a pill and
 has no place in a square-edged system.
 
+### Prose radius bridge (`rounded.prose`)
+
+`@tailwindcss/typography` hard-codes a radius inside its prose rules:
+`.375rem` on `.prose :where(pre)` and `.3125rem` on `.prose :where(kbd)`.
+Unlike its colors, which are exposed as `--tw-prose-*` custom properties,
+**the radius is a literal in the plugin's own stylesheet and has no
+variable**, so no prose config value can zero it. It reaches the built CSS
+because `@nuxt/ui` pulls the plugin in transitively.
+
+The bridge is `rounded.prose: "0px"`, mirrored as `--radius-prose: 0` and an
+unlayered `.prose` override in `app/assets/css/tokens.css`. The override has
+to be unlayered: in the built stylesheet the plugin's rules sit inside
+`@layer utilities`, and an unlayered declaration beats a layered one at any
+specificity, so it needs neither `!important` nor a specificity arms race.
+
+This is a decision, not a workaround. The house rule is **zero radius
+everywhere with no exceptions**, and prose is not one. If prose styling is
+ever adopted, it renders square on the first day rather than reintroducing a
+4px corner that no source edit in `app/` can see.
+
+The honest scope limit: the override changes the **resolved** value, not the
+**emitted** bytes. The plugin still writes `.375rem` and `.3125rem` into the
+stylesheet, so both stay pinned in `scripts/ci/border-radius-ratchet.txt`.
+Those two entries are a *vendor-emission tolerance*, not a design allowance —
+they exist because the only way to delete the bytes is to drop the plugin,
+which is a dependency change, not a CSS one. If the plugin is ever dropped,
+the entries and the override both go.
+
 ## Components
 
 ### Buttons
@@ -549,7 +585,10 @@ has no place in a square-edged system.
 - Keep `tokens.css` in lockstep with this file. `--ink-black`,
   `--font-body`, `--radius-md` — every CSS custom property must trace
   to a token here. Vendor-shipped custom properties count too: see
-  `rounded.ui`.
+  `rounded.ui`. Vendor-shipped **geometry** counts the same way: a vendor
+  that hard-codes a radius instead of exposing a variable needs a
+  `rounded.*` bridge declared here before it is used, not after — see
+  `rounded.prose`.
 - Commit styling decisions here before they reach a component. PRs that
   introduce a color, type, or radius without a `DESIGN.md` update are
   rejected at QA.
@@ -567,6 +606,10 @@ has no place in a square-edged system.
   now load-bearing history rather than live guidance.
 - Don't reintroduce the deleted `radius-tight: 2px` token. Every
   `rounded:` key in this seed is `"0"`; future keys must also be `"0"`.
+- Don't adopt prose styling (`prose` / `Prose`) without `rounded.prose`
+  mirrored into `tokens.css` first. `@tailwindcss/typography`'s `.375rem`
+  pre and `.3125rem` kbd corners are the vendor's default, not a design
+  decision, and this system has no prose radius exception.
 - Don't add shadow, glow, gradient, blur, or `border-radius > 0`.
 - Don't use Tailwind/Nuxt-UI `rounded`, `rounded-sm`, `rounded-md`, or
   `rounded-full` on a component. They compile against `--ui-radius`, not

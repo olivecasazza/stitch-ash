@@ -88,6 +88,12 @@
   --radius-sm:   0; /* rounded.sm */
   --radius-md:   0; /* rounded.md */
   --radius-lg:   0; /* rounded.lg */
+  --radius-prose: 0; /* rounded.prose — the zeroed @tailwindcss/typography bridge.
+                       Declared so the chain stays top-down and `pnpm design:drift`
+                       can resolve rounded.prose; the override that actually applies it
+                       lives below the :root block and resolves through --radius-none,
+                       so the built CSS never emits a radius value outside the built-CSS
+                       radius gate's allowlist. */
 
   /* ─── Vendor radius bridge — mirrors DESIGN.md `rounded.ui` ("0px") ───────
      See "Third-party radius bridge (rounded.ui)" in DESIGN.md. @nuxt/ui ships
@@ -119,4 +125,39 @@
   --rule-control: 1px solid var(--outline);   /* rule-control — the form-control boundary,
                     colors.outline. The one exception to the border-rule rule: a control
                     boundary is not a decorative hairline, so SC 1.4.11 3:1 applies. */
+}
+
+/* ─── Prose radius bridge — mirrors DESIGN.md `rounded.prose` ("0px") ─────────
+   STI-603. See "Prose radius bridge (rounded.prose)" in DESIGN.md.
+
+   @tailwindcss/typography hard-codes `border-radius:.375rem` on
+   `.prose :where(pre)` and `.3125rem` on `.prose :where(kbd)`. It exposes
+   `--tw-prose-*` for COLOUR only — the radius is a literal in the plugin's own
+   stylesheet with no variable behind it, so no prose config value can zero it.
+   The plugin reaches the bundle because @nuxt/ui depends on it transitively.
+
+   Two details make this override actually win, and both are load-bearing:
+
+   1. UNLAYERED. In the built stylesheet these rules sit inside `@layer
+      utilities`. Unlayered declarations beat layered ones at ANY specificity,
+      so this needs no `!important` and no specificity arms race.
+   2. THE VENDOR'S OWN SELECTOR SHAPE. `prose` is 0-1-0 on its own; `:where()`
+      and `:not(:where())` both contribute 0. Mirroring the plugin's selector
+      exactly means the tie is broken on layer order alone, which is the part
+      that is guaranteed — not on a fragility in the plugin's selector list.
+
+   The value resolves through `--radius-none`, the system's own zero-radius
+   token, rather than a prose-specific variable: every rounded.* key in
+   DESIGN.md is "0px", so a second zero would be a second name for one value,
+   and `var(--radius-none)` is already on built-css-radius-gate.sh's allowlist
+   whereas any new variable would have to widen it.
+
+   Scope limit, stated so nobody reads this as "the literals are gone": this
+   changes the RESOLVED radius. The plugin still writes .375rem and .3125rem
+   into the stylesheet, which is why both stay pinned in
+   scripts/ci/border-radius-ratchet.txt. Deleting the bytes means dropping the
+   plugin, which is a dependency change and deliberately out of scope. */
+.prose :where(pre):not(:where([class~=not-prose],[class~=not-prose] *)),
+.prose :where(kbd):not(:where([class~=not-prose],[class~=not-prose] *)) {
+  border-radius: var(--radius-none); /* rounded.prose */
 }
