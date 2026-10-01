@@ -28,9 +28,20 @@
 #
 # .3125rem — selector: .prose :where(kbd):not(:where([class~=not-prose],...))
 # .375rem  — selector: .prose :where(pre):not(:where([class~=not-prose],...))
-# Hard-coded inside @tailwindcss/typography ^0.5.19. Nothing in app/ uses prose
-# styling, so these are unreachable, but the plugin ships them unconditionally
-# and app/ cannot configure its per-element radius.
+# Hard-coded inside @tailwindcss/typography ^0.5.19 as `rem(5)` / `rem(6)`.
+# Unlike its colours the radius has no --tw-prose-* variable behind it, so it
+# cannot be configured to 0 — the plugin writes these bytes whatever we do.
+#
+# STI-603 changed WHY they are tolerated, not that they are. They are now a
+# vendor-emission tolerance with a rendered-value answer: DESIGN.md declares
+# `rounded.prose: "0px"` and tokens.css ships an unlayered override, so the
+# resolved radius on the live site is 0 even though the literal is still in the
+# artifact. The gate reads the artifact, so it still sees them and still needs
+# the entries. Do not read them as an approved radius.
+#
+# These two entries are removed the day the plugin is dropped. That is a
+# dependency change (@nuxt/ui pulls it in transitively), not a CSS one, so it is
+# deliberately out of scope here.
 # ---------------------------------------------------------------------------
 
 .25rem
