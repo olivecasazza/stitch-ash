@@ -51,6 +51,32 @@ jobs:
       - name: Build
         run: pnpm build
 
+  # STI-601: the deploy freshness gate was an inline `run:` block whose only
+  # signal was run-level `conclusion`. A run whose `deploy` job was SKIPPED
+  # still reports `success`, so one green no-op satisfied the gate forever and
+  # every later cron firing cited that no-op — the backstop could stop healing
+  # drift while staying green indefinitely. The predicate now lives in
+  # scripts/ci/deploy-freshness-gate.sh and filters on the `deploy` JOB's
+  # conclusion.
+  #
+  # This job runs the self-test, not the gate: the gate answers "is live behind
+  # main?", which is a live-environment question and would fail every PR by
+  # design. The self-test is the part that can regress silently. It is offline
+  # (stubbed gh/git reading checked-in-shape fixtures), needs no token and no
+  # Node, and it goes RED against the pre-STI-601 predicate — 15 of 19 assertions
+  # fail — which is the only evidence that it tests the right thing.
+  # See docs/STI-601-freshness-gate.md.
+  deploy-freshness-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Self-test the deploy freshness gate
+        run: ./scripts/ci/deploy-freshness-gate.test.sh
+
   # STI-538: product status is declared twice — catalog/products/*.yaml says
   # ACTIVE, nixlab nix/tofu/shopify/terranix.nix says "draft". The live store is
   # ACTIVE on all three SKUs, and the terranix resources use update_method=PUT,

@@ -247,10 +247,29 @@ jobs:
   # Push and manual deploys are never skipped, so an explicit redeploy always
   # rebuilds and republishes.
   #
-  # "Already live" == the head SHA of the most recent SUCCESSFUL run of this
-  # workflow on main equals main's current head. Any error reading that history
-  # (first run after this change lands, API blip, missing permission) fails
-  # OPEN and deploys, so the gate can never be the reason the site stays stale.
+  # "Already live" == SOME successful run of this workflow carried main's current
+  # head AND its `deploy` job actually concluded `success`. Any error reading
+  # that history (first run after this change lands, API blip, missing
+  # permission, unreadable jobs payload) fails OPEN and deploys, so the gate can
+  # never be the reason the site stays stale.
+  #
+  # STI-601: the second half of that sentence — the `deploy` JOB conclusion —
+  # is the fix, and it is load-bearing. The predicate used to read run-level
+  # `conclusion` only, and a run whose `deploy` job was SKIPPED still reports run
+  # conclusion `success`. So one green no-op satisfied the predicate forever and
+  # every later firing cited that no-op in turn: the backstop could stop healing
+  # drift while staying green indefinitely. Measured 2026-10-01, run 36803396902
+  # (`fresh-check: success`, `deploy: skipped`, run `success`) which found nothing
+  # to do by citing run 36785970511 — itself `deploy: skipped`. Evidence and the
+  # full before/after in docs/STI-601-freshness-gate.md.
+  #
+  # The predicate lives in scripts/ci/deploy-freshness-gate.sh rather than inline
+  # here because it is now load-bearing enough to deserve a test, and
+  # deploy-freshness-gate.test.sh runs offline in under a second. That test goes
+  # red against the pre-STI-601 predicate (12 of 15 assertions fail), which is
+  # the only evidence that it is testing the right thing. pr-checks.yml runs it
+  # on every PR, so a future edit to the predicate cannot silently regress.
+  #
   # STI-434: this job used to be gated `if: github.event_name == 'schedule'`.
   # Because GitHub had delivered no schedule event to this repo at the time
   # (verified through the raw API rather than the `gh run list --event`
@@ -279,54 +298,36 @@ jobs:
       contents: read
       actions: read
     steps:
-      - name: Compare main against last successful deploy
+      # STI-601: the predicate now lives in the repo so it can be tested. A
+      # `continue-on-error` checkout means a checkout failure cannot strand the
+      # run: the step below then finds no script and fails OPEN.
+      - name: Checkout freshness gate
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ci
+          sparse-checkout-cone-mode: true
+
+      - name: Compare main against last real deploy
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
         run: |
           set -uo pipefail
-          head_sha="$(git ls-remote "https://github.com/${REPO}.git" refs/heads/main | cut -f1)"
-
-          # Validate before the value is interpolated into the jq program below.
-          # A read failure must fail OPEN (deploy) rather than quietly build a
-          # filter that matches nothing and looks like drift forever.
-          if ! [[ "${head_sha}" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "Could not read main's head — failing OPEN and deploying."
-            echo "needed=true" >> "$GITHUB_OUTPUT"
-            exit 0
+          if [ -f ./scripts/ci/deploy-freshness-gate.sh ]; then
+            ./scripts/ci/deploy-freshness-gate.sh \
+              --repo "${{ github.repository }}" \
+              --github-output "$GITHUB_OUTPUT" || true
+          else
+            echo "Freshness gate script is unavailable — failing OPEN and deploying."
           fi
-          echo "main head: ${head_sha}"
-
-          # "Already live" == SOME recent successful run of this workflow
-          # published exactly main's current head.
-          #
-          # STI-434: the previous version took the newest successful run and
-          # filtered it to `head_branch == "main"`. That is correct for push,
-          # dispatch and schedule runs but silently ignores merge-triggered
-          # runs, which report `head_branch` as the PR's head branch
-          # (e.g. "docs/STI-434-trigger-proof") rather than "main" — even
-          # though the job checked out and published main via DEPLOY_REF. With
-          # the merge trigger now the primary path, that filter would make the
-          # newest successful deploys invisible and report phantom drift
-          # forever.
-          #
-          # A merge-triggered run records the PRE-merge PR head in head_sha,
-          # which can never equal the merge commit it published, so the test
-          # cannot simply be "does the newest run's head_sha match". Matching
-          # any recent successful run makes it order-independent and correct
-          # for all three shapes: push/dispatch/schedule runs record the commit
-          # they published, and a merge-triggered run's own push sibling records
-          # the same commit.
-          live="$(gh api -X GET "repos/${REPO}/actions/workflows/deploy.yml/runs" \
-            -f status=success -f per_page=100 \
-            --jq "[.workflow_runs[] | select(.head_sha == \"${head_sha}\") | .id] | .[0] // empty" 2>&1)" || live=""
-
-          if [ -z "${live}" ]; then
-            echo "No recent successful deploy published main ${head_sha} — deploying."
+          # Belt and braces. The script writes `needed` on every path including
+          # its own failures, but if it is missing, unparseable, or a future edit
+          # exits before writing one, `needed` must still default to `true`. An
+          # empty `needed` on a schedule event reads as "not needed" to the `if`
+          # on the deploy job, which is the exact silent-drift failure STI-601
+          # is filed about — never let a missing output become a green no-op.
+          if ! grep -q '^needed=' "$GITHUB_OUTPUT"; then
+            echo "No verdict was produced by the freshness gate — defaulting to deploy."
             echo "needed=true" >> "$GITHUB_OUTPUT"
-            exit 0
           fi
-
-          echo "run ${live} already published main ${head_sha} — nothing to deploy."
-          echo "needed=false" >> "$GITHUB_OUTPUT"
