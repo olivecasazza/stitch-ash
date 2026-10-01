@@ -35,6 +35,19 @@ filled report existed.
 > The remaining open [STI-439](/STI/issues/STI-439) item is photography only.
 > Status label only — no number changed.
 
+> **Fifth correction, 2026-10-01 (period close).** The fourth amendment and the
+> re-verification appendix below both state that the hoodie lead-time item was
+> resolved because *"the catalog no longer restates a lead time."* **That
+> reason is false.** Re-fetched at period close, `product/sku-001` shows
+> `2–3 weeks` **three times** — sourced from `catalog/products/sku-001.yaml:16`
+> — and `3–5 weeks` zero times. The contradiction was removed by deleting the
+> lone `3–5 weeks` occurrence, not by removing the lead time. The *conclusion*
+> (no longer self-contradictory) stands; the *stated mechanism* does not, and
+> the surviving value is an unconfirmed customer-facing promise. Full correction
+> with evidence: `docs/merch/2026-10-01-september-period-close.md` § Correction 1,
+> and [STI-609](/STI/issues/STI-609). **No revenue figure changed** — the $0.00
+> is a gate fact, independent of copy.
+
 Structure and the binding provenance rules are defined in
 `docs/merch/2026-09-27-kpi-report-template.md` and are not restated here.
 
@@ -338,6 +351,14 @@ The store-copy pass §3 documented a real `2–3 weeks` vs `3–5 weeks`
 contradiction; the shipped fix removed the catalog's restatement of a
 commercial fact Shopify owns, and the live PDP now defers to Shopify. The page
 no longer contradicts itself.
+
+> **This row's *stated reason* was later falsified — see the fifth correction at
+> the top of this document and `2026-10-01-september-period-close.md` §
+> Correction 1.** The check below asserted "no `2–3 weeks` / `3–5 weeks` on the
+> page" from the `Shipping & Returns` accordion alone. The lead time was not
+> removed from the catalog; it survives in the product description three times.
+> The "no contradiction" conclusion happens to hold, but it was not established
+> by this evidence. Do not cite this row as proof the lead time is gone.
 
 **Note on the product URL used for the photography check:** the PDP route is
 `/product/<handle>` (`sku-001`), not `/products/<handle>`. An initial probe of
