@@ -304,17 +304,88 @@ the ownership gate is structurally blind.
 
 ### Wiring
 
-`scripts/ci/deploy-shopify-preflight.test.sh` — **16 assertions**, runs in
+`scripts/ci/deploy-shopify-preflight.test.sh` — **21 assertions**, runs in
 `pr-checks.yml` on every PR, no Node and no secrets. It includes the
 status-only "fix" fixture, so the false green that STI-557 had to correct
 cannot come back through this door either. `scripts/ci/render-terranix-fixture.py`
 renders the committed terranix fixture into the JSON shape the real deploy
-produces, so the suite tests the **real** declaration rather than a hand-typed
-reduction; the last assertion runs against a live nixlab clone when
+produces; the last assertion runs against a live nixlab clone when
 `NIXLAB_DIR` is set, and reports **SKIPPED (not a pass)** when it is not.
 
-**What it does not do:** it does not remove the terranix fields, and it does not
-decide the owner. The hazard is now *blocked* rather than *fixed*; the fix is
-still [STI-531](/STI/issues/STI-531), still operator-side, still not done. A
-guard that turns a loud silent-failure into a loud refusal is not a reason to
-leave the declaration in place.
+### What is NOT wired: the guard does not run in the deploy
+
+**This section corrects a claim an earlier draft of this ADR made.** That draft
+said the hazard is "now *blocked* rather than *fixed*". It is not blocked. The
+guard is built, correct, and tested — and **nothing invokes it when the deploy
+runs.** Verified 2026-10-01 by reading nixlab's `apps/deploy-shopify.nix` at
+blob `390cd96eeb699cacb04a0d8150bc0968642558c4`:
+
+```
+tofu plan -lock=false -out="$WORK_DIR/plan"
+if [ "$1" = "--auto-approve" ]; then CONFIRM="yes"; else read -rp "Apply? (yes/no): " CONFIRM; fi
+if [ "$CONFIRM" = "yes" ]; then tofu apply -lock=false "$WORK_DIR/plan"
+```
+
+Zero references to `preflight`, `ownership-gate`, `catalog/products`, or
+`catalog:plan` anywhere in that file. The script's own header had already
+recorded this ("apps/deploy-shopify.nix runs ZERO checks before `tofu apply`"),
+while the ADR's prose contradicted it a few lines down. Where two statements in
+one document disagree, the operative one is the one a machine can check.
+
+So the honest statement of today's state:
+
+- `nix run .#deploy-shopify` would still de-list all three live ACTIVE products,
+  and nothing in that path asks the guard first. `--auto-approve` skips even the
+  y/n prompt.
+- The guard refuses the de-listing correctly. Proven this run against the
+  **real** declaration, not the fixture: rendered the live
+  `nix/tofu/shopify/terranix.nix` (blob `844ce333`) to the JSON shape terranix
+  hands `tofu apply`, and `deploy-shopify-preflight.sh --config` exited **1**
+  with all 6 hazards — 3 de-listing, 3 checkout-blocking.
+- Wiring it into `deploy-shopify.nix` is a one-command change in **nixlab**, and
+  nixlab is a private repo this workflow cannot write or read. It is operator
+  work, same as [STI-531](/STI/issues/STI-531), and it is the thing that turns
+  this guard from a tested script into a real control.
+
+A guard that is correct but unwired is a document, not a control. It should not
+be counted as containment in any risk assessment, and no downstream decision
+should assume `deploy-shopify` is safe to run unattended.
+
+### Keeping the guard pointed at the real file (STI-561)
+
+Because nixlab is private, the only terranix CI can see is the frozen fixture at
+`scripts/ci/fixtures/catalog-status-ownership/nixlab/`. That fixture has already
+drifted materially from the file it stands in for — measured against blob
+`844ce333`: `sku-002` price `22.00` → `35.00`, `sku-003` type `Accessories` →
+`Stickers`, `sku-001` gaining `L`/`XL`/`XXL` variants. The drift so far misses
+every field the guard reads, so today's verdicts are still correct. Nothing
+enforced that, and nothing would have.
+
+`scripts/ci/terranix-projection-pin.sh` pins the exact
+`(handle, status, inventory_policy)` projection of the real file, so the next
+drift onto a guard-relevant field is a reported mismatch rather than a green job
+that has quietly stopped parsing reality:
+
+```sh
+gh api repos/casazza-info/nixlab/contents/nix/tofu/shopify/terranix.nix \
+  --jq .content | base64 -d > /tmp/terranix.nix
+./scripts/ci/terranix-projection-pin.sh --compare /tmp/terranix.nix
+```
+
+`source-bytes` is recorded but deliberately **not compared**: pinning the byte
+count would fire on every cosmetic edit to a private file nobody in CI can
+read, and a tripwire that cries wolf on copy changes gets ignored. The suite
+asserts both halves of that contract — cosmetic drift stays quiet, a renamed
+handle or a changed status/policy fails.
+
+This is deliberately **not** a `pr-checks.yml` step. A job that cannot fetch the
+file it pins is green by construction, which is the defect STI-561 documents and
+this repo has already shipped twice. The pin is honest because it is checked by
+a run that can read the file.
+
+**What it does not do:** it does not remove the terranix fields, it does not
+decide the owner, and it does not wire the guard into the deploy. The hazard is
+still open. The fix is still [STI-531](/STI/issues/STI-531), still
+operator-side, still not done. A guard that turns a loud silent-failure into a
+loud refusal is not a reason to leave the declaration in place — and a refusal
+nobody has wired in is not yet a refusal at all.

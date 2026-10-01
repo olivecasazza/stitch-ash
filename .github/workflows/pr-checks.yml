@@ -100,13 +100,27 @@ jobs:
       # GENERATED config.tf.json -- the bytes a `tofu apply` would send to
       # Shopify -- against this repo's catalog, and refuses a plan that would
       # de-list a catalog-ACTIVE product or deny checkout on a catalog-CONTINUE
-      # one. It is the check that stands between the terranix declaration and a
-      # live store, independent of whether the two repos are co-located.
-      #
-      # It runs its own fixture suite here. The suite pins the status-only
+      # one. It runs its own fixture suite here. The suite pins the status-only
       # "fix" that made the v1 ownership gate go green while
       # inventory_policy = "deny" stood untouched, and pins that an unreadable
       # or empty config is a failure rather than a pass.
+      #
+      # WHAT THIS IS NOT: this job does not protect the deploy. Nothing in
+      # nixlab's apps/deploy-shopify.nix calls deploy-shopify-preflight.sh --
+      # verified 2026-10-01 at blob 390cd96, which runs `tofu plan`, prompts
+      # (or skips the prompt under --auto-approve), and applies. So the guard
+      # is correct and tested here, but unwired at the point of harm. Treating
+      # this green job as "deploy-shopify is safe" would be a false claim;
+      # the wiring is operator-side nixlab work, same as STI-531.
+      #
+      # STI-561 also showed the committed terranix fixture has drifted from the
+      # real private file it stands in for. That drift currently misses every
+      # field the guard reads, so the verdicts hold. Nothing enforces that,
+      # which is why scripts/ci/terranix-projection-pin.sh pins the real
+      # file's (handle, status, inventory_policy) projection for a run that can
+      # fetch it. It is deliberately NOT a step here: a job that cannot read the
+      # file it pins is green by construction, which is the defect STI-561
+      # documents.
       - name: Test deploy-shopify preflight guard
         run: ./scripts/ci/deploy-shopify-preflight.test.sh
 

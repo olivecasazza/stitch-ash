@@ -1,0 +1,21 @@
+# terranix projection pin — regenerate, do not hand-edit.
+#
+# The exact (handle, status, inventory_policy) projection of the nixlab
+# terranix that scripts/ci/deploy-shopify-preflight.sh is tested against,
+# plus the byte size of the source file. nixlab is private, so CI cannot
+# fetch it and cannot check this pin (STI-561). Verify it from a context
+# that can read the repo:
+#
+#   gh api repos/casazza-info/nixlab/contents/nix/tofu/shopify/terranix.nix \
+#     --jq .content | base64 -d > /tmp/terranix.nix
+#   ./scripts/ci/terranix-projection-pin.sh --compare /tmp/terranix.nix
+#
+# Verified against casazza-info/nixlab blob 844ce33352b12d75b523cdd2042f4a059b2301ea
+# on 2026-10-01. See docs/decisions/2026-09-28-catalog-source-of-truth.md.
+
+sku-001	draft	deny	product_hoodie
+sku-002	draft	deny	product_lanyard
+sku-003	draft	deny	product_sticker
+products	3
+projection-sha256	0230fc408503d64269d74299b504f48aae2bf2a33722061ffd4908a2261b64d2
+source-bytes	5848

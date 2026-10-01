@@ -254,6 +254,103 @@ else
   echo "  --   (no live nixlab clone: real-config check SKIPPED, not passed)"
 fi
 
+# ── 12. The projection pin: drift must be a signal, not silence (STI-561) ────
+# Everything above is hermetic. It proves the guard compares correctly, and it
+# renders the committed FIXTURE — a hand-frozen reduction of a file in a private
+# repo that CI cannot fetch. So the one thing no test here can prove is that the
+# guard still describes the REAL declaration.
+#
+# The fixture has already drifted from the live file it stands in for (sku-002
+# price 22.00 -> 35.00, sku-003 type Accessories -> Stickers, sku-001 gaining
+# L/XL/XXL variants, and so on). That drift happened to miss every field the
+# guard reads, so today's verdicts are still right. Nothing enforced that.
+#
+# terranix-projection-pin.sh is what makes it enforced going forward: it pins
+# the exact (handle, status, inventory_policy) projection of the real file, so
+# the next drift onto a guard-relevant field is a reported mismatch instead of a
+# green job that quietly stopped parsing reality.
+#
+# These assertions pin the pin itself. A drift detector that cannot fail is
+# worse than none, because it is trusted.
+PIN="$REPO_ROOT/scripts/ci/terranix-projection-pin.sh"
+PINNED_FIXTURE="$REPO_ROOT/scripts/ci/fixtures/catalog-status-ownership/nixlab/nix/tofu/shopify/terranix.nix"
+PIN_FILE="$REPO_ROOT/scripts/ci/fixtures/catalog-status-ownership/terranix-projection.pin"
+
+if [ -f "$PIN" ] && [ -f "$PIN_FILE" ] && [ -f "$PINNED_FIXTURE" ]; then
+  # The pin must describe the same file the guard is tested against, or it is
+  # pinning nothing at all.
+  out="$("$PIN" --compare "$PINNED_FIXTURE" 2>&1)" && rc=0 || rc=$?
+  if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "MATCH"; then
+    ok "the projection pin matches the committed terranix fixture"
+  else
+    bad "pin should MATCH the committed fixture (got $rc)"
+  fi
+
+  # Cosmetic drift must NOT fire. A tripwire that cries wolf on copy edits gets
+  # ignored, and an ignored tripwire is the defect it was built to catch. This
+  # is the real drift already present between the fixture and the live file.
+  cp "$PINNED_FIXTURE" "$WORK/cosmetic.nix"
+  python3 - "$WORK/cosmetic.nix" <<'PY'
+import re, sys
+p = sys.argv[1]
+src = open(p, encoding="utf-8").read()
+src = src.replace('price = "22.00"', 'price = "35.00"')
+src = src.replace('product_type = "Accessories"', 'product_type = "Stickers"')
+open(p, "w", encoding="utf-8").write(src)
+PY
+  out="$("$PIN" --compare "$WORK/cosmetic.nix" 2>&1)" && rc=0 || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    ok "cosmetic drift (price, product_type) does not fire the pin"
+  else
+    bad "cosmetic drift should not fire the pin (got $rc): $out"
+  fi
+
+  # A renamed handle IS guard-relevant: the guard joins config handles against
+  # catalog handles, so a rename silently drops a product from the comparison.
+  cp "$PINNED_FIXTURE" "$WORK/renamed.nix"
+  sed -i.bak 's/handle = "sku-001"/handle = "sku-001-renamed"/' "$WORK/renamed.nix"
+  rm -f "$WORK/renamed.nix.bak"
+  out="$("$PIN" --compare "$WORK/renamed.nix" 2>&1)" && rc=0 || rc=$?
+  if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q "MISMATCH"; then
+    ok "a renamed handle fires the pin (a product dropping out of the comparison)"
+  else
+    bad "renamed handle should MISMATCH (got $rc): $out"
+  fi
+
+  # So must a status that moves, and a policy that moves — the two fields whose
+  # divergence is the whole hazard (STI-557).
+  cp "$PINNED_FIXTURE" "$WORK/status.nix"
+  sed -i.bak 's/status = "draft"/status = "active"/' "$WORK/status.nix"
+  rm -f "$WORK/status.nix.bak"
+  out="$("$PIN" --compare "$WORK/status.nix" 2>&1)" && rc=0 || rc=$?
+  if [ "$rc" -eq 1 ]; then
+    ok "a status change fires the pin"
+  else
+    bad "status change should MISMATCH (got $rc)"
+  fi
+
+  cp "$PINNED_FIXTURE" "$WORK/policy.nix"
+  sed -i.bak 's/inventory_policy = "deny"/inventory_policy = "continue"/' "$WORK/policy.nix"
+  rm -f "$WORK/policy.nix.bak"
+  out="$("$PIN" --compare "$WORK/policy.nix" 2>&1)" && rc=0 || rc=$?
+  if [ "$rc" -eq 1 ]; then
+    ok "an inventory_policy change fires the pin"
+  else
+    bad "inventory_policy change should MISMATCH (got $rc)"
+  fi
+
+  # An empty/unparseable file must not pin as an agreement.
+  echo '# nothing here' > "$WORK/empty.nix"
+  out="$("$PIN" --compare "$WORK/empty.nix" 2>&1)" && rc=0 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    ok "a terranix file with no products is an error, not a match"
+  else
+    bad "an empty terranix must not MATCH (got $rc)"
+  fi
+else
+  bad "terranix projection pin or its fixture is missing from the repo"
+fi
+
 echo ""
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]
