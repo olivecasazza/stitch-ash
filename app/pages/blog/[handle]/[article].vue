@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { resolveNotFoundCopy } from '~/utils/not-found'
+
 definePageMeta({
     validate: route =>
         typeof route.params.handle === 'string'
@@ -7,8 +9,10 @@ definePageMeta({
 
 const { shopify: { shopName } } = useAppConfig()
 const localePath = useLocalePath()
-const { locale } = useI18n()
+const { locale, t } = useI18n()
 const route = useRoute()
+
+const notFoundCopy = resolveNotFoundCopy({ resource: 'article', translate: t })
 
 const handle = computed(() => route.params.handle as string)
 const article = computed(() => route.params.article as string)
@@ -35,10 +39,12 @@ const { data: blog, error } = await useStorefrontData(`article-${locale.value}-$
 const articleData = computed(() => blog.value?.articleByHandle)
 
 if (!articleData.value || error.value) {
+    // STI-556: `statusText` no longer carries `route.fullPath`; see
+    // app/pages/collection/[handle].vue for the full note.
     throw createError({
         status: 404,
-        statusText: `${$t('error.notFound')}: ${route.fullPath}`,
-        message: error.value?.message || $t('error.article'),
+        statusText: notFoundCopy.statusText,
+        message: notFoundCopy.statusText,
     })
 }
 

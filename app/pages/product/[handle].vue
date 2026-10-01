@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PRODUCTS } from '~/data/products'
+import { resolveNotFoundCopy } from '~/utils/not-found'
 import { resolvePdpResolution, resolveSizeValues, resolveVariantId } from '~/utils/pdp-product'
 
 definePageMeta({
@@ -9,6 +10,9 @@ definePageMeta({
 const route = useRoute()
 const handle = computed(() => route.params.handle as string)
 const staticProduct = computed(() => PRODUCTS.find(p => p.handle === handle.value))
+
+const { t } = useI18n()
+const notFoundCopy = resolveNotFoundCopy({ resource: 'product', translate: t })
 
 const carousel = useTemplateRef('carousel')
 
@@ -76,9 +80,15 @@ const resolution = resolvePdpResolution({
 if (resolution === 'not_found') {
   // STI-444: no `fatal: true`, matching the sibling collection/blog routes —
   // it makes nitro's prod handler replace the real message with "Server Error".
+  //
+  // STI-556: this route also hardcoded the English "Product not found" instead
+  // of the `error.product` key the other three routes translate, and it
+  // interpolated `route.fullPath` into what the customer reads. Both are fixed
+  // by resolving the string through the shared not-found copy.
   throw createError({
     statusCode: 404,
-    statusMessage: `Product not found: ${route.fullPath}`,
+    statusMessage: notFoundCopy.statusText,
+    message: notFoundCopy.statusText,
   })
 }
 
