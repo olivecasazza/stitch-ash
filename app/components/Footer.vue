@@ -85,7 +85,18 @@
 .foot-mark:hover,
 .foot-mark:focus-visible {
   opacity: 1;
-  outline: none;
+}
+
+/* STI-614. Same defect as `.logo-link` in the header: `outline: none` left the
+   opacity nudge as the whole focus affordance, and `opacity: 1` is only a half
+   step from the resting 0.8 — no shape change, no boundary, so SC 2.4.7 fails
+   and so does SC 1.4.11. Consumes the canonical `components.focus-ring` token
+   (2px `colors.focus` at 4px offset), matching `.btn-primary:focus-visible`,
+   `.product-card:focus-visible` and `.cart-pill:focus-visible`. The opacity
+   hover treatment above stays; only the suppression is removed. */
+.foot-mark:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
 }
 
 .footer-meta {
@@ -117,6 +128,17 @@
 .footer-link:hover,
 .footer-link:focus-visible {
   color: var(--bone);
-  outline: none;
+}
+
+/* STI-614. The footer's counterpart to the header's nav links, minus the
+   underline: `.footer-link` has no `::after` at all, so unlike `.nav-link` its
+   only focus affordance was a grey-400 -> bone colour shift on an identically
+   shaped, identically positioned control. That is not a focus indicator under
+   SC 2.4.7. Gives it the canonical `components.focus-ring` token (2px
+   `colors.focus` at 4px offset). `bone` #E8E8E8 stays as the hover tint, so
+   hover is visually unchanged and keyboard focus gains a ring. */
+.footer-link:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
 }
 </style>
