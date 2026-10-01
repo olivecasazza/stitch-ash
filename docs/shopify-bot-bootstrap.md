@@ -119,6 +119,27 @@ Set `NIXLAB_DIR` or `SHOPIFY_SECRET_FILE` if your checkout layout differs.
 
 The reconciler uses `stitch_ash.catalog_id` as stable product identity and refuses to apply when a remote product has a mismatched catalog id.
 
+### Reading the plan's reported-only blocks
+
+`plan` prints two blocks that are **reported, never applied**, and neither
+contributes to the `N pending product actions` count:
+
+- **shipping** — `catalog:apply` does not write delivery profiles.
+- **inventory** (STI-605) — `catalog:apply` does not write stock. `ProductInput`
+  has no inventory field; stock moves only through `inventoryAdjustQuantities`
+  against an `inventoryItemId` this reconciler never resolves. So the plan
+  reports each live variant at or below zero, flags a declared
+  `inventoryQuantity` the store disagrees with, and calls out any variant at
+  **NEGATIVE** stock on its own `OVERSELL` line: zero is an empty shelf, and
+  negative is an order the store has already accepted for stock it does not
+  have.
+
+Stock is a spend decision, so fixing it is a human gate: count the real units,
+then either write the count through the Admin UI/API or flip
+`inventoryPolicy: DENY` on a variant you have actually stocked. Do not treat
+`0 pending product actions` as "stock is fine" — it means the catalog is
+reconciled, nothing more.
+
 ## Fulfillment/tracking workflow
 
 Tracking is runtime state, not Git state. Validate a tracking operation with:
