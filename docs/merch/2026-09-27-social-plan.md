@@ -40,15 +40,37 @@ communities that are not aesthetic-apparel at all — `r/embroidery` rewards it
 directly.
 
 **C. Construction spec (25%).** The unglamorous facts: fleece weight, seam
-construction, why the hoodie is 2–3 weeks made-to-order rather than pulled from
+construction, why the hoodie is made-to-order rather than pulled from
 a bin. Text and stills, no video. Cheapest to make, and it is the bucket that
 answers the "$185 for a hoodie" objection *before* the objection is asked.
+Lead-time wording is constrained by the STI-609 note below: describe the
+process, not a number.
 
-> Use **2–3 weeks** for the hoodie in all social copy — that is what Shopify
-> serves live and it is the system of record. The repo catalog still says
-> 3–5 weeks for the hoodie; that contradiction is finding #3 in the
-> [store copy pass](2026-09-27-store-copy-pass.md) and must be resolved before
-> launch so the two never disagree in public.
+> **UNVERIFIED — DO NOT POST `2–3 weeks` AS FACT (STI-609, 2026-10-02).**
+> This blockquote previously instructed social copy to use **2–3 weeks** because
+> "Shopify is the system of record". That reasoning was wrong on both halves, and
+> the instruction is withdrawn:
+>
+> 1. **The contradiction it warned about no longer exists.** It said the repo
+>    catalog "still says 3–5 weeks". Measured at `origin/main`
+>    `5b624cd4`, `catalog/products/sku-001.yaml:16` now reads `2–3 weeks`, and
+>    the single `3–5 weeks` string was removed from
+>    `app/data/products.ts` `HOODIE_DETAILS.Shipping & Returns`.
+> 2. **"Shopify is the system of record" does not make it verified.** Shopify is
+>    the system of record for *merchandising copy*. It is not evidence of a
+>    *production schedule*. Nothing in the repo, on the live site, or in any
+>    supplier quote ties `2–3 weeks` to real capacity. Being restated by the
+>    commerce system is not provenance.
+>
+> **What to post instead:** the made-to-order *process* without a number —
+> "made to order, we embroider each one before it ships". A concrete lead time
+> is a delivery commitment; publishing an unsourced one on a $185 flagship is the
+> STI-226 failure shape (an unverified claim published with the confidence of a
+> measured one). Substitute a real figure here only once a supplier quote
+> exists and [STI-609](/STI/issues/STI-609) carries it.
+>
+> Note the en dash: the live copy uses U+2013 (`2–3 weeks`). An ASCII-only grep
+> for `2-3 weeks` returns **zero matches** and will read as "already fixed".
 
 **Not a bucket:** mood shots. Black-on-black is unphotographable as mood and
 indistinguishable from every other dark brand. A mood post is a mood post from
@@ -63,7 +85,7 @@ rules, not to this cadence.
 | --- | --- | --- | --- | --- |
 | 1 | Establish the claim | Sleeve mark under direct light vs flat | Digitise a mark, 20s | Why black on black (the hero line, in a post) |
 | 2 | Construction | Stitch-out macro, thread tension | Hoop set-up, time-lapse | Fleece weight + why not a cheap blank |
-| 3 | The object | Sticker patch: peel, press, result | Two-pass build explained | Made-to-order: what 2–3 weeks buys |
+| 3 | The object | Sticker patch: peel, press, result | Two-pass build explained | Made-to-order: what the wait buys (no number — STI-609) |
 | 4 | The person | Garment in wear, one frame, no styling | What we rejected and why | Capsule close: three SKUs, one construction logic |
 
 Week 4 is the natural pivot to launch content — the account has four weeks of

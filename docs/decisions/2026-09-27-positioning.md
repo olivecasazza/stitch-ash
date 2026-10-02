@@ -103,8 +103,14 @@ invites the comparison we do not want.
   pricing model is challenged, challenge the anchor message first — see
   `docs/merch/2026-09-27-pricing-margin.md`.
 - "Made to order, 2–3 weeks" is a stated feature and must be consistent across
-  Shopify and the repo catalog. It currently is not; the hoodie catalog copy
-  says 3–5 weeks against Shopify's 2–3 weeks.
+  Shopify and the repo catalog. **Update 2026-10-02 (STI-609):** they are now
+  consistent — the catalog's `3–5 weeks` is gone and
+  `catalog/products/sku-001.yaml:16` reads `2–3 weeks`. The *consistency*
+  requirement is met. The *provenance* requirement is not: `2–3 weeks` still has
+  no supplier quote, and a single customer-facing source now fans out to three
+  renders (`<meta name="description">`, the description paragraph, the Nuxt
+  payload). Do not treat "consistent" as "verified" — see §3b of
+  `docs/merch/2026-09-27-store-copy-pass.md`.
 - Social content must show process, not mood. A mood shot is unprovable; a
   thread-level close-up of a sleeve mark is the whole brand in one frame.
 
