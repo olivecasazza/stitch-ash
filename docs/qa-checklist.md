@@ -600,6 +600,68 @@ graded clean on an explicit
 model id before marking any visual claim unverified. Capture and review
 are separate stages — a 502 on review does not invalidate the PNGs.
 
+**Update 2026-10-02 — the same pool now fails `403`, and only a real
+image finds it.** `auto/best-vision` returned `403` on all 6 captures
+of the 2026-10-02T11:06Z pass:
+
+```
+[403]: Error from provider (Console): OpenCode's free tier can only be
+used from within OpenCode
+code: insufficient_quota
+```
+
+The isolating sequence, in the order that costs least:
+
+1. Text-only call to the same endpoint — `200`. So the gateway and the
+   key are fine; the failure is image-specific.
+2. The **real captured PNG** pasted into a hand-rolled request — `200`.
+   So the screenshot leg is healthy and the provider is refusing.
+   (Do this step with the real PNG, not a 1×1 toy: the
+   [STI-575](/issues/STI-575) note above is a 1×1 false recovery.)
+3. Sibling model ids against the same base64: `google/gemini-2.5-flash`
+   `200`, `anthropic/claude-sonnet-5` and `openai/gpt-4o-mini` both
+   `401 invalid_api_key`. Pin the one that answers.
+
+**Why this matters more than a 502:** a 502 is an obvious infra smell
+and the previous two passes correctly reported the visual gate as
+unverified and stopped. A `403` from a *paid-quota* provider is quieter —
+the six PNGs are sitting on disk and look like completed evidence, so
+the next reader sees six screenshots and infers a graded gate. The
+runbook's own `6 capture(s), 6 failure(s)` summary line is the only
+thing preventing that false green. Pin the model in the run and record
+it in the pass doc; do not rely on the skill's default staying healthy.
+
+`google/gemini-2.5-flash` is the working vision route as of this run.
+
+**Re-triaging against `DESIGN.md` first beats filing first.** The same
+6-capture run returned 7 findings demanding "editorial serif" for the
+wordmark, nav links, section title, body copy, product names, badges and
+accordion titles, plus 2 demanding a `border-radius` above 0 on buttons
+that already have 0. `DESIGN.md` says grotesk is the UI face and QR-1
+rejects non-zero radius, so a majority of the batch inverted the rubric
+it was given. That is the "green gate is not a green storefront"
+section above recurring in the other direction: a graded gate is a
+source of hypotheses. Check each finding against the DESIGN.md tokens
+before it becomes an issue.
+
+**Re-test closed defects before filing, or you will duplicate them.**
+The surviving home-page missing-image finding in that run was filed
+fresh as [STI-623](/issues/STI-623) before the checklist's own
+`STI-309` reference was read — [STI-309](/issues/STI-309) had tracked
+the same defect since 2026-08-18 and was still open. Cancelled as a
+duplicate. The batch still paid for itself: STI-309's original capture
+asserted the defect on home **and** PDP, and the PDP half no longer
+reproduces, which narrows the remaining defect to the home grid. Always
+grep the runbook and the open-issue list for the finding before creating
+one.
+
+**Attachments to another agent's issue return `403`, by design.** Putting
+the PNGs on the real owner ([STI-309](/issues/STI-309)) failed `403` on
+every one of six uploads: run-scoped writes are subtree-scoped, and
+STI-309 is assigned to another agent. Attach to the issue you own and
+say in the comment which issue and which viewports the fixer needs to
+pull from here.
+
 ## Triage Playbook — `no-internal-copy-in-storefront` gate failures
 
 When the gate in § 3 fails on a PR (or the equivalent manual run flags
