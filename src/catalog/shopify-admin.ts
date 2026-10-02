@@ -280,9 +280,27 @@ export function diffProduct(product: CatalogProduct, remote: ShopifyProduct | nu
  * Build the `ProductInput` payload for productCreate / productUpdate.
  *
  * Exported so the tests can assert on the exact mutation body without a live
- * store. Anything `ProductInput` cannot carry MUST stay out of this object —
- * see `inventoryQuantity` below, which is a schema field but not a ProductInput
- * field.
+ * store. Anything `ProductInput` cannot carry MUST stay out of this object.
+ *
+ * STI-619: this used to include a `variants` array. It does not any more,
+ * because the field does not exist. Introspected against the live store's own
+ * `2026-04` schema this run:
+ *
+ *     ProductInput: kind=INPUT_OBJECT n=21
+ *     variants=false  inventoryPolicy=false
+ *
+ * ...so every `catalog:apply` product write was rejected before it reached
+ * Shopify's resolvers:
+ *
+ *     errors: [{"message":"Variable $input of type ProductInput! was provided
+ *       invalid value for variants (Field is not defined on ProductInput)",
+ *       "extensions":{"code":"INVALID_VARIABLE",
+ *         "problems":[{"path":["variants"],
+ *           "explanation":"Field is not defined on ProductInput"}]}}]
+ *
+ * `HTTP 200` with `data: null`, so a caller that only checked `response.ok`
+ * would have read that as success. Variant fields now travel on
+ * `buildVariantBulkInput` / `productVariantsBulkUpdate` — see `applyProduct`.
  */
 export function buildProductInput(product: CatalogProduct, remote: ShopifyProduct | null): Record<string, unknown> {
   const input: Record<string, unknown> = {
@@ -293,17 +311,102 @@ export function buildProductInput(product: CatalogProduct, remote: ShopifyProduc
     vendor: product.vendor,
     tags: product.tags ?? [],
     descriptionHtml: product.bodyHtml ?? "",
-    variants: product.variants.map(v => ({
-      sku: v.sku,
-      price: v.price,
-      option1: v.option1,
-      inventoryManagement: v.inventoryManagement ?? "SHOPIFY",
-      inventoryPolicy: v.inventoryPolicy ?? "CONTINUE",
-    })),
   };
 
   if (remote) input.id = remote.id;
   return input;
+}
+
+/**
+ * Build the `[ProductVariantsBulkInput!]!` body for productVariantsBulkUpdate.
+ *
+ * STI-619: the variant write path `ProductInput.variants` never existed, so
+ * price, `inventoryPolicy` and option values were all unreachable. The live
+ * `ProductVariantsBulkInput` is a different shape with different rules:
+ *
+ *     ProductVariantsBulkInput: kind=INPUT_OBJECT n=17
+ *     ... inventoryPolicy, price, optionValues, inventoryItem ...
+ *
+ * Three of those rules are silent-drop traps, so they are encoded here rather
+ * than left to the reader:
+ *
+ * 1. There is no `sku` field. Verified live:
+ *    `INVALID_VARIABLE ... 0.sku (Field is not defined on
+ *     ProductVariantsBulkInput)`. SKU lives under `inventoryItem.sku`
+ *     (`InventoryItemInput: ["sku","cost","tracked", ...]`), so a variant's SKU
+ *    is written as `inventoryItem: { sku }`.
+ * 2. There is no `option1`/`option2`/`option3`. Positional slots were replaced
+ *    by `optionValues: [{ optionName, name }]` (`VariantOptionValueInput`:
+ *    `id, name, linkedMetafieldValue, optionId, optionName`). The option NAME
+ *    is required, so it is resolved against the product's declared option order
+ *    exactly the way `normalizeRemoteVariant` does — by declared position, never
+ *    by a hardcoded "Title"/"Size".
+ * 3. There is no `inventoryManagement`. It is not a variant field in the 2026-04
+ *    bulk input, and the catalog's value (`SHOPIFY` by default) is a Shopify
+ *    concept the schema never asked for. It stays out of the mutation body
+ *    rather than being written somewhere it would be ignored.
+ *
+ * `allowPartialUpdates: true` (set by `applyProduct`, not here) is what makes a
+ * partial variant body safe: fields this input omits are left alone on the
+ * remote variant instead of being nulled.
+ */
+export function buildVariantBulkInput(
+  product: CatalogProduct,
+  remote: ShopifyProduct | null,
+): { variants: Record<string, unknown>[]; missingRemoteIds: string[] } {
+  const remoteBySku = new Map((remote?.variants ?? []).map(v => [v.sku, v]));
+  const optionNames = product.options?.length
+    ? product.options.map(o => o.name)
+    : (remote?.options ?? []).map(o => o.name);
+
+  const missingRemoteIds: string[] = [];
+  const variants: Record<string, unknown>[] = [];
+
+  for (const variant of product.variants) {
+    const remoteVariant = remoteBySku.get(variant.sku);
+    if (remote && !remoteVariant) {
+      // The catalog declares a SKU the store does not have. Creating it is a
+      // different mutation (productVariantsBulkCreate) with its own
+      // variant-position rules, so do not invent one here: refuse by reporting
+      // it, and let applyProduct throw before sending anything.
+      missingRemoteIds.push(variant.sku);
+      continue;
+    }
+
+    // Positional option slots -> named optionValues, resolved by declared order.
+    const optionValues = (["option1", "option2", "option3"] as const)
+      .map((slot, index) => ({ slot, value: variant[slot] }))
+      .filter((entry): entry is { slot: string; value: string } => entry.value != null)
+      .map(({ slot, value }) => {
+        const optionName = optionNames[Number(slot.slice(-1)) - 1];
+        // An option value with no name cannot be addressed. Sending
+        // optionValues without it would be an INVALID_VARIABLE, which is the
+        // same silent-nothing class this whole change exists to remove.
+        if (!optionName) {
+          throw new Error(
+            `Cannot apply ${product.id} variant ${variant.sku}: ${slot}=${value} has no declared option name. ` +
+              `The catalog declares options [${optionNames.join(", ") || "(none)"}], so position ` +
+              `${slot.slice(-1)} has no option to attach the value to. Add the option to the catalog, or drop the value.`,
+          );
+        }
+        return { optionName, name: value };
+      });
+
+    const bulk: Record<string, unknown> = {
+      // SKU is an inventory-item field, not a variant field.
+      inventoryItem: { sku: variant.sku },
+      price: variant.price,
+      inventoryPolicy: variant.inventoryPolicy ?? "CONTINUE",
+    };
+    // The id is what identifies the row to update. A create has none, and this
+    // function only ever writes updates. Written into the payload, never onto
+    // the parsed catalog object.
+    if (remoteVariant?.id) bulk.id = remoteVariant.id;
+    if (optionValues.length) bulk.optionValues = optionValues;
+    variants.push(bulk);
+  }
+
+  return { variants, missingRemoteIds };
 }
 
 /**
@@ -338,6 +441,39 @@ function assertNoDeclaredInventoryQuantity(product: CatalogProduct): void {
   );
 }
 
+const PRODUCT_UPDATE_MUTATION = `
+  mutation updateProduct($input: ProductInput!) {
+    productUpdate(input: $input) { product { id } userErrors { field message } } }
+`;
+
+const PRODUCT_CREATE_MUTATION = `
+  mutation createProduct($input: ProductInput!) {
+    productCreate(input: $input) { product { id } userErrors { field message } } }
+`;
+
+/**
+ * STI-619: variants are not a `ProductInput` field, so they need their own
+ * mutation. Introspected from the live `2026-04` schema this run:
+ *
+ *     Mutation.productVariantsBulkUpdate(variants:NON_NULL, productId:ID,
+ *                                       media:LIST, allowPartialUpdates:Boolean)
+ *       -> ProductVariantsBulkUpdatePayload
+ *
+ * `allowPartialUpdates: true` is deliberate. The body this repo builds omits
+ * `barcode`, `taxable`, `taxCode`, `compareAtPrice` and `metafields` because
+ * the catalog does not declare them; without this flag Shopify treats the
+ * omitted fields as "unset these" rather than "leave these alone".
+ */
+const VARIANTS_BULK_UPDATE_MUTATION = `
+  mutation updateProductVariants($productId: ID!, $variants: [ProductVariantsBulkInput!]!, $allowPartialUpdates: Boolean) {
+    productVariantsBulkUpdate(productId: $productId, variants: $variants, allowPartialUpdates: $allowPartialUpdates) {
+      product { id }
+      productVariants { id }
+      userErrors { field message }
+    }
+  }
+`;
+
 export async function applyProduct(
   client: AdminClient,
   product: CatalogProduct,
@@ -345,30 +481,74 @@ export async function applyProduct(
 ): Promise<string> {
   assertNoDeclaredInventoryQuantity(product);
 
-  const mutation = remote
-    ? `
-      mutation updateProduct($input: ProductInput!) {
-        productUpdate(input: $input) { product { id } userErrors { field message } } }
-    `
-    : `
-      mutation createProduct($input: ProductInput!) {
-        productCreate(input: $input) { product { id } userErrors { field message } } }
-    `;
+  // Shape BOTH payloads before sending either, so a payload that cannot be
+  // expressed (a variant with no addressable option name) fails before the
+  // product write lands rather than half-applying.
+  const { variants, missingRemoteIds } = buildVariantBulkInput(product, remote);
+  if (missingRemoteIds.length) {
+    throw new Error(
+      `Refusing to apply ${product.id}: the catalog declares variant(s) ` +
+        `${missingRemoteIds.join(", ")} that the store does not have. Creating a variant is a different ` +
+        `mutation (productVariantsBulkCreate) than updating one, and guessing its option position risks ` +
+        `writing the wrong price to a real variant. Add the variant in Shopify admin, or remove it from the catalog.`,
+    );
+  }
 
   const input = buildProductInput(product, remote);
+  const isCreate = remote === null;
 
-  const data = await shopifyAdminFetch(client, mutation, { input }) as {
-    productCreate?: { product: { id: string }; userErrors: { field: string; message: string }[] };
-    productUpdate?: { product: { id: string }; userErrors: { field: string; message: string }[] };
+  const data = await shopifyAdminFetch(client, isCreate ? PRODUCT_CREATE_MUTATION : PRODUCT_UPDATE_MUTATION, { input }) as {
+    productCreate?: { product: { id: string } | null; userErrors: { field: string; message: string }[] };
+    productUpdate?: { product: { id: string } | null; userErrors: { field: string; message: string }[] };
   };
 
-  const result = data.productCreate ?? data.productUpdate;
+  const result = isCreate ? data.productCreate : data.productUpdate;
   if (!result) throw new Error("No response from product mutation");
   if (result.userErrors?.length) {
     throw new Error(`Shopify user errors: ${result.userErrors.map(e => `${e.field}: ${e.message}`).join(", ")}`);
   }
+  if (!result.product) {
+    // A null product with no userErrors is the shape a wrong id returns. Say so
+    // rather than dereferencing `.id` into a TypeError that hides the cause.
+    throw new Error(
+      `Shopify returned no product for ${product.handle} (${isCreate ? "create" : "update"} succeeded shape, ` +
+        `but product is null). The handle likely matches nothing in the store.`,
+    );
+  }
 
-  return result.product.id;
+  const productId = result.product.id;
+
+  // The product write cannot carry variants, so the variant write is a second,
+  // separate call. Skipped on create: a newly created product has no variant
+  // rows to update, and productVariantsBulkUpdate would need ids that do not
+  // exist yet. Variant creation for new products stays a known gap rather than
+  // a silent no-op.
+  if (!isCreate && variants.length) {
+    const bulk = await shopifyAdminFetch(client, VARIANTS_BULK_UPDATE_MUTATION, {
+      productId,
+      variants,
+      allowPartialUpdates: true,
+    }) as {
+      productVariantsBulkUpdate?: {
+        product: { id: string } | null;
+        productVariants: { id: string }[] | null;
+        userErrors: { field: string; message: string }[];
+      };
+    };
+
+    const bulkResult = bulk.productVariantsBulkUpdate;
+    if (!bulkResult) throw new Error(`No response from variant mutation for ${product.handle}`);
+    if (bulkResult.userErrors?.length) {
+      // Say plainly that the product fields landed and the variants did not, so
+      // nobody re-runs an apply believing the store is in the pre-apply state.
+      throw new Error(
+        `Variant write failed for ${product.handle} (product fields were written to ${productId}): ` +
+          `${bulkResult.userErrors.map(e => `${e.field}: ${e.message}`).join(", ")}`,
+      );
+    }
+  }
+
+  return productId;
 }
 
 /**
