@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { CatalogProductSchema } from "./schema.js";
-import { applyProduct, buildProductInput, diffProduct, type ShopifyProduct } from "./shopify-admin.js";
+import { applyProduct, buildProductInput, buildVariantBulkInput, diffProduct, type ShopifyProduct } from "./shopify-admin.js";
 
 /**
  * STI-532: the regression this file exists to prevent.
@@ -90,25 +90,27 @@ describe("inventoryQuantity is declared but never silently dropped (STI-532)", (
     );
   });
 
-  it("keeps inventoryQuantity out of the ProductInput mutation body", () => {
-    // Belt and braces: even if the guard is removed, the payload cannot carry
-    // stock. buildProductInput is the only thing that shapes the mutation.
+  it("keeps inventoryQuantity out of every mutation body", () => {
+    // Belt and braces: even if the guard is removed, neither payload can carry
+    // stock. buildProductInput/buildVariantBulkInput are the only things that
+    // shape the mutation bodies.
     const product = parse([
       { sku: "sku-001-S", price: "185.00", option1: "S", inventoryQuantity: 24 },
       { sku: "sku-001-M", price: "185.00", option1: "M", inventoryQuantity: 24 },
     ]);
     const input = buildProductInput(product, remote);
-    const variants = input.variants as Record<string, unknown>[];
+    const { variants } = buildVariantBulkInput(product, remote);
     for (const variant of variants) {
       assert.equal("inventoryQuantity" in variant, false);
+      assert.equal("inventoryQuantities" in variant, false);
+      assert.equal("quantityAdjustments" in variant, false);
+      // The live bulk input's inventory-quantity fields are the ones an operator
+      // would expect to appear; assert none of them do.
+      assert.equal("inventoryQuantities" in (variant.inventoryItem as object), false);
     }
-    assert.deepEqual(Object.keys(variants[0]).sort(), [
-      "inventoryManagement",
-      "inventoryPolicy",
-      "option1",
-      "price",
-      "sku",
-    ]);
+    // ProductInput carries no variants at all (STI-619), and no inventory.
+    assert.equal("variants" in input, false);
+    assert.equal("inventoryQuantity" in input, false);
   });
 
   it("does not print a phantom drift action for a declared quantity", () => {
