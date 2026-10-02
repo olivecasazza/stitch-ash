@@ -120,6 +120,12 @@
 }
 
 .footer-link {
+  /* Tap target — WCAG 2.5.8. Measured at 390x844: footer links render 37x17.
+     Real padding rather than a pseudo-element: on a flex item the absolute
+     pseudo produced no hit-testable area. The negative margin cancels the added
+     height, so the footer's layout and link positions do not move. */
+  padding-block: 14px;
+  margin-block: -14px;
   color: var(--grey-400);
   text-decoration: none;
   transition: color var(--transition-base);

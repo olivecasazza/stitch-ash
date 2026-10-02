@@ -2,82 +2,60 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { resolveProductMark } from "../../app/utils/product-mark";
-
-/** Remove HTML comments and JS/CSS block comments from Vue SFC source. */
+/**
+ * STI-541 / STI-547 guard, kept after the placeholder plate was removed.
+ *
+ * Two invariants from that work survive the removal and are still worth
+ * pinning, because they apply to whatever real art replaces the plate:
+ *
+ * 1. The resolver's per-product derivation is gone along with the resolver.
+ *    That subject no longer exists — there is no drawn silhouette left to get
+ *    wrong, so the invariant "a product is never pictured as the wrong
+ *    garment" now holds by construction rather than by derivation.
+ *
+ * 2. The ops-status guard is NOT subject to that argument. Internal pipeline
+ *    status must never reach a customer's accessibility tree or their eye,
+ *    whichever component renders a product image next. STI-547 removed it from
+ *    the plate after it shipped; this asserts it cannot come back anywhere.
+ *
+ * The guard is deliberately repo-wide over customer-facing markup rather than
+ * pointed at one component, because the component it used to name is gone and
+ * pointing it at the next one would just recreate the same brittleness.
+ */
 function stripComments(src: string): string {
   return src.replace(/<!--[\s\S]*?-->/g, " ").replace(/\/\*[\s\S]*?\*\//g, " ");
 }
 
-/**
- * STI-541 regression tests.
- *
- * The defect this pins: the storefront rendered one generic hoodie outline as
- * the fallback for every product, so the Embroidered Lanyard and the
- * Embroidered Sticker both pictured a hoodie — an image contradicting the
- * product name printed directly beneath it. A product's plate must be a
- * silhouette that is true of that product.
- *
- * The second half pins the accessible name. The shipped string was
- * "<product> — product photograph not yet available", which put internal
- * pipeline status into the accessibility tree of a customer page. This module
- * must never be the place that word comes from.
- */
-test("explicit mark wins over derivation", () => {
-  assert.equal(resolveProductMark("lanyard", "Embroidered Hoodie"), "lanyard");
-  assert.equal(resolveProductMark("sticker", "Embroidered Lanyard"), "sticker");
-});
+const OPS_STATUS = /not yet available|image pending|coming soon/i;
 
-test("derives the silhouette from the product's own name and handle", () => {
-  assert.equal(resolveProductMark(undefined, "Embroidered Hoodie", "sku-001"), "hoodie");
-  assert.equal(resolveProductMark(undefined, "Embroidered Lanyard", "sku-002"), "lanyard");
-  assert.equal(resolveProductMark(undefined, "Embroidered Sticker", "sku-003"), "sticker");
-});
+const SHIPPED_MARKUP = [
+  "../../app/components/ProductCard.vue",
+  "../../app/pages/product/[handle].vue",
+  "../../app/pages/collection/[handle].vue",
+  "../../app/pages/index.vue",
+];
 
-test("a Shopify product is matched on title, not just handle", () => {
-  // The collection route reads live products whose handle is a slug and whose
-  // title is the merchandising name; both have to resolve the same way.
-  assert.equal(resolveProductMark(undefined, "Embroidered Lanyard", "lanyard-black"), "lanyard");
-  assert.equal(resolveProductMark(undefined, "", "sticker-patch"), "sticker");
-});
-
-test("no garment is ever claimed for a product we cannot identify", () => {
-  // "emblem" is the stitched diamond: true of any embroidered item. A
-  // wrong-but-plausible garment is worse than no garment, so an unrecognised
-  // product must never fall back to the hoodie.
-  assert.equal(resolveProductMark(undefined, "Embroidered Cuff", "sku-009"), "emblem");
-  assert.equal(resolveProductMark(undefined, undefined, undefined), "emblem");
-  assert.equal(resolveProductMark(undefined, "Embroidered Beanie"), "emblem");
-});
-
-test("missing and empty input cannot throw", () => {
-  assert.equal(resolveProductMark(undefined, null, undefined, ""), "emblem");
-  assert.equal(resolveProductMark(undefined, "   "), "emblem");
-});
-
-test("the ops-status string is nowhere in the plate module", () => {
-  // The defect that reaches customers, asserted against source text so a
-  // future edit cannot reintroduce it quietly.
-  const src = readFileSync(
-    new URL("../../app/utils/product-mark.ts", import.meta.url),
-    "utf8",
-  );
-  assert.equal(/not yet available/i.test(src), false);
-});
-
-test("the ops-status string is nowhere in any shipped plate markup", () => {
-  // The component is where the accessible name is actually composed, so the
-  // guard has to cover it and not just the resolver. Comments are stripped
-  // first: this module's own comment quotes the phrase in order to explain the
-  // defect, and prose about the string is not the string reaching a customer.
-  const plate = readFileSync(
-    new URL("../../app/components/ProductImagePlate.vue", import.meta.url),
-    "utf8",
-  );
-  const rendered = stripComments(plate);
-  assert.equal(/not yet available/i.test(rendered), false);
-  // And no attribute that reaches the accessibility tree may carry it.
-  for (const attribute of rendered.matchAll(/\b(aria-label|alt)="([^"]*)"/g)) {
-    assert.equal(/not yet available/i.test(attribute[2]!), false, attribute[0]);
+test("ops-status wording is absent from every shipped product surface", () => {
+  for (const path of SHIPPED_MARKUP) {
+    const rendered = stripComments(readFileSync(new URL(path, import.meta.url), "utf8"));
+    assert.equal(OPS_STATUS.test(rendered), false, `${path} renders pipeline status`);
   }
+});
+
+test("ops-status wording is absent from any customer-facing attribute", () => {
+  for (const path of SHIPPED_MARKUP) {
+    const rendered = stripComments(readFileSync(new URL(path, import.meta.url), "utf8"));
+    for (const attribute of rendered.matchAll(/\b(aria-label|alt|title)="([^"]*)"/g)) {
+      assert.equal(OPS_STATUS.test(attribute[2]!), false, attribute[0]);
+    }
+  }
+});
+
+test("no placeholder plate component remains to regress", () => {
+  // The plate was deleted rather than refined; if a stub ever comes back, the
+  // per-product silhouette logic must not return with it.
+  assert.throws(
+    () => readFileSync(new URL("../../app/components/ProductImagePlate.vue", import.meta.url), "utf8"),
+    "ProductImagePlate.vue is back — it needs its per-product silhouette tests too",
+  );
 });

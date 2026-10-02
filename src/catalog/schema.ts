@@ -99,16 +99,79 @@ export const CatalogCollectionSchema = z.object({
 
 export type CatalogCollection = z.infer<typeof CatalogCollectionSchema>;
 
-export const ShippingRuleSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  destination: z.string(),
-  serviceName: z.string(),
-  price: z.string(),
-  estimatedTransitDays: z
-    .object({ min: z.number().int(), max: z.number().int() })
-    .optional(),
+/**
+ * STI-618: money is a decimal STRING everywhere in the catalog, for the same
+ * STI-421 reason as a product price: "70" and "70.00" and 70 must not be three
+ * different amounts.
+ */
+const ShippingMoneySchema = z
+  .string()
+  .regex(/^\d+(\.\d{2})$/, "must be a decimal string like 70.00");
+
+/**
+ * STI-618: the free-shipping threshold, declared.
+ *
+ * The live Domestic zone offers "Standard"=8.00 unconditioned and
+ * "Standard"=0.00 carrying `TOTAL_PRICE >= 70.00`. Exactly one is offered per
+ * cart, so a buyer never sees two prices for one service name -- but a buyer
+ * under $70 IS charged 8.00. Before this field existed the catalog could only
+ * declare one flat price for a destination, so the flat number it did declare
+ * was wrong for every cart on one side of a real revenue boundary, and nothing
+ * in CI could see it.
+ *
+ * `minOrderSubtotal` names the boundary; the free price is the rule's own
+ * `price`. Together they declare "this price applies at or above this subtotal".
+ */
+const RateRangeSchema = z.object({
+  minOrderSubtotal: ShippingMoneySchema,
 });
+
+/**
+ * STI-618: a rate whose price is quoted live by a carrier at checkout.
+ *
+ * Both live International services are `DeliveryParticipant` rows. The Admin
+ * API returns their `fixedFee`, which is the operator's surcharge ON TOP OF the
+ * carrier's live quote -- never the price a customer pays. A declared flat
+ * price for such a service is therefore unverifiable BY CONSTRUCTION, and the
+ * number an operator reads next to it is not the number the customer is
+ * charged. That is how "$0.00 international shipping" reached the board once
+ * (STI-539, STI-573).
+ *
+ * Declaring the carrier instead of a price is what makes that honest: the
+ * catalog then says "ask the carrier", which is what actually happens, instead
+ * of asserting a flat number the store cannot honour.
+ */
+const CarrierCalculatedSchema = z.object({
+  carrier: z.string().min(1),
+});
+
+/**
+ * STI-618: exactly one of `price` or `carrierCalculated` must be declared.
+ *
+ * Both is the STI-539 shape -- a flat amount asserted for a carrier-quoted
+ * service -- so it is rejected at validate time rather than silently preferred.
+ * Neither is rejected too: defaulting to "0.00" here is exactly how an
+ * unreadable rate becomes a free rate in a plan line.
+ */
+export const ShippingRuleSchema = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    destination: z.string(),
+    serviceName: z.string(),
+    price: ShippingMoneySchema.optional(),
+    carrierCalculated: CarrierCalculatedSchema.optional(),
+    rateRange: RateRangeSchema.optional(),
+    estimatedTransitDays: z
+      .object({ min: z.number().int(), max: z.number().int() })
+      .optional(),
+  })
+  .refine(rule => (rule.price === undefined) !== (rule.carrierCalculated === undefined), {
+    message:
+      "a shipping rule must declare exactly one of `price` or `carrierCalculated` — " +
+      "declaring both asserts a flat amount for a carrier-quoted service, and declaring neither " +
+      "would have to be read as 0.00",
+  });
 
 export type ShippingRule = z.infer<typeof ShippingRuleSchema>;
 
