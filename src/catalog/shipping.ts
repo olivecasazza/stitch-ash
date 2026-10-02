@@ -86,6 +86,42 @@ export function destinationMatches(ruleDestination: string, zone: ShopifyShippin
 type ZoneMethod = ShopifyShippingZone["methods"][number];
 
 /**
+ * STI-618: the money threshold a live rate row applies at or above.
+ *
+ * Only the shape the store actually uses is recognised — a `TOTAL_PRICE`
+ * condition with a `GREATER_THAN_OR_EQUAL_TO` operator. Anything else (a
+ * weight condition, a strict `>`, an unknown operator) returns null, which
+ * routes the comparison to the "cannot be checked" branch below rather than
+ * being guessed at. Guessing an operator here would put a threshold in a plan
+ * line that the store does not enforce.
+ */
+function thresholdOf(method: ZoneMethod): string | null {
+  for (const condition of method.conditions ?? []) {
+    if (condition.field !== "TOTAL_PRICE") continue;
+    if (condition.operator !== "GREATER_THAN_OR_EQUAL_TO") continue;
+    if (condition.amount == null) continue;
+    return normalizePrice(condition.amount);
+  }
+  return null;
+}
+
+/**
+ * STI-618: the rows of a same-name group that a rate range is built from.
+ *
+ * A rate range is one unconditioned base row plus rows that switch price at a
+ * declared threshold. Returns null when the group is not that shape — a plain
+ * collision of two unconditioned rows is a different defect, already reported
+ * by `collisionVerdict`, and must not be reinterpreted here.
+ */
+function rateRangeRows(rows: readonly ZoneMethod[]): { base: ZoneMethod[]; conditioned: ZoneMethod[] } | null {
+  const base = rows.filter(m => (m.conditions?.length ?? 0) === 0);
+  const conditioned = rows.filter(m => (m.conditions?.length ?? 0) > 0);
+  if (base.length !== 1 || conditioned.length < 1) return null;
+  if (conditioned.some(m => thresholdOf(m) === null)) return null;
+  return { base, conditioned };
+}
+
+/**
  * Render a rate the way it must appear in a plan line.
  *
  * A carrier-calculated rate is never printed as a number. Its `price` is null
@@ -318,7 +354,7 @@ export function diffShipping(
   for (const rule of declaredRules) {
     for (const zone of remote.zones) {
       if (destinationMatches(rule.destination, zone, policy.originCountryCode)) {
-        claimedByRule.add(`${zone.name} ${rule.serviceName}`);
+        claimedByRule.add(`${zone.name}\u0000${rule.serviceName}`);
       }
     }
   }
@@ -326,7 +362,7 @@ export function diffShipping(
   for (const zone of remote.zones) {
     for (const [name, rows] of methodsByName(zone)) {
       if (rows.length < 2) continue;
-      if (claimedByRule.has(`${zone.name} ${name}`)) continue;
+      if (claimedByRule.has(`${zone.name}\u0000${name}`)) continue;
       actions.push(
         `shipping policy ${policy.id}: zone "${zone.name}" has ${rows.length} services all named "${name}" ` +
           `and no declared rule covers that name, so the catalog cannot check any of them: ` +
@@ -362,6 +398,114 @@ export function diffShipping(
     // reported as one explicit line instead.
     const namedMatches = zone.methods.filter(m => m.name === rule.serviceName);
     const activeMethods = zone.methods.filter(m => m.active);
+
+    // STI-618: a rate range is checked as a WHOLE, before the single-rate
+    // comparison below can pick one arbitrary row of it.
+    //
+    // The live Domestic zone has two active rows both named "Standard". The old
+    // branch treated that as ambiguous and stopped, which is honest but
+    // permanent: the catalog could then never check this service again, at any
+    // declared price. Since the group really is a rate range (one unconditioned
+    // base row plus one row conditioned on a threshold, both active), the
+    // declared base price and the declared threshold are each comparable, so
+    // this compares them and says which side moved.
+    //
+    // It is placed before the ambiguity branch for the same reason the STI-597
+    // range check precedes the price comparison: the rows differ in price by
+    // design, and a price comparison would read that as drift.
+    const activeNamed = namedMatches.filter(m => m.active);
+    const range = activeNamed.length > 1 ? rateRangeRows(activeNamed) : null;
+    if (range) {
+      const base = range.base[0]!;
+      const declaredPrice = normalizePrice(rule.price ?? "");
+      const declaredThreshold = rule.rateRange ? normalizePrice(rule.rateRange.minOrderSubtotal) : null;
+      const mismatches: string[] = [];
+
+      if (declaredPrice === null) {
+        // A carrier-calculated or threshold-less declaration against a rate
+        // range: the group has more than one price, so there is no single
+        // declared amount to compare. Saying "cannot be checked" is correct;
+        // comparing against the base row alone would be the STI-618 blindness.
+        actions.push(
+          `shipping rule ${rule.id}: zone "${zone.name}" offers "${rule.serviceName}" as a RATE RANGE ` +
+            `(${collisionRowsText(range.base.concat(range.conditioned), policy.currencyCode)}), which has a ` +
+            `different price either side of an order-total threshold, so the declared ` +
+            `${rule.carrierCalculated ? `carrier quote from ${rule.carrierCalculated.carrier}` : `amount ${rule.price}`} ` +
+            `cannot be checked against any single rate. Declare \`rateRange.minOrderSubtotal\` with the base \`price\``,
+        );
+        continue;
+      }
+
+      if (base.price !== null && declaredPrice !== normalizePrice(base.price)) {
+        mismatches.push(`declared ${declaredPrice} ${policy.currencyCode} -> store ${base.price} ${base.currency ?? policy.currencyCode} below the threshold`);
+      }
+
+      if (declaredThreshold === null) {
+        // The store switches price at a threshold the catalog does not declare.
+        // This is the real STI-618 finding: a flat 0.00 for all of US reads as
+        // a clean match while being wrong for every cart under the threshold.
+        const live = range.conditioned
+          .map(m => `${m.price ?? "unreadable"} at order total >= ${thresholdOf(m)}`)
+          .join(", ");
+        actions.push(
+          `shipping rule ${rule.id}: zone "${zone.name}" offers "${rule.serviceName}" as a RATE RANGE but the rule ` +
+            `declares a flat ${declaredPrice} ${policy.currencyCode} with no \`rateRange\`. A buyer IS charged ` +
+            `${base.price ?? "a different amount"} ${base.currency ?? policy.currencyCode} below the store's ` +
+            `threshold and ${live} at or above it, so the declared flat price is wrong for every cart on one ` +
+            `side of that boundary. Declare \`rateRange.minOrderSubtotal\` to make it drift-checkable`,
+        );
+        continue;
+      }
+
+      for (const method of range.conditioned) {
+        const liveThreshold = thresholdOf(method)!;
+        if (liveThreshold !== declaredThreshold) {
+          mismatches.push(`declared threshold ${declaredThreshold} ${policy.currencyCode} -> store ${liveThreshold} ${method.currency ?? policy.currencyCode}`);
+        }
+        // `rateRange` means "this `price` below the threshold, free at or above
+        // it", so the amount charged above the threshold is implied by the
+        // declaration rather than stated separately. What is still checkable is
+        // whether the store actually honours that: a row that still charges
+        // something above the threshold is drift the declaration cannot express,
+        // and it is reported rather than read as a match.
+        const liveAbove = method.price === null ? null : normalizePrice(method.price);
+        if (liveAbove !== null && liveAbove !== "0.00") {
+          mismatches.push(
+            `declared free at/above ${declaredThreshold} ${policy.currencyCode} -> store ${liveAbove} ${method.currency ?? policy.currencyCode}`,
+          );
+        }
+      }
+
+      if (mismatches.length > 0) {
+        actions.push(
+          `shipping rule ${rule.id}: declared rate range for "${rule.serviceName}" (${rule.destination}) does not match the store: ${mismatches.join("; ")}`,
+        );
+      }
+      continue;
+    }
+
+    // STI-618: a carrier-calculated rule has no declared amount to compare, so
+    // the "declared price differs from store price" branch below must never
+    // see one. Reported as its own non-blocking UNVERIFIABLE line: the rate is
+    // behaving correctly, the catalog simply cannot check it, and calling that
+    // drift would send the operator to change a working rate.
+    if (rule.carrierCalculated) {
+      const carrier = rule.carrierCalculated.carrier;
+      const liveMethod = namedMatches.length === 1 ? namedMatches[0] : undefined;
+      const liveKind = liveMethod
+        ? liveMethod.rateKind === "carrier_calculated"
+          ? "carrier-calculated"
+          : `a ${liveMethod.rateKind === "fixed_rate" ? "fixed" : "derived"} rate priced at ${liveMethod.price ?? "an unreadable amount"} ${liveMethod.currency ?? policy.currencyCode}`
+        : "no single matching service";
+      actions.push(
+        `shipping rule ${rule.id}: UNVERIFIABLE - "${rule.serviceName}" (${rule.destination}) is declared as a ` +
+          `CARRIER-CALCULATED rate quoted live from ${carrier} at checkout, so it has no declared amount to ` +
+          `drift-check; the Admin API cannot return that total. The store's service is ${liveKind}. This is ` +
+          `reported as unknown, NOT as a price: no amount here is what a customer pays`,
+      );
+      continue;
+    }
+
     const ambiguous = namedMatches.length > 1;
     const method = ambiguous
       ? undefined

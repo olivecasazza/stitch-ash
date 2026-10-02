@@ -18,19 +18,49 @@ fulfillment:
   locationPolicy: primary_shopify_location
   autoFulfillPaidOrders: false
 rules:
+  # STI-618. These two rules were rewritten to declare what the live store
+  # actually does, measured this run with real `cartCreate` traffic. Both are
+  # DECLARATION-ONLY: nothing here is written to the store, and `catalog:apply`
+  # does not write delivery profiles at all.
+  #
+  # Before, both rules named services that exist in no zone ("Tracked domestic
+  # shipping" / "Tracked international shipping"), so `catalog:plan` could only
+  # ever say "not found" and list what the store offers. That branch never
+  # compares anything, so the real domestic pricing below was invisible.
   - id: made-to-order-domestic
     title: Made-to-order domestic shipping
     destination: US
-    serviceName: Tracked domestic shipping
-    price: "0.00"
+    # The live Domestic zone's service is "Standard", not "Tracked domestic
+    # shipping". Naming it correctly is what makes the comparison below run.
+    serviceName: Standard
+    # Measured live, this is the rate a US buyer is quoted BELOW the threshold:
+    # $8.00. The catalog previously declared a flat 0.00 here, which was right
+    # only for carts at or over $70 and wrong for every cart under it.
+    price: "8.00"
+    # The store charges nothing at or above this order total (the live row
+    # carries TOTAL_PRICE >= 70.00). Before this field existed the threshold had
+    # no declared source of truth and could not drift-check against one.
+    rateRange:
+      minOrderSubtotal: "70.00"
     estimatedTransitDays:
       min: 3
       max: 7
   - id: made-to-order-international
     title: Made-to-order international shipping
     destination: REST_OF_WORLD
-    serviceName: Tracked international shipping
-    price: "25.00"
+    serviceName: usps
+    # STI-618: the live International services are carrier-calculated, so the
+    # price is quoted live from the carrier at checkout and the Admin API cannot
+    # return it. The previous flat "25.00" declared a number no buyer can be
+    # charged and that nothing could verify -- and every non-US destination is
+    # in fact quoted NO option at all (see STI-618), so it was not 25.00 and not
+    # 0.00. Declaring the carrier is the honest form.
+    #
+    # This does NOT mean international shipping works. It is quoted zero options
+    # for CA/GB/DE/AU/JP/FR and remains a customer-visible outage pending the
+    # operator's scope decision; see the issue.
+    carrierCalculated:
+      carrier: USPS
     estimatedTransitDays:
       min: 7
       max: 21
