@@ -479,6 +479,50 @@ result as evidence about the *gateway*, never as evidence that the
 blocked visual gate. Under [STI-226](/issues/STI-226) the costly error
 is the optimistic one, so default to blocked and let real evidence lift it.
 
+**Grep the rendered HTML for component CSS, not just `/_nuxt/*.css`.**
+Nuxt inlines scoped component CSS into `<style>` blocks in `<head>`, so
+the header/footer/component rules are **absent from the external
+stylesheet**. Verified 2026-10-01 against the live site at `5da181f`:
+`/_nuxt/entry.s4YYOZRg.css` (225 KB) contains **zero** occurrences of
+`nav-link`, `logo-link`, `foot-mark`, `footer-link` or `cart-pill` —
+every one of those rules lives only in the served HTML.
+
+This nearly produced a false regression report. The STI-614 focus-ring
+fix was live and correct, and a check that fetched only the stylesheet
+would have found none of those selectors and concluded the work never
+shipped. It also means `grep <selector> entry.css` returning nothing is
+**not** evidence of absence on this site. Fetch the page with a browser
+`Accept` header and grep the body.
+
+**A 200 on a text probe does not mean the vision leg is alive.** The
+1×1-PNG lesson above has a text-shaped twin, and both were live at once on
+2026-10-01. Same endpoint, same bearer key, seconds apart:
+
+```
+model=auto/best-vision, text only   -> HTTP 200 {"model":"anthropic/claude-opus-5.5","content":"ok"}
+model=auto/best-vision, + real PNG  -> HTTP 429 model_cooldown (openai/gpt-5.6-sol, reset_seconds=73)
+...after the 73s cooldown, same image -> HTTP 401 invalid_api_key ("You need to sign in to use this model")
+```
+
+Three lessons, in order of how much damage they do:
+
+1. `invalid_api_key` was **misleading**. The same key authenticated the
+   text call, so the key is not the problem and rotating it is wasted
+   work. An auth error that appears only on one payload type is a routing
+   or entitlement fault, not a credential fault.
+2. `auto/best-vision` **was not routing to vision** for image input — the
+   cooldown error names `openai/gpt-5.6-sol`, a text model. The alias
+   looks healthy on a text probe, which is exactly why this presents as
+   intermittent rather than dead.
+3. Any monitoring built on a text-only health check **reports this gateway
+   healthy** while every visual gate is down.
+
+So: probe the reviewer with a **real screenshot payload**, never a toy
+image and never text, and treat a passing text probe as evidence about
+the endpoint only — never as evidence that a blocked visual gate reopened.
+Under [STI-226](/issues/STI-226) the optimistic error is the expensive
+one, so the default stays *unverified*.
+
 **A vision finding is a hypothesis, and some of them prescribe the
 regression you are hunting.** The first fully-graded run produced ~50
 finding lines, and a large share were wrong — including lines that
@@ -555,6 +599,68 @@ graded clean on an explicit
 `429`. If the default reviewer 502s, retry once with an explicit vision
 model id before marking any visual claim unverified. Capture and review
 are separate stages — a 502 on review does not invalidate the PNGs.
+
+**Update 2026-10-02 — the same pool now fails `403`, and only a real
+image finds it.** `auto/best-vision` returned `403` on all 6 captures
+of the 2026-10-02T11:06Z pass:
+
+```
+[403]: Error from provider (Console): OpenCode's free tier can only be
+used from within OpenCode
+code: insufficient_quota
+```
+
+The isolating sequence, in the order that costs least:
+
+1. Text-only call to the same endpoint — `200`. So the gateway and the
+   key are fine; the failure is image-specific.
+2. The **real captured PNG** pasted into a hand-rolled request — `200`.
+   So the screenshot leg is healthy and the provider is refusing.
+   (Do this step with the real PNG, not a 1×1 toy: the
+   [STI-575](/issues/STI-575) note above is a 1×1 false recovery.)
+3. Sibling model ids against the same base64: `google/gemini-2.5-flash`
+   `200`, `anthropic/claude-sonnet-5` and `openai/gpt-4o-mini` both
+   `401 invalid_api_key`. Pin the one that answers.
+
+**Why this matters more than a 502:** a 502 is an obvious infra smell
+and the previous two passes correctly reported the visual gate as
+unverified and stopped. A `403` from a *paid-quota* provider is quieter —
+the six PNGs are sitting on disk and look like completed evidence, so
+the next reader sees six screenshots and infers a graded gate. The
+runbook's own `6 capture(s), 6 failure(s)` summary line is the only
+thing preventing that false green. Pin the model in the run and record
+it in the pass doc; do not rely on the skill's default staying healthy.
+
+`google/gemini-2.5-flash` is the working vision route as of this run.
+
+**Re-triaging against `DESIGN.md` first beats filing first.** The same
+6-capture run returned 7 findings demanding "editorial serif" for the
+wordmark, nav links, section title, body copy, product names, badges and
+accordion titles, plus 2 demanding a `border-radius` above 0 on buttons
+that already have 0. `DESIGN.md` says grotesk is the UI face and QR-1
+rejects non-zero radius, so a majority of the batch inverted the rubric
+it was given. That is the "green gate is not a green storefront"
+section above recurring in the other direction: a graded gate is a
+source of hypotheses. Check each finding against the DESIGN.md tokens
+before it becomes an issue.
+
+**Re-test closed defects before filing, or you will duplicate them.**
+The surviving home-page missing-image finding in that run was filed
+fresh as [STI-623](/issues/STI-623) before the checklist's own
+`STI-309` reference was read — [STI-309](/issues/STI-309) had tracked
+the same defect since 2026-08-18 and was still open. Cancelled as a
+duplicate. The batch still paid for itself: STI-309's original capture
+asserted the defect on home **and** PDP, and the PDP half no longer
+reproduces, which narrows the remaining defect to the home grid. Always
+grep the runbook and the open-issue list for the finding before creating
+one.
+
+**Attachments to another agent's issue return `403`, by design.** Putting
+the PNGs on the real owner ([STI-309](/issues/STI-309)) failed `403` on
+every one of six uploads: run-scoped writes are subtree-scoped, and
+STI-309 is assigned to another agent. Attach to the issue you own and
+say in the comment which issue and which viewports the fixer needs to
+pull from here.
 
 ## Triage Playbook — `no-internal-copy-in-storefront` gate failures
 
@@ -633,6 +739,85 @@ Until that follow-up lands, the `qa-verifier` runs the gate manually
 on the next available weekly cycle and pastes the script output into
 the cycle's Paperclip issue.
 
+## `origin/main` can move while you are mid-gate — re-check before you report
+
+Verified 2026-10-02 (`5884ae8` superseding `5da181f`). The heartbeat opened with
+live at `5da181f` and every check was green. Before the pass could be written up,
+`origin/main` had advanced to `5884ae8` and two deploy runs for it were already
+in flight. Reporting the first result would have meant certifying a build that was
+no longer live.
+
+The order that catches this:
+
+1. Record the live build id **first**, and the `git ls-remote` HEAD **second**,
+   and compare them explicitly.
+2. If a deploy run you were waiting on has a SHA newer than the one you measured,
+   wait for it to conclude, re-fetch the live build id, and re-run the gate.
+3. Only then write the verdict, and say which SHA the verdict is *about*.
+
+Corollary on the deploy path: check `gh run list --workflow=deploy.yml` for the
+SHA you are verifying rather than assuming one run means one deploy. This run
+showed two `repository_dispatch` runs for the same SHA, one `success` and one
+still `queued`. The successful one is what moved live bytes; the queued one is a
+duplicate and is reported as queued/unverified, never as green.
+
+And record who caused the deploy. Both runs here predate the first command of
+the run and arrived as `repository_dispatch`, so they were triggered outside the
+QA run. The correct claim is "the deploy happened and the bytes match", not "I
+deployed it".
+
+## A computed-token contrast check is not a rendered contrast check
+
+`app/assets/css/tokens.css` values trace to `DESIGN.md` `colors.*`, so contrast
+can be computed offline and it is worth doing every pass. It caught the real
+relationships on `5884ae8`: `outline` 3.29:1 on ink / 3.02:1 on charcoal clears
+SC 1.4.11, `primary` is sub-AA on charcoal and grey-950, and `border-rule` is
+sub-3:1 everywhere as a boundary.
+
+Two things keep that from producing false defects and false reassurances:
+
+- **Confirm the failing combination is actually shipped before filing.**
+  `primary` at 2.89:1 looks like an AA failure until you check
+  `grep -c 'color:var(--primary)'` — it is `0`. It is never painted as text, and
+  `DESIGN.md` documents the exclusion by name. A token that is never used in the
+  shipped combination is not a shipped contrast failure.
+- **It cannot see a colour set anywhere the tokens do not describe.** This is the
+  part that matters for a11y commits. `5884ae8` is
+  `fix(a11y): finish the focus-ring sweep, tap targets, outline hierarchy, cart
+  recovery (#176)`. Every one of those claims is a rendering question: the rule
+  exists in the CSS, and whether the ring is *visible on the painted surface* is
+  something only a graded screenshot can answer. So an a11y commit that passes
+  the computed check is **more** unverified, not less.
+
+State it that way in the issue: computed check green, rendered check
+unverified, commit is a11y work.
+
+## `HTTP 403 error code: 1010` from the Paperclip API is a user-agent block
+
+Hit on 2026-10-02 posting a comment with `python3 urllib`. The identical payload
+sent with `curl` returned `201`. It is Cloudflare refusing the client, not an
+agent boundary and not a permission denial — the same write to the same issue
+succeeded immediately after via curl.
+
+Do not report it as "I am not allowed to comment there" and do not treat it as
+proof of a company boundary. Retry once with `curl` before drawing any
+conclusion about permissions. A genuine cross-agent denial looks different and
+should be reported as such.
+
+## A screenshot nobody looked at is not evidence
+
+The render leg and the reviewer leg are separate services with separate failure
+modes, and they can fail independently in the same heartbeat. On `5884ae8` the
+render leg produced all six PNGs at all three viewports without complaint while
+the reviewer leg failed every single one of them.
+
+So when the gate is blocked, attach the captures anyway and label them honestly.
+Six PNGs on the issue is real progress: the render work is done and a human can
+look. But write "captured, not graded" rather than "verified at three
+viewports". A claim of three-viewport coverage that no vision model ever read is
+strictly weaker than one graded finding line, and under
+[STI-226](/issues/STI-226) it must be reported as unverified.
+
 ## Quick Reference
 
 | Item | Where |
@@ -647,3 +832,66 @@ the cycle's Paperclip issue.
 | Parent issue | [STI-232](/issues/STI-232) |
 | This runbook | [STI-305](/issues/STI-305) |
 | Motivation | [STI-226](/issues/STI-226) (six weeks of hallucinated deploys) |
+
+## A green route can still be a broken page
+
+`e06f26a` (2026-10-02, run `a339c7a6`). Every customer route returned 200, both
+Pages Functions answered correctly, and the deployed SHA matched `origin/main`.
+The pages were still wrong: PR #178 removed the product image plate, so every
+product surface shipped an empty near-black frame above its price, on all three
+QR-1 viewports.
+
+Three lessons, all of them about what a check that only looks at a status code
+cannot see.
+
+### Assert on the body, not just the status
+
+```
+curl -sS https://preview.stitch-ash.com/ | grep -c '<img'
+0
+```
+
+A `200` on a page whose whole purpose is to show a product is not evidence the
+product shows. Fetch the body and assert the thing you expect is in it. For a
+product surface that means the image region is not `<!---->`.
+
+### When the bundle contradicts the source, believe the bundle
+
+`git show origin/main:app/components/ProductCard.vue` at `e06f26a` still had the
+plate import and the `v-if="!imageSrc"` branch. It looked fine. The deployed
+chunk `/_nuxt/es01bH2s.js` compiled the else branch to `n("",!0)` — an empty
+string — and carried no plate reference at all. Source at HEAD and source in the
+bundle were not the same code. Grep the shipped chunks
+(`product-plate`, `EMBROIDERY`, `resolveProductMark`) before believing a source
+read when the question is what is actually live.
+
+### A design change that does not edit DESIGN.md is a defect
+
+The PR argued the placeholder art had had four passes and deserved to go. That
+may be the right call. But `DESIGN.md` at that same SHA still specified the plate
+twice — `grey-950 ... image fallback plates` at line 211, and
+`Square charcoal plate, hairline border, 4:5 image aspect` at line 513 — and the
+PR touched neither. The code and the spec were left disagreeing, which is how a
+judgement call silently becomes a rendering regression. When a PR removes a
+documented pattern, the document changes in the same PR or the site stops
+matching its own rubric.
+
+### The reviewer leg was up the whole time
+
+The same 9-capture run that caught this returned graded findings on 9 of 9
+captures, at production screenshot sizes, with no 401/402/429. Every QA issue
+had been parked on a blocker describing an exhausted-credit 401 that no longer
+reproduced. Re-measure a blocker before inheriting its conclusion — and when
+re-measuring, use a payload the size of the real one. A 1x1 probe passes while a
+real screenshot still fails, and that has already produced one false "recovered"
+on this board. Filed [STI-621](/STI/issues/STI-621); blocker evidence on
+[STI-575](/STI/issues/STI-575).
+
+### Known blind spot in the internal-copy lint
+
+`scripts/ci/no-internal-copy-in-storefront.sh` scans
+`app/pages app/components app/layouts app/assets nuxt.config.ts app/app.config.ts app/error.vue`.
+It does not read the built output, and it did not catch this regression because
+the defect is a *missing* element rather than a prohibited string — a lint for
+"no ops copy" cannot see "no product art at all". Passing this gate is not
+evidence a page is complete; it is evidence no banned word shipped.
