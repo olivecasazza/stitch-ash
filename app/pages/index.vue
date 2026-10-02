@@ -81,9 +81,9 @@ useSeoMeta({
 
     <!-- PRODUCTS -->
     <section class="wrap" aria-labelledby="prod-h">
-      <p class="eyebrow" id="prod-h" style="margin-block-start: clamp(3rem, 6vw, 5rem)">
+      <h2 class="eyebrow" id="prod-h" style="margin-block-start: clamp(3rem, 6vw, 5rem); margin-block-end: 0">
         The first capsule — embroidered black on black
-      </p>
+      </h2>
       <div v-if="products.length" class="products">
         <ProductCard
           v-for="p in products"

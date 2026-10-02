@@ -89,7 +89,6 @@ const { quantity, open } = useCart()
 .nav-link:hover,
 .nav-link:focus-visible {
   color: var(--bone);
-  outline: none;
 }
 
 /* Micro-animating underline */

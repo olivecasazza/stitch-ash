@@ -228,7 +228,11 @@ async function onSubmit() {
 }
 
 .contact__input:focus-visible {
-  outline: none;
+  /* components.focus-ring — 2px stroke, 4px offset (STI-578). This control
+     carried `outline: none` on :focus-visible, leaving a colour shift as its
+     whole focus affordance; same defect STI-608 and STI-614 ruled on. */
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
   border-color: var(--bone);
 }
 
@@ -264,7 +268,11 @@ async function onSubmit() {
   background: var(--white);
   border-color: var(--white);
   color: var(--ink-black);
-  outline: none;
+  /* components.focus-ring — 2px stroke, 4px offset (STI-578). This control
+     carried `outline: none` on :focus-visible, leaving a colour shift as its
+     whole focus affordance; same defect STI-608 and STI-614 ruled on. */
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
 }
 
 .contact__submit:disabled {
@@ -298,6 +306,10 @@ async function onSubmit() {
 .contact__link:hover,
 .contact__link:focus-visible {
   text-decoration-color: var(--bone);
-  outline: none;
+  /* components.focus-ring — 2px stroke, 4px offset (STI-578). This control
+     carried `outline: none` on :focus-visible, leaving a colour shift as its
+     whole focus affordance; same defect STI-608 and STI-614 ruled on. */
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
 }
 </style>

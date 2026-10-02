@@ -83,12 +83,30 @@ const resolvedMark = computed(() => resolveProductMark(props.mark, props.name, p
       <rect width="600" height="750" class="product-plate__bg" />
       <rect x="1" y="1" width="598" height="748" class="product-plate__hairline" />
 
+      <!-- Crop / registration marks. A plate standing in for a photograph of a
+           made-to-order garment is a drawing sheet, so it carries the marks a
+           drawing sheet carries. Hairline only; no new token. -->
+      <g class="product-plate__crop">
+        <path d="M40 64 V40 H64" />
+        <path d="M536 40 H560 V64" />
+        <path d="M560 686 V710 H536" />
+        <path d="M64 710 H40 V686" />
+      </g>
+      <rect x="40" y="40" width="520" height="670" class="product-plate__sheet-rule" />
+
       <!-- HOODIE: hood, body, two sleeves. -->
       <g v-if="resolvedMark === 'hoodie'" class="product-plate__mark">
         <path d="M232 214 L300 178 L368 214 L344 246 L300 222 L256 246 Z" />
         <path d="M232 214 L214 250 L214 566 L386 566 L386 250 L368 214 L344 246 L300 222 L256 246 Z" />
-        <path d="M214 300 L140 340 L140 470 L196 452 L196 560 L214 566 Z" />
-        <path d="M386 300 L460 340 L460 470 L404 452 L404 560 L386 566 Z" />
+        <path d="M214 300 L140 340 L140 470 L196 452 L196 560 L214 566 Z" class="product-plate__seam" />
+        <path d="M386 300 L460 340 L460 470 L404 452 L404 560 L386 566 Z" class="product-plate__seam" />
+        <path d="M214 540 L386 540" class="product-plate__seam" />
+        <path d="M140 452 L196 434 M460 452 L404 434" class="product-plate__seam" />
+        <rect x="256" y="286" width="88" height="76" class="product-plate__placement" />
+        <g class="product-plate__stitch">
+          <path d="M266 306 H334" /><path d="M266 320 H334" />
+          <path d="M266 334 H318" /><path d="M266 348 H328" />
+        </g>
       </g>
 
       <!-- LANYARD: loop, woven strap, breakaway clip. -->
@@ -98,6 +116,12 @@ const resolvedMark = computed(() => resolveProductMark(props.mark, props.name, p
         <path d="M250 214 L250 520 L350 520 L350 214" />
         <path d="M250 300 L350 300 M250 380 L350 380 M250 460 L350 460" class="product-plate__mark-detail" />
         <path d="M268 520 L332 520 L332 566 L268 566 Z" />
+        <rect x="266" y="300" width="68" height="120" class="product-plate__placement" />
+        <g class="product-plate__stitch">
+          <path d="M278 322 H322" /><path d="M278 340 H322" />
+          <path d="M278 358 H312" /><path d="M278 376 H316" />
+          <path d="M278 394 H306" />
+        </g>
         <path d="M282 566 L318 566 L318 604 L282 604 Z" />
       </g>
 
@@ -106,6 +130,12 @@ const resolvedMark = computed(() => resolveProductMark(props.mark, props.name, p
         <path d="M168 190 L432 190 L432 502 L168 502 Z" />
         <path d="M190 212 L410 212 L410 480 L190 480 Z" class="product-plate__mark-detail" />
         <path d="M300 268 L362 346 L300 424 L238 346 Z" />
+        <rect x="232" y="278" width="136" height="136" class="product-plate__placement" />
+        <g class="product-plate__stitch">
+          <path d="M248 300 H352" /><path d="M248 318 H352" />
+          <path d="M248 336 H332" /><path d="M248 354 H340" />
+          <path d="M248 372 H322" />
+        </g>
       </g>
 
       <!-- EMBLEM: the stitched diamond. True of any embroidered item, so it is
@@ -157,6 +187,46 @@ const resolvedMark = computed(() => resolveProductMark(props.mark, props.name, p
 /* The inner line of a silhouette is detail, not the glyph itself, so it is
    drawn at the same 2px weight rather than lighter — an SVG cannot rely on
    the component ramp, and grey-300 is not a declared token. */
+/* Crop marks and the sheet rule are furniture, not glyph: hairline weight in
+   border-rule, matching the plate's existing hairline. */
+.product-plate__crop {
+  fill: none;
+  stroke: var(--border-rule);
+  stroke-width: 1;
+}
+
+.product-plate__sheet-rule {
+  fill: none;
+  stroke: var(--border-rule);
+  stroke-width: 1;
+}
+
+/* Seams and ribbing: construction lines, at the silhouette's own weight so they
+   read as part of the same drawing rather than a second layer. */
+.product-plate__seam {
+  fill: none;
+  stroke: var(--grey-400);
+  stroke-width: 2;
+}
+
+/* The embroidery placement zone. Dashed because on a spec sheet a dashed
+   boundary is a placement, not a seam — that distinction is the whole point of
+   drawing the plate this way. */
+.product-plate__placement {
+  fill: none;
+  stroke: var(--grey-400);
+  stroke-width: 2;
+  stroke-dasharray: 8 6;
+}
+
+/* Satin stitch runs inside the placement zone. */
+.product-plate__stitch {
+  fill: none;
+  stroke: var(--grey-400);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
 .product-plate__mark-detail {
   stroke: var(--grey-400);
   stroke-width: 1;
