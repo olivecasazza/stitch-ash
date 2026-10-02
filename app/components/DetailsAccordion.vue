@@ -61,7 +61,6 @@ defineProps<{
   .accordion__summary:hover,
   .accordion__summary:focus-visible {
     color: var(--grey-400);
-    outline: none;
   }
 
   .accordion__summary:focus-visible {

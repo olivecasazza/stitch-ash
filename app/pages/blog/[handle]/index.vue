@@ -91,7 +91,6 @@ useSeoMeta({
 .breadcrumb__link:hover,
 .breadcrumb__link:focus-visible {
   color: var(--bone);
-  outline: none;
 }
 
 .breadcrumb__sep {

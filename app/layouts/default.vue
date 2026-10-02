@@ -39,7 +39,7 @@
   top: -100%;
   left: var(--space-xl);
   z-index: 100;
-  padding: var(--space-sm) var(--space-xl);
+  padding: 14px var(--space-xl);
   background: var(--bone);
   color: var(--ink-black);
   font-family: var(--font-mono);

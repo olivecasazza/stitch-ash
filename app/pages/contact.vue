@@ -225,8 +225,12 @@ async function onSubmit() {
   transition: border-color var(--transition-base);
 }
 
+/* The border-colour shift alone was the only focus cue here, and it measured as
+   not rendering. Restore the DESIGN.md 2px ring and keep the border shift as a
+   secondary cue — focus is never signalled by colour alone. */
 .contact__input:focus-visible {
-  outline: none;
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
   border-color: var(--bone);
 }
 
@@ -262,7 +266,6 @@ async function onSubmit() {
   background: var(--white);
   border-color: var(--white);
   color: var(--ink-black);
-  outline: none;
 }
 
 .contact__submit:disabled {
@@ -287,15 +290,24 @@ async function onSubmit() {
 }
 
 .contact__link {
+  display: inline-block; /* an inline box cannot host the hit expander below */
+  position: relative;
   color: var(--bone);
   text-decoration: underline;
   text-decoration-color: var(--border-rule);
   text-underline-offset: 0.2em;
 }
 
+/* Tap target — inline body links render 20px tall, below the 24px floor.
+   Vertical-only expander; it does not affect the underline. */
+.contact__link::before {
+  content: '';
+  position: absolute;
+  inset: -12px 0;
+}
+
 .contact__link:hover,
 .contact__link:focus-visible {
   text-decoration-color: var(--bone);
-  outline: none;
 }
 </style>

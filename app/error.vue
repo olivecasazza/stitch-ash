@@ -93,6 +93,5 @@ watch(id, value => !value ? init().then(get) : get(), { immediate: true })
 .error-link:hover,
 .error-link:focus-visible {
     border-color: var(--bone);
-    outline: none;
 }
 </style>

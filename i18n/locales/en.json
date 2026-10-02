@@ -16,6 +16,7 @@
             "update": "Cart updated.",
             "remove": "Item removed from cart.",
             "view": "View cart",
+            "retry": "Retry",
             "error": {
                 "init": "Could not initialize cart.",
                 "get": "Could not retrieve cart.",

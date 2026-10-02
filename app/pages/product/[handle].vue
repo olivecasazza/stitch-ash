@@ -90,16 +90,7 @@ useSeoMeta({
       <!-- LEFT: Image gallery — clean fallback when no Shopify imagery available -->
       <div class="pdp__gallery">
         <div class="pdp__image-fallback">
-          <svg
-            viewBox="0 0 600 750"
-            xmlns="http://www.w3.org/2000/svg"
-            :aria-label="`${displayName} — product image coming soon`"
-            role="img"
-            class="pdp__fallback-svg"
-          >
-            <rect width="600" height="750" fill="#0E0E0E" />
-            <rect x="1" y="1" width="598" height="748" fill="none" stroke="#9A9A9A" stroke-width="1" opacity="0.15" />
-          </svg>
+          <ProductPlate :name="displayName" variant="detail" :silhouette="staticProduct?.silhouette" />
         </div>
       </div>
 
@@ -142,7 +133,12 @@ useSeoMeta({
           Made to order — coming soon
         </button>
 
-        <!-- Accordions -->
+        <!-- The page had a single H1 and no subheads, so the accordion read as
+             orphaned content to a screen reader. A visually-hidden H2 gives the
+             detail panels a place in the outline without moving a pixel. -->
+        <h2 class="pdp__section-heading">
+          Details
+        </h2>
         <div class="pdp__accordion-wrap">
           <DetailsAccordion :sections="staticProduct?.details || []" />
         </div>
@@ -153,8 +149,23 @@ useSeoMeta({
 
 <style scoped>
   .pdp {
+
     padding-block-start: clamp(2rem, 4vw, 3.5rem);
     padding-block-end: clamp(3rem, 8vw, 6rem);
+  }
+
+  /* Screen-reader-only: gives the accordion panels a heading level in the
+     document outline without occupying layout. */
+  .pdp__section-heading {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
   }
 
   .pdp__preview-notice {
@@ -330,7 +341,6 @@ useSeoMeta({
     background: var(--bone);
     color: var(--ink-black);
     border-color: var(--bone);
-    outline: none;
   }
 
   .pdp__atc-btn--disabled {

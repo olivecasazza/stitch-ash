@@ -41,9 +41,9 @@ useSeoMeta({
 
     <!-- PRODUCTS -->
     <section class="wrap" aria-labelledby="prod-h">
-      <p class="eyebrow" id="prod-h" style="margin-block-start: clamp(3rem, 6vw, 5rem)">
+      <h2 class="eyebrow" id="prod-h" style="margin-block-start: clamp(3rem, 6vw, 5rem); margin-block-end: 0">
         The first capsule — embroidered black on black
-      </p>
+      </h2>
       <div class="products">
         <ProductCard
           v-for="p in PRODUCTS"
@@ -54,6 +54,7 @@ useSeoMeta({
           :note="p.embroideryCopy"
           :image-src="p.imageSrc"
           :image-alt="p.imageAlt"
+          :silhouette="p.silhouette"
         />
       </div>
     </section>

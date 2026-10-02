@@ -44,7 +44,6 @@ const { quantity, open } = useCart()
 .logo-link:hover,
 .logo-link:focus-visible {
   opacity: 0.8;
-  outline: none;
 }
 
 .nav-menu {
@@ -69,7 +68,6 @@ const { quantity, open } = useCart()
 .nav-link:hover,
 .nav-link:focus-visible {
   color: var(--bone);
-  outline: none;
 }
 
 /* Micro-animating underline */
@@ -117,7 +115,18 @@ const { quantity, open } = useCart()
 .cart-pill:focus-visible {
   background: var(--white);
   color: var(--ink-black);
-  outline: none;
+}
+
+/* Tap target — measured 65×29 at 390×844, under the WCAG 2.5.8 minimum.
+   Expanded vertically only so neighbouring nav links cannot overlap. */
+.cart-pill {
+  position: relative;
+}
+
+.cart-pill::before {
+  content: '';
+  position: absolute;
+  inset: -12px 0;
 }
 
 .cart-pill__count {

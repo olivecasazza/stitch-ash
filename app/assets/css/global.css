@@ -61,6 +61,10 @@ body {
   border-block-end: 1px solid var(--border-rule);
   font-weight: 500;
   text-wrap: balance;
+  /* Used as a section heading (<h2>) on the homepage. Neutralise the UA
+     heading margins so the computed box is identical to when it was a <p> —
+     the outline fix must not move a pixel. */
+  margin-block-end: 0;
 }
 
 /* Section headings */
@@ -120,13 +124,58 @@ body {
   text-transform: inherit;
 }
 
+/* Focus is indicated by the bottom-rule swap AND the global 2px ring.
+   `outline: none` here previously out-specified the global ring. */
 .site-header nav a:hover,
 .site-header nav a:focus-visible,
 .site-header nav button:hover,
 .site-header nav button:focus-visible {
   color: var(--bone);
   border-bottom-color: var(--bone);
-  outline: none;
+}
+
+/* Tap targets — WCAG 2.5.8 (24×24 minimum; 44×44 is the working target).
+   Measured at 390×844: nav links rendered 33×28 and 41×28. The visual box is
+   left untouched — font size, padding, and the underline position are all
+   unchanged — by expanding the hit area with a pseudo-element instead.
+   Expansion is vertical-only: horizontal neighbours are already separated by
+   the flex gap, so widening horizontally would make adjacent links overlap and
+   steal each other's taps. */
+.site-header nav a,
+.site-header nav button {
+  position: relative;
+}
+.site-header nav a::before,
+.site-header nav button::before {
+  content: '';
+  position: absolute;
+  inset: -14px 0;
+}
+
+/* Logo / wordmark and the footer wordmark sit at 20px and 14px tall — below
+   the 24px floor. Same vertical-only expander. */
+.logo-link,
+.foot-mark {
+  position: relative;
+}
+
+.logo-link::before,
+.foot-mark::before {
+  content: '';
+  position: absolute;
+  inset: -15px 0;
+}
+
+/* Nuxt UI's modal/search close control renders at 20×20 — below the WCAG 2.5.8
+   24px floor. Expand the hit area only; the visible icon is untouched. */
+[aria-label='Close'] {
+  position: relative;
+}
+
+[aria-label='Close']::before {
+  content: '';
+  position: absolute;
+  inset: -12px 0;
 }
 
 /* Logo / Wordmark — inline SVG */
@@ -189,7 +238,6 @@ body {
 .product-card:hover,
 .product-card:focus-visible {
   border-color: var(--grey-400);
-  outline: none;
   transform: translateY(-2px);
 }
 
@@ -330,9 +378,9 @@ body {
   padding: var(--space-md) var(--space-lg);
 }
 .signup input[type="email"]:focus-visible {
-  outline: none;
   border-color: var(--bone);
 }
+
 .signup button,
 .btn-primary {
   background: var(--bone);
@@ -353,7 +401,6 @@ body {
 .signup button:focus-visible,
 .btn-primary:focus-visible {
   opacity: 0.85;
-  outline: none;
 }
 .signup .note {
   margin-block-start: var(--space-lg);
@@ -448,7 +495,11 @@ body {
 }
 
 /* ── Focus ──────────────────────────────────────────────────────────────── */
+/* DESIGN.md `focus-ring`: 2px solid `--focus` (#FFFFFF), 2px offset, square.
+   Component rules below used to set `outline: none` on :focus-visible at higher
+   specificity, which silently removed this ring from every control. Those
+   overrides are gone; keep the ring as the single source of focus indication. */
 :focus-visible {
-  outline: 1px solid var(--bone);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }

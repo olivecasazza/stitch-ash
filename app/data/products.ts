@@ -42,6 +42,10 @@ export interface StaticProduct {
   imageSrc?: string;
   /** Optional alt text for product image. */
   imageAlt?: string;
+  /** Silhouette drawn by ProductPlate when the product has no photography.
+   *  Declared per product so the technical flat shows the actual object rather
+   *  than the same garment on every card. */
+  silhouette: "hoodie" | "lanyard" | "sticker";
 }
 
 const HOODIE_DETAILS: ProductAccordionSection[] = [
@@ -116,6 +120,7 @@ const STICKER_DETAILS: ProductAccordionSection[] = [
 export const PRODUCTS: StaticProduct[] = [
   {
     handle: "sku-001",
+    silhouette: "hoodie",
     name: "Embroidered Hoodie",
     price: 185,
     description:
@@ -133,6 +138,7 @@ export const PRODUCTS: StaticProduct[] = [
   },
   {
     handle: "sku-002",
+    silhouette: "lanyard",
     name: "Embroidered Lanyard",
     price: 35,
     description:
@@ -144,6 +150,7 @@ export const PRODUCTS: StaticProduct[] = [
   },
   {
     handle: "sku-003",
+    silhouette: "sticker",
     name: "Embroidered Sticker",
     price: 15,
     description:

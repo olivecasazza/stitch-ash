@@ -60,7 +60,6 @@
 .foot-mark:hover,
 .foot-mark:focus-visible {
   opacity: 0.8;
-  outline: none;
 }
 
 .footer-meta {
@@ -84,6 +83,7 @@
 }
 
 .footer-link {
+  position: relative;
   color: var(--grey-400);
   text-decoration: none;
   transition: color var(--transition-base);
@@ -92,6 +92,14 @@
 .footer-link:hover,
 .footer-link:focus-visible {
   color: var(--bone);
-  outline: none;
+}
+/* Tap target — measured 37×17 at 390×844, below the WCAG 2.5.8 minimum.
+   Real padding rather than a pseudo-element expander: on a flex item the
+   absolute pseudo did not produce a hit-testable area, and a real box is
+   verifiable. The negative margin cancels the added height, so the footer's
+   layout and link positions are unchanged. */
+.footer-link {
+  padding-block: 14px;
+  margin-block: -14px;
 }
 </style>
