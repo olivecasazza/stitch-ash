@@ -105,7 +105,7 @@ useSeoMeta({
     <section id="statement" class="statement">
       <div class="wrap measure stack">
         <p class="eyebrow">Brand</p>
-        <p>Olive Casazza. Black-on-black embroidery, made to order.</p>
+        <p>Black cotton, black thread, one pair of hands. Embroidery is the point.</p>
       </div>
     </section>
 
