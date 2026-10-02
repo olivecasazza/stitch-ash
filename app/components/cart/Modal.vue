@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { open, loading, quantity, lines, total, checkoutUrl } = useCart()
+const { open, loading, quantity, lines, subtotal, checkoutUrl } = useCart()
 const route = useRoute()
 
 watch(() => route.path, () => open.value = false)
@@ -41,14 +41,14 @@ watch(() => route.path, () => open.value = false)
 
     <template #footer>
       <div
-        v-if="total"
+        v-if="subtotal"
         class="flex justify-between items-center w-full"
         :class="{ 'animate-pulse': loading }"
       >
         <div class="flex items-center gap-2">
           <p class="font-medium inline-block text-[var(--bone)]">
             {{ $t('cart.subtotal') }}:
-            <ProductPrice :price="total" />
+            <ProductPrice :price="subtotal" />
           </p>
 
           <Icon

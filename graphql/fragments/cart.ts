@@ -48,6 +48,9 @@ export const CART_FRAGMENT = `#graphql
             totalAmount {
                 ...PriceFields
             }
+            subtotalAmount {
+                ...PriceFields
+            }
         }
     }
     ${CART_LINE_CONNECTION_FRAGMENT}
