@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { ProductMark } from '~/utils/product-mark'
 
 const props = withDefaults(defineProps<{
   href: string
@@ -9,10 +8,6 @@ const props = withDefaults(defineProps<{
   imageSrc?: string
   imageAlt?: string
   hoverImageSrc?: string
-  /** Silhouette for the image plate when no photograph exists. STI-541. */
-  mark?: ProductMark
-  /** Shopify slug. Narrows the plate silhouette on Shopify-fed routes. STI-541. */
-  handle?: string
   badge?: 'embroidered' | 'limited-run' | 'low-stock' | 'made-to-order'
 }>(), {
   imageAlt: ''
@@ -33,14 +28,7 @@ const formattedPrice = computed(() => formatPriceAmount(props.price, locale.valu
 <template>
   <NuxtLink :to="href" class="product-card">
     <div class="product-card__image-wrap">
-      <ProductImagePlate
-        v-if="!imageSrc"
-        :alt="finalImageAlt"
-        :mark="mark"
-        :name="name"
-        :handle="handle"
-      />
-      <template v-else>
+      <template v-if="imageSrc">
         <img
           :class="['product-card__img', 'product-card__img--primary', { 'has-hover': hoverImageSrc }]"
           :src="imageSrc"

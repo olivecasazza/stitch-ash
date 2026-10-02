@@ -172,16 +172,9 @@ useSeoMeta({
           :selected-variant="selectedVariant"
           :thumbnails="true"
         />
-        <ProductImagePlate
-          v-else
-          :alt="`${displayName}`"
-          :mark="staticProduct?.mark"
-          :name="displayName"
-          :handle="handle"
-        />
       </div>
 
-      <!-- RIGHT: Product info + checkout/waitlist -->
+      <!-- RIGHT: Product info + checkout -->
       <div class="pdp__info">
         <div class="pdp__badges">
           <Badge variant="made-to-order" />
@@ -279,7 +272,6 @@ useSeoMeta({
 
   /* STI-541: `.pdp__image-fallback`, `.pdp__fallback-svg` and the
      `.pdp__plate-*` rules were this page's private copy of the product image
-     plate. The plate is app/components/ProductImagePlate.vue now, so a PDP can
      no longer ship different art from the product card beside it. */
 
   /* Info panel — center title and supporting text on mobile,

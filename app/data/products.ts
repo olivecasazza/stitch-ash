@@ -45,7 +45,6 @@ export interface StaticProduct {
   /** Silhouette for the product image plate, per SKU. STI-541: the storefront
    *  shipped one generic hoodie outline for every product, so the Lanyard and
    *  Sticker cards pictured a hoodie. Declared per SKU so this cannot recur. */
-  mark: ProductMark;
 }
 
 const HOODIE_DETAILS: ProductAccordionSection[] = [
@@ -117,7 +116,6 @@ const STICKER_DETAILS: ProductAccordionSection[] = [
   },
 ];
 
-import { type ProductMark } from "~/utils/product-mark";
 
 // TODO (STI-318): Replace imageSrc values with real Shopify CDN URLs once commerce-eng
 // uploads product photography. Expected format:
@@ -147,7 +145,6 @@ const PRODUCTS_DATA: StaticProduct[] = [
       { label: "XXL", value: "XXL" },
     ],
     details: HOODIE_DETAILS,
-    mark: "hoodie",
     imageSrc: undefined,
     imageAlt: "Embroidered Hoodie — flat lay on black surface",
   },
@@ -161,7 +158,6 @@ const PRODUCTS_DATA: StaticProduct[] = [
       "Black thread on black weave. Repeated brand-mark pattern along length.",
     sizes: [{ label: "One size", value: "one-size" }],
     details: LANYARD_DETAILS,
-    mark: "lanyard",
     imageSrc: undefined,
     imageAlt: "Embroidered Lanyard — hanging with breakaway clip",
   },
@@ -175,7 +171,6 @@ const PRODUCTS_DATA: StaticProduct[] = [
       "Black thread on black backing. Single design with embedded brand mark.",
     sizes: [{ label: "One size", value: "one-size" }],
     details: STICKER_DETAILS,
-    mark: "sticker",
     imageSrc: undefined,
     imageAlt: "Embroidered Sticker patch on black fabric",
   },
