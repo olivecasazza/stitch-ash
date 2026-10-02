@@ -21,7 +21,7 @@ cart, and social preview metadata.
 | --- | --- | --- | --- |
 | 1 | `og:image` / `twitter:image` is the **Nuxt Shopify demo logo** on every page | High | Yes — every link share |
 | 2 | `PHOTOGRAPH PENDING` placeholder on all 3 product cards + PDPs | High | Yes |
-| 3 | Hoodie lead time contradicts itself: Shopify **2–3 weeks** vs catalog **3–5 weeks** | High | Yes, on the PDP |
+| 3 | Hoodie lead time contradicts itself: Shopify **2–3 weeks** vs catalog **3–5 weeks** | High | Yes — contradiction **fixed 2026-10-02 (STI-609)**; the surviving `2–3 weeks` is still **unsourced** (§3b) |
 | 4 | Latent demo-store strings in `i18n/locales/en.json` | Medium | Not currently — see note |
 | 5 | Contact email is Cloudflare-obfuscated; mailto rewritten | Medium | Yes, degraded |
 | 6 | `Collection not found` / no collections exist; `/collections` is 404 | Low | Partially |
@@ -87,6 +87,16 @@ design change.
 
 ## 3. Hoodie lead time contradicts itself on the PDP — HIGH
 
+> **STATUS 2026-10-02 (STI-609): the contradiction is FIXED; the underlying
+> provenance problem is NOT.** Re-measured at `origin/main` `5b624cd4`:
+> - `catalog/products/sku-001.yaml:16` = **"Made to order. Allow 2–3 weeks for production."** (was `3–5 weeks`)
+> - `app/data/products.ts` `HOODIE_DETAILS.Shipping & Returns` = **"Made to order. Ships tracked. Returns accepted within 14 days of delivery if unworn and unaltered."** — the lead time is **gone from the fallback**, not changed to match.
+> - Live `GET /product/sku-001` → HTTP 200, `2–3 weeks` ×3, `3–5 weeks` ×0. (Use an en-dash-aware grep; ASCII `2-3` matches nothing.)
+>
+> So the two-sources-disagree defect below is closed. **What remains open is that
+> `2–3 weeks` itself has no supplier quote behind it** — see the note at the end
+> of this section. Do not read the fix as validation of the number.
+
 The hoodie PDP renders **"Allow 2–3 weeks for production"** (from Shopify,
 system of record per
 [ADR 2026-07-21](2026-07-21-shopify-as-system-of-record.md)), but the repo
@@ -100,11 +110,53 @@ it is the fallback used "when Shopify Storefront API has no matching product"
 customer is told a different lead time than the one they were quoted. For a
 made-to-order product, lead time is a purchase-blocking fact, not a detail.
 
+> **Measured 2026-10-02 — the "hidden fallback" assumption above is wrong, and
+> that is worth knowing.** `app/pages/product/[handle].vue` imports `PRODUCTS`
+> from `~/data/products` and `resolvePdpResolution()`
+> (`app/utils/pdp-product.ts`) returns `"live"` when Shopify answers. On the live
+> PDP today, Shopify supplies the **description** while the **accordion bodies
+> still come from the static array** — fallback-only strings such as
+> `"Fuzzy interior, smooth exterior"` and `"Size up if you want a more relaxed
+> drop-shoulder"` are present in the live HTML. So the static file is not inert:
+> it is live-wired enrichment, and deleting a string from it removes copy from
+> the production page. Treat `app/data/products.ts` as customer-facing.
+
+### 3b. The remaining defect: `2–3 weeks` is unsourced (STI-609, OPEN — operator)
+
+Removing the `3–5 weeks` string removed the *contradiction* without anyone
+confirming the *surviving value*. `2–3 weeks` is a production commitment on a
+**$185** flagship, and it currently has no provenance:
+
+```
+$ git grep -n -P "2.3 weeks" origin/main -- catalog/ src/ app/
+origin/main:catalog/products/sku-001.yaml:16     <-- the only customer-facing source
+```
+
+The live PDP shows it **three times** from that one source: `<meta
+name="description">` (via `useSeoMeta` at `app/pages/product/[handle].vue:155`),
+the visible description paragraph, and the Nuxt payload blob. It is authored
+**once** and fanned out three ways — so this cannot be de-duplicated by editing
+copy. Any "show it once" fix is a template change owned by storefront-lead, and
+only makes sense once a real figure exists.
+
+**Owner split:** the *number* needs a supplier quote → operator (tracked on
+[STI-609](/STI/issues/STI-609), with landed cost on STI-418). The *doc* claims
+that assert the number as verified are mine → fixed in
+[2026-09-27-social-plan.md](2026-09-27-social-plan.md). Neither half is closed by
+CI going green, and no lead time may be deleted without a replacement —
+"Made to order" with no timeframe is a worse promise than a loose one.
+
 **Fix:** `app/data/products.ts` is the wrong place to restate a commercial fact
 Shopify owns. Recommend deleting the lead-time sentence from all three
 `Shipping & Returns` bodies and letting the accordion defer to the Shopify
 value, keeping only the returns policy (which Shopify does not hold). Short of
 that, at minimum change the hoodie string to `2–3 weeks` to match.
+
+> **This fix was executed** (verified at `origin/main` `5b624cd4`, 2026-10-02):
+> all three `Shipping & Returns` bodies now carry returns/shipping wording only,
+> and the hoodie lead time lives solely in `catalog/products/sku-001.yaml:16`.
+> Do not re-file finding #3 as "catalog and Shopify disagree" — that is closed.
+> See §3b for what is still open (provenance of the number itself).
 
 **Do not "fix" this by editing Shopify copy** — Shopify is the system of
 record and changing merchandising copy there is a commerce/operator action, not
