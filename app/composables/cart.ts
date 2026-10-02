@@ -15,7 +15,7 @@ export const useCart = () => {
     const lines = computed(() => flattenConnection(cart.value?.lines))
     const checkoutUrl = computed(() => cart.value?.checkoutUrl)
     const quantity = computed(() => cart.value?.totalQuantity)
-    const total = computed(() => cart.value?.cost.totalAmount)
+    const subtotal = computed(() => cart.value?.cost.subtotalAmount)
 
     const setLoading = async (value: boolean) => loading.value = value
 
@@ -234,7 +234,7 @@ export const useCart = () => {
         id,
         lines,
         quantity,
-        total,
+        subtotal,
         checkoutUrl,
 
         init,
