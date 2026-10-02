@@ -220,7 +220,10 @@ useSeoMeta({
           Notify me when available
         </button>
 
-        <!-- Accordions -->
+        <!-- The page had a single H1 and no subheads, so the accordion read as
+             orphaned content to a screen reader. A visually-hidden H2 gives the
+             detail panels a place in the outline without moving a pixel. -->
+        <h2 class="pdp__section-heading">Details</h2>
         <div class="pdp__accordion-wrap">
           <DetailsAccordion :sections="staticProduct?.details || []" />
         </div>
@@ -287,6 +290,20 @@ useSeoMeta({
     align-items: center;
     text-align: center;
     gap: var(--space-xl);
+  }
+
+  /* Screen-reader-only: gives the accordion panels a heading level in the
+     document outline without occupying layout. */
+  .pdp__section-heading {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
   }
 
   /* Children that benefit from full width even on mobile (CTAs, accordions) */

@@ -30,7 +30,7 @@ export const useCart = () => {
             : undefined
     }
 
-    const init = () => setLoading(true).then(() => storefront.request(`#graphql
+    const init = (): Promise<unknown> => setLoading(true).then(() => storefront.request(`#graphql
         mutation CreateCart($language: LanguageCode, $country: CountryCode)
         @inContext(language: $language, country: $country) {
             cartCreate {
@@ -46,13 +46,17 @@ export const useCart = () => {
         }),
     })).then(({ data }) =>
         id.value = data?.cartCreate?.cart?.id ?? '',
-    ).catch(() => toast.add({
-        title: t('cart.toast.error.init'),
-        description: t('cart.toast.error.tryAgain'),
-        color: 'error',
-    })).finally(() => setLoading(false))
+    // `init` and `get` are background bookkeeping, not user actions. A failure
+    // in either means the storefront backend is unreachable or not configured
+    // yet — a pre-launch condition. It toasted "Could not retrieve cart" within
+    // 250ms of every page load, so a first-time visitor was told the store was
+    // broken before touching anything. Both now degrade quietly to an empty
+    // cart. Failures during a real user action still notify and carry a Retry.
+    ).catch((error) => {
+        console.warn('[cart] init failed; continuing with an empty cart', error)
+    }).finally(() => setLoading(false))
 
-    const get = () => setLoading(true).then(() => storefront.request(`#graphql
+    const get = (): Promise<unknown> => setLoading(true).then(() => storefront.request(`#graphql
         query GetCart($id: ID!, $language: LanguageCode, $country: CountryCode) 
         @inContext(language: $language, country: $country) {
             cart(id: $id) {
@@ -71,13 +75,11 @@ export const useCart = () => {
         }),
     })).then(({ data }) =>
         cart.value = data?.cart ?? undefined,
-    ).catch(() => toast.add({
-        title: t('cart.toast.error.get'),
-        description: t('cart.toast.error.tryAgain'),
-        color: 'error',
-    })).finally(() => setLoading(false))
+    ).catch((error) => {
+        console.warn('[cart] read failed; continuing with an empty cart', error)
+    }).finally(() => setLoading(false))
 
-    const add = (variantId: string, quantity = 1) => setLoading(true).then(() => storefront.request(`#graphql
+    const add = (variantId: string, quantity = 1): Promise<unknown> => setLoading(true).then(() => storefront.request(`#graphql
         mutation AddToCart($cartId: ID!, $lines: [CartLineInput!]!, $language: LanguageCode, $country: CountryCode)
         @inContext(language: $language, country: $country) {
             cartLinesAdd(cartId: $cartId, lines: $lines) {
@@ -121,10 +123,15 @@ export const useCart = () => {
     }).catch(() => toast.add({
         title: t('cart.toast.error.add'),
         description: t('cart.toast.error.tryAgain'),
-        color: 'error',
+        // Recoverable, and DESIGN.md forbids signalling state with colour — so
+        // the toast carries an explicit Retry rather than a red the palette
+        // does not have.
+        actions: [
+            { label: t('cart.toast.retry'), onClick: () => { void add(variantId, quantity) } },
+        ],
     })).finally(() => setLoading(false))
 
-    const update = (variantId: string, quantity: number) => setLoading(true).then(() => storefront.request(`#graphql
+    const update = (variantId: string, quantity: number): Promise<unknown> => setLoading(true).then(() => storefront.request(`#graphql
         mutation UpdateCart($cartId: ID!, $lines: [CartLineUpdateInput!]!, $language: LanguageCode, $country: CountryCode) 
         @inContext(language: $language, country: $country) {
             cartLinesUpdate(cartId: $cartId, lines: $lines) {
@@ -168,10 +175,15 @@ export const useCart = () => {
     }).catch(() => toast.add({
         title: t('cart.toast.error.update'),
         description: t('cart.toast.error.tryAgain'),
-        color: 'error',
+        // Recoverable, and DESIGN.md forbids signalling state with colour — so
+        // the toast carries an explicit Retry rather than a red the palette
+        // does not have.
+        actions: [
+            { label: t('cart.toast.retry'), onClick: () => { void update(variantId, quantity) } },
+        ],
     })).finally(() => setLoading(false))
 
-    const remove = (variantId: string) => setLoading(true).then(() => storefront.request(`#graphql
+    const remove = (variantId: string): Promise<unknown> => setLoading(true).then(() => storefront.request(`#graphql
         mutation RemoveFromCart($cartId: ID!, $lineIds: [ID!]!, $language: LanguageCode, $country: CountryCode) 
         @inContext(language: $language, country: $country) {
             cartLinesRemove(cartId: $cartId, lineIds: $lineIds) {
@@ -208,7 +220,12 @@ export const useCart = () => {
     }).catch(() => toast.add({
         title: t('cart.toast.error.remove'),
         description: t('cart.toast.error.tryAgain'),
-        color: 'error',
+        // Recoverable, and DESIGN.md forbids signalling state with colour — so
+        // the toast carries an explicit Retry rather than a red the palette
+        // does not have.
+        actions: [
+            { label: t('cart.toast.retry'), onClick: () => { void remove(variantId) } },
+        ],
     })).finally(() => setLoading(false))
 
     return {

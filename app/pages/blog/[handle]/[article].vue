@@ -99,7 +99,11 @@ useSeoMeta({
 .breadcrumb__link:hover,
 .breadcrumb__link:focus-visible {
   color: var(--bone);
-  outline: none;
+  /* components.focus-ring — 2px stroke, 4px offset (STI-578). This control
+     carried `outline: none` on :focus-visible, leaving a colour shift as its
+     whole focus affordance; same defect STI-608 and STI-614 ruled on. */
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
 }
 
 .breadcrumb__sep {

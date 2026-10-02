@@ -52,6 +52,10 @@ body {
 
 /* Eyebrow label — uppercase, tracked, grey */
 .eyebrow {
+  /* Used as a section heading (<h2>) on the homepage. Neutralise the UA
+     heading margins so the computed box is identical to when it was a <p> — the
+     outline fix must not move a pixel. */
+  margin-block-end: 0;
   font-size: var(--text-xs);
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -121,12 +125,39 @@ body {
 }
 
 .site-header nav a:hover,
-.site-header nav a:focus-visible,
 .site-header nav button:hover,
+.site-header nav a:focus-visible,
 .site-header nav button:focus-visible {
   color: var(--bone);
   border-bottom-color: var(--bone);
-  outline: none;
+}
+
+/* components.focus-ring — 2px stroke, 4px offset (STI-578). The nav carried
+   `outline: none` on :focus-visible, leaving a border-colour swap as the whole
+   affordance: the same defect STI-608 and STI-614 ruled on for the cart pill
+   and the wordmark. The swap stays above as a secondary cue. */
+.site-header nav a:focus-visible,
+.site-header nav button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+}
+
+/* Tap target — WCAG 2.5.8. Measured at 390x844: nav links render 33x28. The
+   visual box is untouched (padding, type size and the underline position are
+   unchanged); the hit area grows via a pseudo-element instead. Expansion is
+   vertical-only because horizontal neighbours are already separated by the flex
+   gap — widening horizontally would make adjacent links steal each other's
+   taps. */
+.site-header nav a,
+.site-header nav button {
+  position: relative;
+}
+
+.site-header nav a::before,
+.site-header nav button::before {
+  content: '';
+  position: absolute;
+  inset: -8px 0;
 }
 
 /* Logo / Wordmark — inline SVG */
@@ -408,7 +439,11 @@ body {
   height: 44px;
 }
 .signup input[type="email"]:focus-visible {
-  outline: none;
+  /* components.focus-ring — 2px stroke, 4px offset (STI-578). This control
+     carried `outline: none` on :focus-visible, leaving a colour shift as its
+     whole focus affordance; same defect STI-608 and STI-614 ruled on. */
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
   border-color: var(--bone);
 }
 /* components.button-primary / components.button-disabled —

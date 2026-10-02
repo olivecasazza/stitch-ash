@@ -14,6 +14,7 @@
             "update": "Ihr Warenkorb wurde aktualisiert.",
             "remove": "Artikel aus dem Warenkorb entfernt.",
             "view": "Warenkorb ansehen",
+            "retry": "Erneut versuchen",
             "error": {
                 "init": "Warenkorb konnte nicht initialisiert werden.",
                 "get": "Warenkorb konnte nicht abgerufen werden.",
