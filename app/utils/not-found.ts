@@ -94,7 +94,7 @@ export interface CustomerVisibleNotFoundInput extends NotFoundCopyInput {
  */
 export function embedsRequestPath(text: string, requestPath?: string): boolean {
     if (requestPath) {
-        const pathOnly = requestPath.split(/[?#]/)[0]
+        const [pathOnly = ''] = requestPath.split(/[?#]/)
         if (pathOnly.length > 1 && (text.includes(requestPath) || text.includes(pathOnly))) {
             return true
         }
