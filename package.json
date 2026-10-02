@@ -24,7 +24,9 @@
     "shopify:scopes": "tsx scripts/shopify-env.ts scopes",
     "shopify:mcp": "tsx scripts/shopify-env.ts mcp-command",
     "tracking:plan": "tsx scripts/tracking.ts plan",
-    "tracking:apply": "tsx scripts/tracking.ts apply"
+    "tracking:apply": "tsx scripts/tracking.ts apply",
+    "media:plan": "tsx scripts/media.ts plan",
+    "media:apply": "tsx scripts/media.ts apply"
   },
   "dependencies": {
     "@nuxt/image": "^2.0.0",
