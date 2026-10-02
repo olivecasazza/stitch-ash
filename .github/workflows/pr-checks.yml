@@ -77,6 +77,21 @@ jobs:
       - name: Self-test the deploy freshness gate
         run: ./scripts/ci/deploy-freshness-gate.test.sh
 
+      # STI-620: this job also self-tests the dispatch dedup gate, which sits on
+      # the path that publishes the site. It shares this job rather than getting
+      # one of its own because it has the identical shape — offline, stubbed gh,
+      # no token, no Node, sub-second — and because the two gates are a matched
+      # pair: STI-601 corrected the deploy side and STI-620 stopped the trigger
+      # side over-firing. Both are publish-path guards, so both must be red
+      # before review rather than discovered on a live merge.
+      #
+      # The two suites are also mutually asserting. The dedup suite asserts that
+      # deploy.yml's freshness clause is still scoped to `schedule`, so this
+      # issue cannot be "fixed" later by widening that gate and reintroducing
+      # STI-601 — the failure mode this issue's own description warns against.
+      - name: Self-test the deploy dispatch dedup gate
+        run: ./scripts/ci/deploy-dispatch-dedup.test.sh
+
   # STI-538: product status is declared twice — catalog/products/*.yaml says
   # ACTIVE, nixlab nix/tofu/shopify/terranix.nix says "draft". The live store is
   # ACTIVE on all three SKUs, and the terranix resources use update_method=PUT,

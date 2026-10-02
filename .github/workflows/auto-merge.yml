@@ -40,9 +40,32 @@ jobs:
       # PR from auto-merging. Worse than the bug being fixed. The dispatch is
       # created with the same GITHUB_TOKEN as the merge, and any failure is
       # caught and degraded to the */30 cron backstop rather than thrown.
+      #
+      # STI-620: `contents: write` above is also what lets the dedup gate write
+      # its compare-and-swap ref, so the dedup needs NO permission this workflow
+      # does not already hold. `actions: read` is deliberately NOT added: the
+      # gate does not read run history (that alternative is racy — see
+      # scripts/ci/deploy-dispatch-dedup.sh) and adding a scope for a read it
+      # never performs would be an invitation to reintroduce it.
     steps:
+      # STI-620: the dispatch dedup gate lives in scripts/ci rather than inline
+      # in the github-script block, because it is load-bearing and an untested
+      # guard in the path that publishes the site is how STI-601 happened.
+      # `continue-on-error` for the same reason the checkout in deploy.yml's
+      # fresh-check has it: a checkout failure must not strand this run. If the
+      # script is absent the step below fails OPEN and dispatches, exactly as
+      # this job behaved before STI-620 — redundant deploy, never a stale site.
+      - name: Checkout dispatch dedup gate
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ci
+          sparse-checkout-cone-mode: true
+
       - name: Arm auto-merge, then dispatch the merge commit for deploy
         uses: actions/github-script@v7
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -239,7 +262,67 @@ jobs:
               return latest.merge_commit_sha;
             };
 
+            // STI-620: suppress the duplicate dispatches.
+            //
+            // This job re-enters many times per PR (pull_request, the Semver
+            // Label workflow_run, check_suite and status events), and every
+            // re-entry that lands AFTER the merge takes the fast path below,
+            // which used to dispatch unconditionally. readMergedSha is
+            // deterministic, so every one of those invocations sent the SAME
+            // deploy-main event for the SAME commit and deploy.yml rebuilt and
+            // republished it each time — 25 dispatch runs for 12 merges,
+            // measured 2026-10-02. PR #179 is the sharpest case: runs
+            // 36985017627 (08:36:39Z) and 36985020457 (08:36:41Z), two seconds
+            // apart, both `success`, both publishing e06f26a2.
+            //
+            // The gate is a compare-and-swap on a git ref rather than a read of
+            // deploy.yml's run history, and the reason is that 2-second gap:
+            // two invocations starting 2s apart can both observe "no run for
+            // this SHA yet" and both dispatch, so a history check would make
+            // the duplicate count a coin flip rather than 1. Creating
+            // refs/sti/deploy-dispatched/<sha> either succeeds (201, nobody has
+            // dispatched this commit — dispatch) or fails with 422 (someone
+            // already did — skip). There is no read-then-write window, so
+            // simultaneity is safe and ordering is irrelevant.
+            //
+            // It fails OPEN everywhere: no script, no token, an unreadable API
+            // and a 403 all answer "dispatch". A missed merge is healed by
+            // deploy.yml's */30 cron within one window; a redundant deploy
+            // costs minutes. This job never becomes the reason a merge does not
+            // reach the site.
             const dispatchDeploy = async sha => {
+              const gate = 'scripts/ci/deploy-dispatch-dedup.sh';
+              let dispatch = true;
+              try {
+                const { spawnSync } = await import('node:child_process');
+                const res = spawnSync(
+                  './' + gate,
+                  ['--sha', sha, '--repo', `${owner}/${repo}`],
+                  { encoding: 'utf8' }
+                );
+                const verdict = `${res.stdout || ''}`.split('\n').find(l => l.startsWith('dispatch='));
+                if (res.status !== 0 || !verdict) {
+                  // Fail OPEN, loudly. A gate that cannot be read must not read
+                  // as "already dispatched" — that would turn a broken
+                  // checkout into a permanently silent deploy gap.
+                  core.warning(
+                    `dispatch dedup gate unusable (exit ${res.status}, no verdict). ` +
+                    `Failing OPEN — dispatching ${sha}. ` +
+                    `${(res.stderr || '').trim().slice(0, 400)}`
+                  );
+                } else {
+                  dispatch = verdict.trim() === 'dispatch=true';
+                  core.info(`${verdict.trim()} — ${res.stdout.trim().split('\n').slice(-2).join(' | ')}`);
+                }
+              } catch (err) {
+                core.warning(`dispatch dedup gate threw: ${err.message}. Failing OPEN — dispatching ${sha}.`);
+              }
+
+              if (!dispatch) {
+                core.info(`Merge commit ${sha} was already dispatched by an earlier invocation — not dispatching again.`);
+                return;
+              }
+
               try {
                 await github.rest.repos.createDispatchEvent({
                   owner, repo,
@@ -255,6 +338,13 @@ jobs:
                 // Not fatal: the */30 cron in deploy.yml still reconciles drift,
                 // so a dispatch failure degrades to the pre-existing backstop
                 // rather than failing this run and masking the merge.
+                //
+                // STI-620: the ref is already written at this point, so if this
+                // dispatch fails the next re-entry will skip and the cron is the
+                // only thing that heals it. That is the intended trade — the
+                // dedup must claim BEFORE dispatching or two invocations would
+                // both see an unclaimed ref and both dispatch, which is the
+                // duplicate this change exists to remove.
                 core.warning(`createDispatchEvent: ${err.message}`);
               }
             };
@@ -265,9 +355,12 @@ jobs:
             // waiting 5 minutes on each would burn a lot of CI time to
             // rediscover a fact already true. Check the answer first and only
             // wait when the merge genuinely has not happened yet.
+            //
+            // Both exits below route through dispatchDeploy, so the STI-620
+            // dedup covers the fast path and the wait path with one guard.
             const alreadyMergedSha = await readMergedSha();
             if (alreadyMergedSha) {
-              core.info(`PR #${prNumber} already merged as ${alreadyMergedSha} — dispatching deploy.`);
+              core.info(`PR #${prNumber} already merged as ${alreadyMergedSha} — offering the dispatch to the dedup gate.`);
               await dispatchDeploy(alreadyMergedSha);
               return;
             }
