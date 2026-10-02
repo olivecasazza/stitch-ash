@@ -770,3 +770,66 @@ strictly weaker than one graded finding line, and under
 | Parent issue | [STI-232](/issues/STI-232) |
 | This runbook | [STI-305](/issues/STI-305) |
 | Motivation | [STI-226](/issues/STI-226) (six weeks of hallucinated deploys) |
+
+## A green route can still be a broken page
+
+`e06f26a` (2026-10-02, run `a339c7a6`). Every customer route returned 200, both
+Pages Functions answered correctly, and the deployed SHA matched `origin/main`.
+The pages were still wrong: PR #178 removed the product image plate, so every
+product surface shipped an empty near-black frame above its price, on all three
+QR-1 viewports.
+
+Three lessons, all of them about what a check that only looks at a status code
+cannot see.
+
+### Assert on the body, not just the status
+
+```
+curl -sS https://preview.stitch-ash.com/ | grep -c '<img'
+0
+```
+
+A `200` on a page whose whole purpose is to show a product is not evidence the
+product shows. Fetch the body and assert the thing you expect is in it. For a
+product surface that means the image region is not `<!---->`.
+
+### When the bundle contradicts the source, believe the bundle
+
+`git show origin/main:app/components/ProductCard.vue` at `e06f26a` still had the
+plate import and the `v-if="!imageSrc"` branch. It looked fine. The deployed
+chunk `/_nuxt/es01bH2s.js` compiled the else branch to `n("",!0)` — an empty
+string — and carried no plate reference at all. Source at HEAD and source in the
+bundle were not the same code. Grep the shipped chunks
+(`product-plate`, `EMBROIDERY`, `resolveProductMark`) before believing a source
+read when the question is what is actually live.
+
+### A design change that does not edit DESIGN.md is a defect
+
+The PR argued the placeholder art had had four passes and deserved to go. That
+may be the right call. But `DESIGN.md` at that same SHA still specified the plate
+twice — `grey-950 ... image fallback plates` at line 211, and
+`Square charcoal plate, hairline border, 4:5 image aspect` at line 513 — and the
+PR touched neither. The code and the spec were left disagreeing, which is how a
+judgement call silently becomes a rendering regression. When a PR removes a
+documented pattern, the document changes in the same PR or the site stops
+matching its own rubric.
+
+### The reviewer leg was up the whole time
+
+The same 9-capture run that caught this returned graded findings on 9 of 9
+captures, at production screenshot sizes, with no 401/402/429. Every QA issue
+had been parked on a blocker describing an exhausted-credit 401 that no longer
+reproduced. Re-measure a blocker before inheriting its conclusion — and when
+re-measuring, use a payload the size of the real one. A 1x1 probe passes while a
+real screenshot still fails, and that has already produced one false "recovered"
+on this board. Filed [STI-621](/STI/issues/STI-621); blocker evidence on
+[STI-575](/STI/issues/STI-575).
+
+### Known blind spot in the internal-copy lint
+
+`scripts/ci/no-internal-copy-in-storefront.sh` scans
+`app/pages app/components app/layouts app/assets nuxt.config.ts app/app.config.ts app/error.vue`.
+It does not read the built output, and it did not catch this regression because
+the defect is a *missing* element rather than a prohibited string — a lint for
+"no ops copy" cannot see "no product art at all". Passing this gate is not
+evidence a page is complete; it is evidence no banned word shipped.
