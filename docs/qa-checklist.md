@@ -729,6 +729,40 @@ This is the same rule that already applies to the rest of the
 storefront's contract surface: the file that defines a rule is not the
 file that QA is allowed to silently mutate.
 
+## Lessons from STI-487 (price token, closed 2026-09-28)
+
+Three things this run established that are worth keeping, because all
+three are ways a verification can come back green for the wrong reason.
+
+**1. A screenshot cannot confirm a hex value.** The vision model will
+say "one colour, neutral, no warm cast" and then say it cannot confirm
+the exact value from a raster. That is not a limitation to accept and
+move on from — it is a gap to close. Sample the pixels out of the PNG
+directly: find the text band for the element in question, then count
+pixels at the expected token value and at each of the values the defect
+was reported as. STI-487 closed because every price band had `#CFCFCF`
+as the dominant text colour and **zero** pixels at `#E8E8E8` or
+`#9A9A9A`. A colour claim with a pixel count is a different claim from
+a colour claim with a model verdict.
+
+**2. A viewport shot that misses the element is not a pass.** The first
+390x844 capture of `/collection/featured` framed no price at all — the
+page is taller than the viewport and the price sits below the fold. The
+reviewer correctly returned `BLOCKER | no product price is visible`.
+Re-capture with `--full` before concluding anything about a
+below-the-fold element. "Not visible in this render" and "not present
+on the page" are different findings and only one of them is a defect.
+
+**3. Fixing one surface of a token does not fix the token.** STI-486
+fixed `.product-card__price` and recorded `components.price` as
+card-only. It was not: `.pdp__price` is the same token and still shipped
+bone at weight 600 with `0.03em` tracking. The split-`$` span was the
+only card defect that happened not to be a defect on the PDP, which made
+the over-read look confirmed. When a token is declared once and consumed
+in more than one place, sweep every consumer before recording the token
+as done — grep the class names, do not infer the surface from the
+component that happened to be reported.
+
 ## Weekly Smoke Run
 
 The `no-internal-copy-in-storefront` gate is wired into the weekly QA
