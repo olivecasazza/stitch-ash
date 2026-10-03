@@ -9,11 +9,14 @@ tags:
   - black-on-black
   - made-to-order
 bodyHtml: |
-  <p>Heavy cotton. Baggy silhouette. Built for people who care about how things are made.</p>
-  <p>The hoodie is cut oversized — an intentional silhouette, not a sizing accident. Fabric is a dense cotton-fleece blend: smooth on the outside, brushed fleece interior. Thick enough to hold structure. Soft enough to wear straight through.</p>
-  <p>Double-stitched seams throughout. The kind of construction detail that only matters when everything else fails — these won't.</p>
-  <p>Black-on-black embroidered design across the chest. The brand mark sits at the left sleeve, small and precise. The embroidery reads dark in shade, catches texture in direct light. That's the point.</p>
-  <p>Made to order. Allow 2–3 weeks for production.</p>
+  <ul>
+    <li>Cotton fleece. Brushed interior.</li>
+    <li>Oversized fit. Dropped shoulder.</li>
+    <li>Double-stitched seams.</li>
+    <li>Embroidered chest. Mark on left sleeve.</li>
+    <li>Black thread on black.</li>
+    <li>Made to order. Ships in 2–3 weeks.</li>
+  </ul>
 options:
   - name: Size
     values: ["S", "M", "L", "XL", "XXL"]

@@ -9,8 +9,13 @@ tags:
   - black-on-black
   - made-to-order
 bodyHtml: |
-  <p>Embroidered patch. Adhesive backing. Black-on-black — the brand mark sits centered, precise, permanent.</p>
-  <p>Single design. The embroidery reads flat until light catches the thread angle. Stick it anywhere the finish matters.</p>
+  <ul>
+    <li>Embroidered patch. Merrowed border.</li>
+    <li>6 × 6 cm design area.</li>
+    <li>Adhesive back. Heat-press onto fabric.</li>
+    <li>Black thread on black.</li>
+    <li>Made to order.</li>
+  </ul>
 options:
   - name: Title
     values: ["Default Title"]

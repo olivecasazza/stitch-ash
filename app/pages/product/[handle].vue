@@ -22,7 +22,7 @@ const { data, error } = await useStorefrontData(`product-${handle.value}`, `#gra
     product(handle: $handle) {
       id
       title
-      description
+      descriptionHtml
       images(first: 20) {
         edges {
           node {
@@ -94,7 +94,12 @@ if (resolution === 'not_found') {
 
 // 2. Resolve display values
 const displayName = computed(() => data.value?.product?.title ?? staticProduct.value?.name ?? '')
-const displayDescription = computed(() => data.value?.product?.description ?? staticProduct.value?.description ?? '')
+// DESIGN.md "Product copy": the description is a list of spec lines. Shopify's
+// list wins; the static mirror covers a product with no list yet.
+const displaySpecs = computed(() => {
+  const live = specLines(data.value?.product?.descriptionHtml)
+  return live.length ? live : staticProduct.value?.specs ?? []
+})
 const displayPrice = computed(() => {
   const shopifyVariants = data.value?.product?.variants?.edges || []
   const firstPrice = shopifyVariants[0]?.node?.price?.amount
@@ -154,7 +159,7 @@ const handleAddToCart = async () => {
 
 useSeoMeta({
   title: computed(() => `${displayName.value} — STITCH AND ASH`),
-  description: computed(() => displayDescription.value)
+  description: computed(() => displaySpecs.value.join(' '))
 })
 </script>
 
@@ -184,9 +189,9 @@ useSeoMeta({
         <h1 class="pdp__name">{{ displayName }}</h1>
         <p class="pdp__price">${{ displayPrice }}</p>
 
-        <p class="pdp__description">{{ displayDescription }}</p>
-
-        <p class="pdp__embroidery-note">{{ staticProduct?.embroideryCopy }}</p>
+        <ul v-if="displaySpecs.length" class="pdp__specs">
+          <li v-for="(line, i) in displaySpecs" :key="i">{{ line }}</li>
+        </ul>
 
         <!-- Size configuration swatches -->
         <div class="pdp__size-wrap">
@@ -350,21 +355,11 @@ useSeoMeta({
     font-feature-settings: "tnum" 1;
   }
 
-  .pdp__embroidery-note {
+  .pdp__specs {
     margin: 0;
     margin-inline: auto;
-    max-width: var(--measure);
-    font-size: var(--text-sm);
-    color: var(--grey-400);
-    letter-spacing: 0.04em;
-    border-inline-start: 2px solid var(--bone);
-    padding-inline-start: var(--space-md);
-    text-align: left;
-  }
-
-  .pdp__description {
-    margin: 0;
-    margin-inline: auto;
+    padding: 0;
+    list-style: none;
     max-width: var(--measure);
     color: var(--grey-400);
     line-height: 1.65;

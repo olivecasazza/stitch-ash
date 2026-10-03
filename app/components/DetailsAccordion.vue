@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineProps<{
-  sections: { label: string; body: string }[]
+  sections: { label: string; lines: string[] }[]
 }>()
 </script>
 
@@ -19,7 +19,9 @@ defineProps<{
         </svg>
       </summary>
       <div class="accordion__body">
-        <p v-html="section.body"></p>
+        <ul class="accordion__lines">
+          <li v-for="(line, j) in section.lines" :key="j">{{ line }}</li>
+        </ul>
       </div>
     </details>
   </div>
@@ -112,8 +114,10 @@ defineProps<{
     padding-inline: var(--space-md);
   }
 
-  .accordion__body p {
+  .accordion__lines {
     margin: 0;
+    padding: 0;
+    list-style: none;
     font-size: var(--text-sm);
     color: var(--accordion-body-text);
     line-height: 1.6;
