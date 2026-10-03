@@ -23,15 +23,86 @@
 // The waitlist flow emits `https://...products/<handle>?waitlist=ok` as the
 // redirect target in functions/api/checkout.js:121, so this path is
 // load-bearing for the "complete my waitlist signup" landing experience.
-import { PRODUCTS } from '~/data/products'
+//
+// STI-639: this gate used to be
+//
+//     const HANDLES = new Set(PRODUCTS.map(p => p.handle))
+//     if (!HANDLES.has(handle)) return
+//
+// which left `app/data/products.ts` — a hardcoded TypeScript array — as the
+// authority on which product URLs the storefront would redirect. That is the
+// exact defect STI-579 removed from the destination route: a product created
+// through Shopify Admin got no redirect and 404'd on `/products/<handle>` while
+// serving 200 on `/product/<handle>`, and a product deleted from Shopify but
+// still listed in the array kept 308-ing into a dead end.
+//
+// The gate now asks the live Storefront API, the same source the PDP reads, so
+// the two routes agree by construction. The decision itself lives in
+// app/utils/products-redirect-gate.ts and is unit-tested in
+// src/catalog/products-redirect-gate.test.ts.
+import {
+    buildLegacyRedirectLocation,
+    matchLegacyProductPath,
+    splitPathAndQuery,
+    type RedirectLookup,
+} from '~/utils/products-redirect-gate'
 
-// The destination gate is app/pages/product/[handle].vue, which throws a 404
-// unless the handle is in PRODUCTS. PRODUCTS is therefore the authoritative
-// set of routable handles, and consulting it here makes the entry URL agree
-// with the destination instead of redirecting into a guaranteed 404.
-const HANDLES = new Set(PRODUCTS.map(p => p.handle))
+const PRODUCT_EXISTS_QUERY = `#graphql
+  query LegacyProductHandle($handle: String!) {
+    product(handle: $handle) { id }
+  }
+`
 
-export default defineEventHandler((event) => {
+/**
+ * Ask the live store whether it sells this handle.
+ *
+ * Every failure mode — no credentials, a non-OK HTTP status, a GraphQL
+ * `errors` block, a transport throw — returns `"unknown"` rather than
+ * `"absent"`. That distinction is the whole point: an unknown answer is not
+ * evidence that the product does not exist, and it must not be allowed to
+ * suppress a redirect that is correct.
+ */
+async function lookupHandleLive(handle: string): Promise<RedirectLookup> {
+    const env = useRuntimeConfig()
+    const storefront = (env as { shopify?: { clients?: { storefront?: { publicAccessToken?: string } } } })
+        .shopify?.clients?.storefront
+
+    const domain = process.env.SHOPIFY_STOREFRONT_DOMAIN ?? process.env.SHOPIFY_ADMIN_STORE_DOMAIN
+    // The runtime config token is populated from SHOPIFY_STOREFRONT_TOKEN in
+    // nuxt.config.ts, and is the value that also reaches the browser-side
+    // @nuxtjs/shopify client, so it is the same credential the PDP uses.
+    const token
+        = process.env.SHOPIFY_STOREFRONT_TOKEN
+            ?? process.env.NUXT_SHOPIFY_CLIENTS_STOREFRONT_PUBLIC_ACCESS_TOKEN
+            ?? storefront?.publicAccessToken
+
+    if (!domain || !token) return 'unknown'
+
+    try {
+        const response = await fetch(`https://${domain}/api/2026-04/graphql.json`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Shopify-Storefront-Access-Token': token,
+            },
+            body: JSON.stringify({ query: PRODUCT_EXISTS_QUERY, variables: { handle } }),
+        })
+        if (!response.ok) return 'unknown'
+
+        const payload = (await response.json()) as {
+            data?: { product?: { id?: string } | null } | null
+            errors?: unknown
+        }
+        if (payload.errors) return 'unknown'
+
+        return payload.data?.product?.id ? 'live' : 'absent'
+    }
+    catch {
+        return 'unknown'
+    }
+}
+
+export default defineEventHandler(async (event) => {
     const raw = event.path || ''
 
     // STI-241: match against the PATHNAME only. `event.path` carries the query
@@ -41,26 +112,21 @@ export default defineEventHandler((event) => {
     // re-appended to a handle that had already absorbed it. The real 404s this
     // issue reports (`/products/embroidered-hoodie` -> 308 -> 404) are the same
     // bug seen from the other side: the redirect was issued unconditionally.
-    const qIndex = raw.indexOf('?')
-    const pathname = qIndex === -1 ? raw : raw.slice(0, qIndex)
-    const qs = qIndex === -1 ? '' : raw.slice(qIndex)
+    //
+    // The path shape and the query-string re-attachment are handled in
+    // buildLegacyRedirectLocation; this early return just avoids spending a
+    // Storefront round trip on URLs that are not contract URLs at all.
+    const handle = matchLegacyProductPath(splitPathAndQuery(raw).pathname)
+    if (handle === null) return
 
-    // Match /products/<handle> exactly (one non-empty segment, no further
-    // path). `/products` (no handle) and `/products/foo/bar` are not
-    // contract URLs and fall through to the normal 404.
-    const match = /^\/products\/([^/]+)\/?$/.exec(pathname)
-    if (!match) return
-    // `noUncheckedIndexedAccess` types a capture group as `string | undefined`.
-    // The `+` quantifier guarantees a non-empty segment, but the type system
-    // does not, so narrow it here rather than asserting.
-    const handle = match[1]
-    if (!handle) return
+    const lookup = await lookupHandleLive(handle)
+    const location = buildLegacyRedirectLocation(raw, { lookup, hasStaticProduct: false })
 
     // Unknown handle: no redirect. Falling through lets the router produce the
     // 404 at the URL the customer actually typed — no false 308 in the SEO
     // chain, and no redirect hop spent on a guaranteed dead end.
-    if (!HANDLES.has(handle)) return
+    if (location === null) return
 
     // Re-attach the original query string exactly once.
-    return sendRedirect(event, `/product/${handle}${qs}`, 308)
+    return sendRedirect(event, location, 308)
 })
