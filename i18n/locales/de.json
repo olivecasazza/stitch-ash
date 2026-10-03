@@ -6,6 +6,13 @@
         "subtotal": "Zwischensumme",
         "checkout": "Zur Kasse",
         "open": "Warenkorb öffnen",
+        "eyebrow": "Warenkorb",
+        "items": "Artikel",
+        "itemCount": "keine Artikel | ein Artikel | {count} Artikel",
+        "note": "Versand und Steuern werden an der Kasse berechnet.",
+        "emptyTitle": "Ihr Warenkorb ist leer.",
+        "emptyNote": "Noch nichts ausgewählt. Durchsuchen Sie die Kollektion.",
+        "emptyAction": "Kollektion ansehen",
         "toast": {
             "add": "Artikel zum Warenkorb hinzugefügt.",
             "update": "Ihr Warenkorb wurde aktualisiert.",
