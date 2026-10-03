@@ -92,7 +92,7 @@ fi
 #
 # Tailwind classes only ever appear inside a quoted string, so only quoted
 # strings are scanned. A naive text grep for \brounded\b reports prose — the
-# comments in Footer.vue and ProductImagePlate.vue literally contain the words
+# comments in ProductImagePlate.vue literally contain the words
 # "rounded UP to 25 user units", and tokens.css says "rounded.none" — and a gate
 # that cries wolf on its own comments gets disabled.
 ACTIVATED=""

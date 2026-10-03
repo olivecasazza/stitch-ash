@@ -1,11 +1,11 @@
 <script setup lang="ts">
 defineProps<{
-  sections: { label: string; lines: string[] }[]
+  sections: { label: string; lines: string[]; link?: { to: string; text: string } }[]
 }>()
 </script>
 
 <template>
-  <div class="accordion">
+  <div v-if="sections.length" class="accordion">
     <details
       v-for="(section, i) in sections"
       :key="i"
@@ -22,6 +22,9 @@ defineProps<{
         <ul class="accordion__lines">
           <li v-for="(line, j) in section.lines" :key="j">{{ line }}</li>
         </ul>
+        <NuxtLink v-if="section.link" :to="section.link.to" class="accordion__link">
+          {{ section.link.text }}
+        </NuxtLink>
       </div>
     </details>
   </div>
@@ -30,6 +33,24 @@ defineProps<{
 <style scoped>
   .accordion {
     border-top: var(--rule);
+    /* Height is animated between 0 and auto, which needs keyword interpolation.
+       Scoped to .accordion so no other disclosure in the app inherits it. */
+    interpolate-size: allow-keywords;
+  }
+
+  /* Animate the panel open/closed so the chevron's
+     rotation (--transition-base) and the panel share one duration. Browsers
+     without ::details-content ignore this and snap. */
+  .accordion__item::details-content {
+    height: 0;
+    overflow: clip;
+    transition:
+      height var(--transition-base),
+      content-visibility var(--transition-base) allow-discrete;
+  }
+
+  .accordion__item[open]::details-content {
+    height: auto;
   }
 
   .accordion__item {
@@ -64,7 +85,9 @@ defineProps<{
     align-items: center;
     justify-content: space-between;
     gap: var(--space-md);
-    padding-block: var(--space-md);
+    /* 16px + 16px + 11px * 1.3 = 46.3px hit height, clearing the 44px
+       minimum tap target. */
+    padding-block: var(--space-lg);
     cursor: pointer;
     list-style: none;
     font-size: var(--text-xs);
@@ -75,26 +98,26 @@ defineProps<{
     text-transform: uppercase;
     color: var(--bone);
     transition: color var(--transition-base);
-    user-select: none;
   }
 
   /* Remove default marker in Webkit */
   .accordion__summary::-webkit-details-marker { display: none; }
 
-  .accordion__summary:hover,
-  .accordion__summary:focus-visible {
+  /* Hover is a colour nudge only. The ring is reserved for keyboard focus, so a
+     mouse user does not get a focus affordance they did not ask for. */
+  .accordion__summary:hover {
     color: var(--grey-400);
-    /* components.focus-ring — 2px stroke, 4px offset (STI-578). This control
-         carried `outline: none` on :focus-visible, leaving a colour shift as its
-         whole focus affordance; same defect STI-608 and STI-614 ruled on. */
-    outline: 2px solid var(--focus);
-    outline-offset: 4px;
   }
 
-  /* components.focus-ring — 2px stroke, 4px offset (STI-578). DESIGN.md
-     names this "the standard 2px bone square"; the offset is the token's. */
+  /* components.focus-ring — 2px stroke, 4px offset (STI-578). The ring draws
+     outside the summary box, which is flush with the column edge and one
+     hairline below `.accordion`'s top border, so nothing clips it: no
+     overflow on the accordion, and the offset is kept at the token's 4px.
+     Focus keeps the label at `bone` — dimming the label on focus read as a
+     disabled state. */
   .accordion__summary:focus-visible {
-    outline: 2px solid var(--bone);
+    color: var(--bone);
+    outline: 2px solid var(--focus);
     outline-offset: 4px;
   }
 
@@ -110,16 +133,55 @@ defineProps<{
 
   .accordion__body {
     background: var(--accordion-body-bg);
-    padding-block: var(--space-xs) var(--space-lg);
-    padding-inline: var(--space-md);
+    /* Transparent and flush with the summary's left edge: the column must have
+       one left edge, and six open sections must not stack into slabs. */
+    padding-block: 0 var(--space-lg);
+    padding-inline: 0;
   }
 
   .accordion__lines {
     margin: 0;
     padding: 0;
     list-style: none;
-    font-size: var(--text-sm);
+    font-size: var(--text-base);
     color: var(--accordion-body-text);
     line-height: 1.6;
+  }
+
+  /* components.accordion-link — underlined text link, same treatment as
+     .contact__link / .account__link. */
+  .accordion__link {
+    display: inline-block;
+    margin-top: var(--space-sm);
+    font-size: var(--text-sm);
+    color: var(--bone);
+    text-decoration: underline;
+    text-decoration-color: var(--border-rule);
+    text-underline-offset: 0.2em;
+  }
+
+  .accordion__link:hover {
+    text-decoration-color: var(--bone);
+  }
+
+  /* Same rule as the summary's focus-visible — a link inside the expander
+     must not ring differently from one outside it. */
+  .accordion__link:focus-visible {
+    text-decoration-color: var(--bone);
+    /* components.focus-ring — 2px stroke, 4px offset (STI-578). */
+    outline: 2px solid var(--focus);
+    outline-offset: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .accordion__item::details-content,
+    .accordion__item[open]::details-content {
+      transition: none;
+    }
+
+    .accordion__summary,
+    .accordion__icon {
+      transition: none;
+    }
   }
 </style>

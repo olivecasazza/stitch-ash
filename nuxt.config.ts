@@ -40,6 +40,20 @@ export default defineNuxtConfig({
     css: ['~/assets/css/main.css'],
 
     ui: {
+        // No colour mode: the storefront is one fixed dark ground, so
+        // @nuxt/ui must not emit a `.dark`/`.light` flip and must not ship
+        // the light semantic ramp as the default for `:root`.
+        //
+        // That ramp is still emitted — `.light,:host,:root` in
+        // @nuxt/ui 4.8 sets `--ui-bg:#fff`, `--ui-text:var(--ui-color-neutral-700)`
+        // and `--ui-border:var(--ui-color-neutral-200)`, with the neutral
+        // shades resolved from Tailwind `slate` (see `ui.colors` in
+        // app/app.config.ts). Every one of those is re-pointed at the
+        // DESIGN.md ramp in app/assets/css/tokens.css, in the block
+        // commented "Vendor semantic bridge" — that file is already the home
+        // of the `--ui-radius: 0` bridge, and an unlayered `:root` declaration
+        // there beats `@layer theme` without `!important`. No duplicate
+        // bridge belongs in this block.
         colorMode: false,
     },
 

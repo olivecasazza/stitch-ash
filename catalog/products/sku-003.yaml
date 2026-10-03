@@ -9,12 +9,34 @@ tags:
   - black-on-black
   - made-to-order
 bodyHtml: |
+  <h3>Material</h3>
   <ul>
-    <li>Embroidered patch. Merrowed border.</li>
+    <li>Embroidered patch.</li>
+    <li>Merrowed border.</li>
+  </ul>
+  <h3>Size</h3>
+  <ul>
     <li>6 × 6 cm design area.</li>
-    <li>Adhesive back. Heat-press onto fabric.</li>
+  </ul>
+  <h3>Embroidery</h3>
+  <ul>
     <li>Black thread on black.</li>
+  </ul>
+  <h3>Application</h3>
+  <ul>
+    <li>Adhesive back.</li>
+    <li>Heat-press onto fabric.</li>
+  </ul>
+  <h3>Care</h3>
+  <ul>
+    <li>On fabric: cold wash inside out, hang dry.</li>
+    <li>Loose: keep dry.</li>
+  </ul>
+  <h3>Shipping &amp; Returns</h3>
+  <ul>
     <li>Made to order.</li>
+    <li>Tracked shipping.</li>
+    <li>Final sale.</li>
   </ul>
 options:
   - name: Title

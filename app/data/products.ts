@@ -28,15 +28,14 @@ export interface StaticProduct {
   name: string;
   /** Price in USD (whole dollars). */
   price: number;
-  /** Spec lines shown on the PDP when Shopify has no description. Mirrors
-   *  the catalog YAML `bodyHtml` list. DESIGN.md "Product copy". */
-  specs: string[];
   /** Available sizes. Single-entry ["One size"] for non-sized items. */
   sizes: ProductSize[];
   /** Badge variant for ProductCard + PDP. Optional — only set when a card
    *  warrants one (per UX_FRAMEWORK: "use sparingly"). Not set on every card. */
   badge?: "made-to-order";
-  /** PDP accordion: Care and Shipping & Returns only. */
+  /** Every product fact, as expander sections. Static mirror of the catalog
+   *  YAML `bodyHtml` pairs, used when Shopify returns no description.
+   *  DESIGN.md "Product copy". */
   details: ProductAccordionSection[];
   /** Optional product image URL for ProductCard. */
   imageSrc?: string;
@@ -46,36 +45,6 @@ export interface StaticProduct {
    *  shipped one generic hoodie outline for every product, so the Lanyard and
    *  Sticker cards pictured a hoodie. Declared per SKU so this cannot recur. */
 }
-
-const FINAL_SALE: ProductAccordionSection = {
-  label: "Shipping & Returns",
-  lines: ["Tracked shipping.", "Final sale."],
-};
-
-const HOODIE_DETAILS: ProductAccordionSection[] = [
-  {
-    label: "Care",
-    lines: ["Cold wash, inside out.", "Tumble dry low or hang.", "Do not dry-clean."],
-  },
-  {
-    label: "Shipping & Returns",
-    lines: ["Tracked shipping.", "Returns within 14 days, unworn."],
-  },
-];
-
-const LANYARD_DETAILS: ProductAccordionSection[] = [
-  { label: "Care", lines: ["Spot clean only."] },
-  FINAL_SALE,
-];
-
-const STICKER_DETAILS: ProductAccordionSection[] = [
-  {
-    label: "Care",
-    lines: ["On fabric: cold wash inside out, hang dry.", "Loose: keep dry."],
-  },
-  FINAL_SALE,
-];
-
 
 // TODO (STI-318): Replace imageSrc values with real Shopify CDN URLs once commerce-eng
 // uploads product photography. Expected format:
@@ -93,13 +62,27 @@ const PRODUCTS_DATA: StaticProduct[] = [
     handle: "sku-001",
     name: "Embroidered Hoodie",
     price: 185,
-    specs: [
-      "Cotton fleece. Brushed interior.",
-      "Oversized fit. Dropped shoulder.",
-      "Double-stitched seams.",
-      "Embroidered chest. Mark on left sleeve.",
-      "Black thread on black.",
-      "Made to order. Ships in 2–3 weeks.",
+    details: [
+      { label: "Material", lines: ["Cotton fleece.", "Brushed interior."] },
+      { label: "Fit", lines: ["Oversized.", "Dropped shoulder."] },
+      { label: "Construction", lines: ["Double-stitched seams."] },
+      {
+        label: "Embroidery",
+        lines: ["Black thread on black.", "Design on chest.", "Mark on left sleeve."],
+      },
+      {
+        label: "Care",
+        lines: ["Cold wash, inside out.", "Tumble dry low or hang.", "Do not dry-clean."],
+      },
+      {
+        label: "Shipping & Returns",
+        lines: [
+          "Made to order.",
+          "Ships in 2–3 weeks.",
+          "Tracked shipping.",
+          "Returns within 14 days, unworn.",
+        ],
+      },
     ],
     sizes: [
       { label: "S", value: "S" },
@@ -108,7 +91,6 @@ const PRODUCTS_DATA: StaticProduct[] = [
       { label: "XL", value: "XL" },
       { label: "XXL", value: "XXL" },
     ],
-    details: HOODIE_DETAILS,
     imageSrc: undefined,
     imageAlt: "Embroidered Hoodie — flat lay on black surface",
   },
@@ -116,16 +98,23 @@ const PRODUCTS_DATA: StaticProduct[] = [
     handle: "sku-002",
     name: "Embroidered Lanyard",
     price: 35,
-    specs: [
-      "Woven black fabric. 90 cm.",
-      "Breakaway clip.",
-      "Double-stitched edges.",
-      "Mark embroidered full length.",
-      "Black thread on black.",
-      "Made to order.",
+    details: [
+      {
+        label: "Material",
+        lines: ["Woven black fabric.", "Double-stitched edges.", "Breakaway clip."],
+      },
+      { label: "Size", lines: ["90 cm."] },
+      {
+        label: "Embroidery",
+        lines: ["Black thread on black.", "Mark repeated full length."],
+      },
+      { label: "Care", lines: ["Spot clean only."] },
+      {
+        label: "Shipping & Returns",
+        lines: ["Made to order.", "Tracked shipping.", "Final sale."],
+      },
     ],
     sizes: [{ label: "One size", value: "one-size" }],
-    details: LANYARD_DETAILS,
     imageSrc: undefined,
     imageAlt: "Embroidered Lanyard — hanging with breakaway clip",
   },
@@ -133,15 +122,21 @@ const PRODUCTS_DATA: StaticProduct[] = [
     handle: "sku-003",
     name: "Embroidered Sticker",
     price: 15,
-    specs: [
-      "Embroidered patch. Merrowed border.",
-      "6 × 6 cm design area.",
-      "Adhesive back. Heat-press onto fabric.",
-      "Black thread on black.",
-      "Made to order.",
+    details: [
+      { label: "Material", lines: ["Embroidered patch.", "Merrowed border."] },
+      { label: "Size", lines: ["6 × 6 cm design area."] },
+      { label: "Embroidery", lines: ["Black thread on black."] },
+      { label: "Application", lines: ["Adhesive back.", "Heat-press onto fabric."] },
+      {
+        label: "Care",
+        lines: ["On fabric: cold wash inside out, hang dry.", "Loose: keep dry."],
+      },
+      {
+        label: "Shipping & Returns",
+        lines: ["Made to order.", "Tracked shipping.", "Final sale."],
+      },
     ],
     sizes: [{ label: "One size", value: "one-size" }],
-    details: STICKER_DETAILS,
     imageSrc: undefined,
     imageAlt: "Embroidered Sticker patch on black fabric",
   },

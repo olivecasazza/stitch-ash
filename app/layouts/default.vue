@@ -13,8 +13,6 @@
     <UMain id="main-content" class="page-main">
       <slot />
     </UMain>
-
-    <Footer />
   </div>
 </template>
 

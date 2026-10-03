@@ -130,20 +130,33 @@ components:
     textColor:        "{colors.grey-200}"
     typography:       "{typography.numeric}"
   accordion-body:
-    backgroundColor: "{colors.charcoal}"
+    # The panel is transparent. It used to be `charcoal`, which put the body
+    # copy on a 12px inset slab while the summary sat at x=0 — the column
+    # then had two left edges, and six open sections stacked into slabs.
+    # Facts and labels now share one left edge; only the rules separate them.
+    backgroundColor: transparent
     textColor:       "{colors.bone}"
-    typography:      "{typography.body-sm}"
-    padding:         "4px 12px 16px"
+    # Body facts render at `text-base` (13px), not `body-sm` (12px). They are
+    # the substance of the page, and 12px read as a footnote to an 11px label.
+    typography:      "{typography.body}"
+    padding:         "0 0 16px"
   # The `<summary>` is a DISCLOSURE CONTROL, not body copy, and is
   # deliberately NOT covered by `accordion-body` (STI-521). It reads
-  # uppercase with an icon, sits next to a panel of 400-weight `body-sm`
-  # copy, and must be the heavier of the two or the panel it opens
-  # outweighs its own trigger. It is declared on `label` (500 / 11px /
-  # 0.12em), the system's control-voice step — the same step badges,
-  # buttons and form labels use — and NOT on `body-sm`. STI-515 shipped
-  # it on `body-sm` (400) as a temporary landing on the nearest declared
-  # step; that is superseded here. `label` is 11px, so this narrows the
-  # rendered size from the 12px `text-sm` the selector was reading.
+  # uppercase with an icon and must be the heavier of the two, or the panel
+  # it opens outweighs its own trigger. It is declared on `label` (500 /
+  # 11px / 0.12em), the system's control-voice step — the same step badges,
+  # buttons and form labels use — and NOT on `body-sm`. STI-515 shipped it
+  # on `body-sm` (400) as a temporary landing on the nearest declared step;
+  # that is superseded here.
+  #
+  # Its hit height is set by `padding-block: spacing.lg` (16px) top and bottom
+  # over `label`'s 1.3 line-height at 11px: 46.3px, clearing the 44px
+  # minimum tap target. `spacing.md` (12px) gave 38.3px.
+  #
+  # Hover and focus are different states and are not merged: hover is a
+  # colour nudge to `grey-400` with no ring, and `:focus-visible` is the
+  # standard 2px `focus` ring at a 4px offset, with the label held at `bone`
+  # — dimming a label on focus reads as a disabled state.
   accordion-summary:
     textColor:       "{colors.bone}"
     typography:      "{typography.label}"
@@ -205,7 +218,7 @@ warmth — the slight #E8E8E8 of `bone` (replacing the prior warm bone
 #F7F3EC, stripped of its warmth for full neutrality). Every other token sits
 on the grey ramp from #0E0E0E to #FFFFFF.
 
-- **ink (#000000)** — the page ground, header, footer, product framing.
+- **ink (#000000)** — the page ground, header, and product framing.
 - **charcoal (#0E0E0E)** — elevated surface for cards and modals;
   distinguishable from `ink` only by a 1px hairline, never by shadow.
 - **grey-950 (#1A1A1A)** — tertiary surface, hover wells, image fallback
@@ -368,7 +381,7 @@ warm-bone era.
 | Token | Value | Mirrored as | Used for |
 |---|---|---|---|
 | `content-max` | 68.75rem | `--content-max` | Standard page content container |
-| `content-wide` | 80rem | `--content-wide` | Full-bleed sections (header, footer, marquee) |
+| `content-wide` | 80rem | `--content-wide` | Full-bleed sections (header, marquee) |
 | `measure` | 65ch | `--measure` | Long-form reading column |
 | `gutter` | `clamp(1rem, 2vw + 0.5rem, 2.5rem)` | `--gutter` | Fluid page inset |
 
@@ -522,39 +535,44 @@ Product copy is a spec sheet, not prose. It states what the thing is; it
 does not sell it.
 
 - **Format** — the Shopify description (`bodyHtml` in
-  `catalog/products/*.yaml`) is one `<ul>` of at most 6 `<li>` lines. The
-  PDP renders it as a list. No `<p>`, no headings.
-- **Line** — one fact per line, at most 8 words. Fragments, not
-  sentences: "Cotton fleece. Brushed interior." A line may hold two short
-  fragments of the same fact.
-- **Content** — material, fit, construction, decoration, size or
-  dimensions, lead time. Nothing else.
+  `catalog/products/*.yaml`) is one or more `<h3>Label</h3>` +
+  `<ul><li>line</li>…</ul>` pairs and nothing else. No `<p>`, no prose.
+- **Place** — the PDP shows no description block. The details expander is
+  the only place product facts live, one panel per section.
+- **Label** — one of Material, Fit, Construction, Embroidery, Size,
+  Application, Care, Shipping & Returns. Nothing else.
+- **Limits** — at most 7 sections per product, at most 4 lines per section.
+- **Line** — one fact per line, at most 8 words, ending in `.`.
+  Fragments, not sentences: "Dropped shoulder."
 - **Banned** — adjectives of judgement (premium, precise, intentional,
   substantial), claims about the buyer ("built for people who…"),
   second person, "we/our", metaphors, em-dash asides, explanations of why
   a detail matters ("that's the point").
-- **Detail panels** — the PDP accordion holds only what the description
-  does not: Care, and Shipping & Returns. Same line rules. A fact appears
-  once on the page.
-- **Enforced** — `src/catalog/product-copy.test.ts` fails CI on any line
-  that breaks these rules, in both the catalog YAML and
-  `app/data/products.ts`.
+- **Uniqueness** — a fact appears once per product.
+- **Enforced** — `src/catalog/product-copy.test.ts` fails CI on structure,
+  labels, limits, line rules and uniqueness, and on any drift between the
+  catalog YAML and the static mirror in `app/data/products.ts`.
 
-Example (sku-001):
+Example (sku-001), as the expander sections read:
 
 ```
-Cotton fleece. Brushed interior.
-Oversized fit. Dropped shoulder.
-Double-stitched seams.
-Embroidered chest. Mark on left sleeve.
-Black thread on black.
-Made to order. Ships in 2–3 weeks.
+Material — Cotton fleece. / Brushed interior.
+Fit — Oversized. / Dropped shoulder.
+Construction — Double-stitched seams.
+Embroidery — Black thread on black. / Design on chest. / Mark on left sleeve.
+Care — Cold wash, inside out. / Tumble dry low or hang. / Do not dry-clean.
+Shipping & Returns — Made to order. / Ships in 2–3 weeks. / Tracked
+shipping. / Returns within 14 days, unworn.
 ```
 
 ### Navigation
 - Sticky, transparent over hero, ink-black on scroll.
-- Wordmark left; primary links right; cart indicator as a numeric
-  ("02"), no badge box.
+- One row and nothing else: the wordmark on the left, linking home, and the
+  cart indicator on the right as a numeric ("02") with no badge box. There is
+  no other navigation anywhere in the chrome — no Shop, Story or Account
+  links — and there is no site footer.
+- The cart hit area is at least 44px tall, and the row fits a 320px viewport
+  with no horizontal overflow.
 - Active route marked with an underline, never a background pill.
 
 ### Badges
@@ -581,21 +599,51 @@ Made to order. Ships in 2–3 weeks.
   disagree is a defect regardless of which one wins the cascade.
 
 ### Accordion
+- The expander is the **only** place a product's facts live. There is no
+  separate description block on the PDP: sections come from Shopify's
+  `descriptionHtml` via `specSections` (Material / Fit / Construction /
+  Embroidery / Size / Application / Care / Shipping & Returns), with a
+  static mirror in `app/data/products.ts` for a product that has no
+  description yet.
+- **The panel is transparent and flush with the summary.** It is not
+  `charcoal` and it is not inset. An inset slab gave the column two left
+  edges — labels at x=0, facts 12px in — and turned six open sections into
+  stacked slabs. Labels and lines now share one left edge; the hairlines
+  do the separating. Padding is `0 0 16px`.
+- Facts render at `text-base` (13px), not `text-sm` (12px): they are the
+  substance of the page, and 12px read as a footnote.
 - The `<summary>` is a disclosure control, not body copy. It is declared
   on `components.accordion-summary` → `typography.label` (500 / 11px /
   0.12em), the system's control-voice step, and is deliberately **not**
-  covered by `components.accordion-body`. The panel it opens is
-  `body-sm` at 400; a 400-weight trigger under a 400-weight panel reads
-  as body copy and the panel outweighs its own trigger.
-- `label` is 11px, so the summary renders one step narrower than the
-  12px `text-sm` it was reading. That is intended: the summary is a
-  control, and controls are 11px tracked uppercase in this system.
-- Hover/focus moves the summary to `grey-400`; the focus ring is the
-  standard 2px `bone` square.
+  covered by `components.accordion-body`. A 400-weight trigger under a
+  400-weight panel reads as body copy and the panel outweighs its own
+  trigger. The label is 11px; that narrowing is intended.
+- Hover and focus are separate states, not one rule. `:hover` is a
+  colour nudge to `grey-400` with **no ring** — a mouse user should not
+  get a focus affordance. `:focus-visible` is the standard 2px `focus`
+  ring at a 4px offset, and holds the label at `bone`; dimming a label on
+  focus reads as a disabled state. The one link in the expander
+  (Shipping & Returns → Contact) follows the same ring rule and sits on
+  the same left edge as everything else.
+- The summary's hit height is **46.3px** (`padding-block: spacing.lg`,
+  16px top and bottom, over `label`'s 1.3 line-height at 11px), clearing
+  the 44px minimum tap target. `spacing.md` gave 38.3px.
+- The **first section is open by default** — Material, the most relevant
+  fact — and nothing else sets `open`.
+- **Empty renders nothing.** With zero sections the component emits no
+  markup at all, and the PDP hides the heading and wrapper too, so no
+  orphan hairline is drawn.
+- The panel animates via `::details-content` on `height` and
+  `content-visibility` (`allow-discrete`) over `transition-base`, with
+  `interpolate-size: allow-keywords` scoped to `.accordion`, so the panel
+  and the chevron rotate on the same duration instead of the panel
+  snapping under a rotating chevron. Under
+  `prefers-reduced-motion: reduce` every transition here is `none`.
+  Browsers without `::details-content` simply snap.
 
 ### Header
 - Sticky but subtle; transparent over hero, ink-black after scroll.
-- Left: wordmark. Right: Shop, Story, Account, Cart.
+- Left: wordmark, linking home. Right: cart, and nothing else.
 - Cart indicator should be numeric and quiet, not a large badge.
 - The count chip is `components.cart-pill-count` → `typography.numeric`
   (13px / 500 / tabular). It is `numeric` and not `label` because a

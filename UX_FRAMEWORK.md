@@ -49,7 +49,9 @@ Required sections:
    dense stitchwork, heavy black cotton, limited production.
 3. Featured collection: 3–4 products with strong product cards.
 4. Brand story preview: concise atelier/craft copy with a link to the story page.
-5. Footer: email capture, social proof, shipping/returns links.
+5. No footer. The chrome is a single header row — wordmark left, cart right —
+   and nothing else, so contact lives on the PDP Shipping & Returns panel and
+   on the `/contact` page rather than in a footer.
 
 ### 2.2 Product Detail
 
@@ -113,8 +115,10 @@ Order status page:
 Goal: make repeat purchase and order tracking feel like an archive, not an
 administrative form.
 
-Core screens: sign in / create account, orders list with status and detail link,
-saved addresses, and early-access or collection alerts.
+There is no account route in the storefront. Orders are shown where they
+already are: on the `/contact` page and, after a purchase, in the email
+Shopify sends. Keep it that way — a local sign-in that authenticates against
+nothing is worse than no sign-in.
 
 ## 3. Voice and Imagery
 
@@ -149,7 +153,8 @@ reviewer is most likely to let a serif instinct back in. If a line reads
   `DESIGN.md` frontmatter, mirrored in `app/assets/css/tokens.css`; a property
   in `tokens.css` that traces to no `DESIGN.md` token is a defect.
 - Build reusable components before page assembly: Header, ProductCard, Button,
-  Badge, SizeSelector, CartDrawer, CheckoutStep, OrderStatusTimeline.
+  Badge, SizeSelector, CartDrawer, CheckoutStep, OrderStatusTimeline. The
+  Header is one row (wordmark, cart); there is no Footer component.
 - Keep commerce integration behind product/cart/checkout services so Shopify
   can be swapped in natively. Shopify is the chosen provider for order
   tracking, purchasing/banking features, and inventory management; all
