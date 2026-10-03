@@ -1,0 +1,17 @@
+id: stitch-ash.sku-001
+title: Embroidered Hoodie
+handle: sku-001
+productType: Hoodies
+vendor: STITCH AND ASH
+status: ACTIVE
+bodyHtml: |
+  <p>Heavy cotton. Baggy silhouette. Built for people who care about how things are made.</p>
+  <p>Black-on-black embroidered design across the chest. The brand mark sits at the left sleeve, small and precise.</p>
+  <p>Made to order. Allow 3 - 4 weeks for production.</p>
+options:
+  - name: Size
+    values: ["S", "M", "L", "XL", "XXL"]
+variants:
+  - sku: sku-001-M
+    price: "185.00"
+    option1: M

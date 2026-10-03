@@ -1,0 +1,48 @@
+# scripts/ci/lead-time-ratchet.txt
+#
+# Known unquoted production lead times that deploy.yml tolerates while
+# scripts/ci/lead-time-claim-gate.sh runs in --ratchet mode.
+#
+# Format: <repo-relative-path>:<line-number>, one per line. Exact match on both
+# halves. Blank lines and #-comments are ignored.
+#
+# WHY THIS FILE EXISTS
+#
+# The hoodie PDP has published a 2-3 week production lead time since before
+# this repo's history begins, and no supplier ever quoted it. That is a real
+# defect and it is tracked (STI-638). It is tolerated in the DEPLOY path only,
+# because a step that fails on this pre-existing line would freeze every deploy
+# on main until a human answered an operator question about a supplier's
+# schedule. Freezing publishing is worse than the defect.
+#
+# The line is 41, not 16. It WAS 16 when this gate was first written, and it
+# moved when unrelated storefront work reshaped the catalog (#204, #207). A
+# ratchet pinned to a stale line is worse than no ratchet: --ratchet fails on
+# the moved claim, --strict-ratchet fails on the stale entry, and the two
+# together freeze every deploy while the real defect sits untouched. Re-pin
+# after ANY edit above this line, and let --strict-ratchet tell you when you
+# forgot.
+#
+# This is a ratchet, not an allowlist: the tolerated set must only shrink.
+# deploy.yml also runs the gate with --strict-ratchet, which fails if any entry
+# here no longer matches anything, so an entry cannot outlive its fix.
+#
+# TO CLEAR AN ENTRY
+#
+# Do not delete the line here to make a build pass. That is the STI-226 shape.
+# Clear it by fixing the defect:
+#
+#   1. A supplier quoted a range -> edit catalog/products/sku-001.yaml, set
+#      ALLOWED_VERIFIED_LEAD_TIME in scripts/ci/lead-time-claim-gate.sh to the
+#      quoted "<lo>-<hi> weeks", cite the quote in the commit body, state in the
+#      copy whether the figure is "order placed -> ready to ship" or "ready to
+#      ship -> delivered", then delete the entry below.
+#
+#   2. No quote exists -> remove the timeframe from the copy and keep the
+#      made-to-order process description, then delete the entry below.
+#
+# If the copy above line 41 grows or shrinks a line, this entry's line number
+# goes stale and --strict-ratchet will fail, which is the intended prompt to
+# re-pin it. Verify the live render before claiming the fix shipped.
+
+catalog/products/sku-001.yaml:41
