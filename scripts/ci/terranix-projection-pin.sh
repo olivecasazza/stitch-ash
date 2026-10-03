@@ -179,7 +179,11 @@ body_of() {
     echo "# copy changes and gets ignored. Only the projection decides."
     echo "#"
     echo "# Verified against casazza-info/nixlab blob 844ce33352b12d75b523cdd2042f4a059b2301ea"
-    echo "# on 2026-10-01. See docs/decisions/2026-09-28-catalog-source-of-truth.md."
+    echo "# on 2026-10-01, and re-verified unchanged on 2026-10-03 (same blob, pin"
+    echo "# MATCH exit 0). source-bytes below was stale in the 2026-10-01 generation"
+    echo "# (5848) because that figure was recorded before the file's last edits; it"
+    echo "# is regenerated here and still not compared. See"
+    echo "# docs/decisions/2026-09-28-catalog-source-of-truth.md."
     echo ""
     project "$f"
   }
