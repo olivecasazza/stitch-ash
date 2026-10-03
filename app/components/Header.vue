@@ -111,31 +111,82 @@ const { quantity, open } = useCart()
   transform-origin: left;
 }
 
-/* Cart pill button — white fill on dark surface (UX_FRAMEWORK) */
+/* Cart control — quiet numeric indicator, not a badge box (STI-640).
+   `background: var(--bone)` and a `1px solid var(--bone)` border shipped
+   here, which made the control a filled light block reading as a large badge
+   or primary CTA. DESIGN.md is explicit and says it twice:
+
+     Navigation: "cart indicator as a numeric (\"02\"), no badge box."
+     Header:     "Cart indicator should be numeric and quiet, not a large badge."
+
+   Two measured consequences made it a defect rather than a taste call, both
+   computed from the shipped values:
+
+     1. `background` and `border` were the same token, so the control had no
+        perceivable edge against itself: #E8E8E8 vs #E8E8E8 = 1.00:1. That is
+        an SC 1.4.11 failure on the element's own boundary.
+     2. The focus ring below sits on that fill. `--focus` is #FFFFFF, so
+        white-on-bone measured 1.23:1 — failing SC 1.4.11 3:1 by a wide
+        margin, and leaving keyboard users with no visible focus state. The
+        STI-608 comment on that rule reasoned as though the pill were
+        transparent over ink; on the surface that actually rendered it was not.
+
+   The fix is to stop overriding the nav treatment. `global.css` already
+   styles `.site-header nav button` transparent (`background: none`, no
+   left/top/right border, `border-bottom: 1px solid transparent`,
+   `color: var(--grey-400)`), and these declarations are repeated here
+   explicitly because a scoped selector carries a `[data-v-*]` attribute and
+   therefore outranks the global one regardless of what global.css says.
+
+   Removed: the bone fill, the bone border, and the `:hover`/`:focus-visible`
+   `background: var(--white)` swap. That last one was the more literal breach
+   — DESIGN.md's Navigation section says an active nav item is "marked with an
+   underline, never a background pill", and a full white fill on hover is
+   exactly the background pill the rubric rules out.
+
+   Hover and focus now move to `colors.bone` like `.nav-link`, and the
+   underline comes from the same global `border-bottom-color` swap the other
+   nav items use, so the cart carries a perceivable state cue without a box.
+   Over the `--ink-black` header those measure 17.14:1 (bone) and 7.46:1
+   (grey-400), both clear of AA for the 12px uppercase label.
+
+   The `--space-xs` inline padding went with the box: it existed to inset the
+   fill from its own border, and with no fill it just made the cart read
+   wider than its SHOP/STORY siblings. The vertical padding is unchanged, so
+   the WCAG 2.5.8 hit area from `global.css`'s `::before { inset: -8px 0 }`
+   pseudo-element — which already applies to `nav button` — is unaffected.
+
+   tokens.css and DESIGN.md are untouched, and need no mirror for this: every
+   value here is a token that already existed (`colors.grey-400`,
+   `colors.bone`, `typography.text-sm`, `rounded.none`). The change is a
+   component no longer misusing tokens, not a new token. The count chip below
+   is a separate declared component (`components.cart-pill-count`) and is
+   deliberately left exactly as DESIGN.md declares it. */
 .cart-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: var(--space-xs) var(--space-md);
-  background: var(--bone);
-  border: 1px solid var(--bone);
+  padding-block: 4px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
   border-radius: 0;
-  color: var(--ink-black);
+  color: var(--grey-400);
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   transition:
-    background-color var(--transition-base),
-    color var(--transition-base);
+    color var(--transition-base),
+    border-color var(--transition-base);
   cursor: pointer;
 }
 
 .cart-pill:hover,
 .cart-pill:focus-visible {
-  background: var(--white);
-  color: var(--ink-black);
+  color: var(--bone);
+  border-bottom-color: var(--bone);
 }
 
 /* STI-608: the cart pill is a real button, so `:hover, :focus-visible { outline:
@@ -144,10 +195,19 @@ const { quantity, open } = useCart()
    against the near-black header. That is a WCAG 2.4.7 failure, and 1.4.11
    fails too because the indicator has no perceivable boundary.
 
-   The hover fill swap stays above; the focus indicator becomes its own
-   declaration taking `components.focus-ring` — 2px stroke in `colors.focus`
-   at 4px offset — the same treatment `.btn-primary:focus-visible` and
-   `.product-card:focus-visible` already carry.
+   The focus indicator is a declaration taking `components.focus-ring` — 2px
+   stroke in `colors.focus` at 4px offset — the same treatment
+   `.btn-primary:focus-visible`, `.product-card:focus-visible`,
+   `.logo-link:focus-visible` and every `.site-header nav a/button` in
+   `global.css` already carry.
+
+   STI-640: the ring's own contrast is now correct on the surface it actually
+   renders on. While the control carried `background: var(--bone)`, this
+   #FFFFFF ring sat on a #E8E8E8 fill at 1.23:1 and was itself a 1.4.11
+   failure — the rule was correct and the surface was wrong. With the fill
+   gone (see `.cart-pill` above) the ring sits on the `--ink-black` header,
+   where #FFFFFF is 21.0:1. The ring did not change; what it is measured
+   against did.
 
    DESIGN.md and tokens.css are untouched: `focus (#FFFFFF)` and
    `components.focus-ring` already exist and already declare exactly this, so
