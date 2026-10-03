@@ -205,7 +205,7 @@ warmth — the slight #E8E8E8 of `bone` (replacing the prior warm bone
 #F7F3EC, stripped of its warmth for full neutrality). Every other token sits
 on the grey ramp from #0E0E0E to #FFFFFF.
 
-- **ink (#000000)** — the page ground, header, footer, product framing.
+- **ink (#000000)** — the page ground, header, and product framing.
 - **charcoal (#0E0E0E)** — elevated surface for cards and modals;
   distinguishable from `ink` only by a 1px hairline, never by shadow.
 - **grey-950 (#1A1A1A)** — tertiary surface, hover wells, image fallback
@@ -368,7 +368,7 @@ warm-bone era.
 | Token | Value | Mirrored as | Used for |
 |---|---|---|---|
 | `content-max` | 68.75rem | `--content-max` | Standard page content container |
-| `content-wide` | 80rem | `--content-wide` | Full-bleed sections (header, footer, marquee) |
+| `content-wide` | 80rem | `--content-wide` | Full-bleed sections (header, marquee) |
 | `measure` | 65ch | `--measure` | Long-form reading column |
 | `gutter` | `clamp(1rem, 2vw + 0.5rem, 2.5rem)` | `--gutter` | Fluid page inset |
 
@@ -522,39 +522,44 @@ Product copy is a spec sheet, not prose. It states what the thing is; it
 does not sell it.
 
 - **Format** — the Shopify description (`bodyHtml` in
-  `catalog/products/*.yaml`) is one `<ul>` of at most 6 `<li>` lines. The
-  PDP renders it as a list. No `<p>`, no headings.
-- **Line** — one fact per line, at most 8 words. Fragments, not
-  sentences: "Cotton fleece. Brushed interior." A line may hold two short
-  fragments of the same fact.
-- **Content** — material, fit, construction, decoration, size or
-  dimensions, lead time. Nothing else.
+  `catalog/products/*.yaml`) is one or more `<h3>Label</h3>` +
+  `<ul><li>line</li>…</ul>` pairs and nothing else. No `<p>`, no prose.
+- **Place** — the PDP shows no description block. The details expander is
+  the only place product facts live, one panel per section.
+- **Label** — one of Material, Fit, Construction, Embroidery, Size,
+  Application, Care, Shipping & Returns. Nothing else.
+- **Limits** — at most 7 sections per product, at most 4 lines per section.
+- **Line** — one fact per line, at most 8 words, ending in `.`.
+  Fragments, not sentences: "Dropped shoulder."
 - **Banned** — adjectives of judgement (premium, precise, intentional,
   substantial), claims about the buyer ("built for people who…"),
   second person, "we/our", metaphors, em-dash asides, explanations of why
   a detail matters ("that's the point").
-- **Detail panels** — the PDP accordion holds only what the description
-  does not: Care, and Shipping & Returns. Same line rules. A fact appears
-  once on the page.
-- **Enforced** — `src/catalog/product-copy.test.ts` fails CI on any line
-  that breaks these rules, in both the catalog YAML and
-  `app/data/products.ts`.
+- **Uniqueness** — a fact appears once per product.
+- **Enforced** — `src/catalog/product-copy.test.ts` fails CI on structure,
+  labels, limits, line rules and uniqueness, and on any drift between the
+  catalog YAML and the static mirror in `app/data/products.ts`.
 
-Example (sku-001):
+Example (sku-001), as the expander sections read:
 
 ```
-Cotton fleece. Brushed interior.
-Oversized fit. Dropped shoulder.
-Double-stitched seams.
-Embroidered chest. Mark on left sleeve.
-Black thread on black.
-Made to order. Ships in 2–3 weeks.
+Material — Cotton fleece. / Brushed interior.
+Fit — Oversized. / Dropped shoulder.
+Construction — Double-stitched seams.
+Embroidery — Black thread on black. / Design on chest. / Mark on left sleeve.
+Care — Cold wash, inside out. / Tumble dry low or hang. / Do not dry-clean.
+Shipping & Returns — Made to order. / Ships in 2–3 weeks. / Tracked
+shipping. / Returns within 14 days, unworn.
 ```
 
 ### Navigation
 - Sticky, transparent over hero, ink-black on scroll.
-- Wordmark left; primary links right; cart indicator as a numeric
-  ("02"), no badge box.
+- One row and nothing else: the wordmark on the left, linking home, and the
+  cart indicator on the right as a numeric ("02") with no badge box. There is
+  no other navigation anywhere in the chrome — no Shop, Story or Account
+  links — and there is no site footer.
+- The cart hit area is at least 44px tall, and the row fits a 320px viewport
+  with no horizontal overflow.
 - Active route marked with an underline, never a background pill.
 
 ### Badges
@@ -595,7 +600,7 @@ Made to order. Ships in 2–3 weeks.
 
 ### Header
 - Sticky but subtle; transparent over hero, ink-black after scroll.
-- Left: wordmark. Right: Shop, Story, Account, Cart.
+- Left: wordmark, linking home. Right: cart, and nothing else.
 - Cart indicator should be numeric and quiet, not a large badge.
 - The count chip is `components.cart-pill-count` → `typography.numeric`
   (13px / 500 / tabular). It is `numeric` and not `label` because a

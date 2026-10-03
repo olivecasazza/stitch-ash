@@ -94,12 +94,23 @@ if (resolution === 'not_found') {
 
 // 2. Resolve display values
 const displayName = computed(() => data.value?.product?.title ?? staticProduct.value?.name ?? '')
-// DESIGN.md "Product copy": the description is a list of spec lines. Shopify's
-// list wins; the static mirror covers a product with no list yet.
-const displaySpecs = computed(() => {
-  const live = specLines(data.value?.product?.descriptionHtml)
-  return live.length ? live : staticProduct.value?.specs ?? []
+// DESIGN.md "Product copy": there is no description block on the PDP. Every
+// product fact lives in the expander, so Shopify's description is parsed into
+// sections; the static mirror covers a product with no description yet.
+const displaySections = computed(() => {
+  const live = specSections(data.value?.product?.descriptionHtml)
+  return live.length ? live : staticProduct.value?.details ?? []
 })
+
+// The Shipping & Returns panel is where a customer asks about an order, so it
+// carries the only link inside the expander.
+const accordionSections = computed(() =>
+  displaySections.value.map(section =>
+    section.label === 'Shipping & Returns'
+      ? { ...section, link: { to: '/contact', text: 'Contact' } }
+      : section,
+  ),
+)
 const displayPrice = computed(() => {
   const shopifyVariants = data.value?.product?.variants?.edges || []
   const firstPrice = shopifyVariants[0]?.node?.price?.amount
@@ -159,7 +170,7 @@ const handleAddToCart = async () => {
 
 useSeoMeta({
   title: computed(() => `${displayName.value} — STITCH AND ASH`),
-  description: computed(() => displaySpecs.value.join(' '))
+  description: computed(() => displaySections.value.flatMap(s => s.lines).join(' '))
 })
 </script>
 
@@ -188,10 +199,6 @@ useSeoMeta({
 
         <h1 class="pdp__name">{{ displayName }}</h1>
         <p class="pdp__price">${{ displayPrice }}</p>
-
-        <ul v-if="displaySpecs.length" class="pdp__specs">
-          <li v-for="(line, i) in displaySpecs" :key="i">{{ line }}</li>
-        </ul>
 
         <!-- Size configuration swatches -->
         <div class="pdp__size-wrap">
@@ -223,7 +230,7 @@ useSeoMeta({
              detail panels a place in the outline without moving a pixel. -->
         <h2 class="pdp__section-heading">Details</h2>
         <div class="pdp__accordion-wrap">
-          <DetailsAccordion :sections="staticProduct?.details || []" />
+          <DetailsAccordion :sections="accordionSections" />
         </div>
       </div>
     </div>
@@ -353,17 +360,6 @@ useSeoMeta({
     color: var(--grey-200);
     letter-spacing: 0em;
     font-feature-settings: "tnum" 1;
-  }
-
-  .pdp__specs {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    max-width: var(--measure);
-    color: var(--grey-400);
-    line-height: 1.65;
-    font-size: var(--text-base);
-    text-align: left;
   }
 
   .pdp__one-size {

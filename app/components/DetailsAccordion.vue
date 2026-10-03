@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineProps<{
-  sections: { label: string; lines: string[] }[]
+  sections: { label: string; lines: string[]; link?: { to: string; text: string } }[]
 }>()
 </script>
 
@@ -22,6 +22,9 @@ defineProps<{
         <ul class="accordion__lines">
           <li v-for="(line, j) in section.lines" :key="j">{{ line }}</li>
         </ul>
+        <NuxtLink v-if="section.link" :to="section.link.to" class="accordion__link">
+          {{ section.link.text }}
+        </NuxtLink>
       </div>
     </details>
   </div>
@@ -121,5 +124,25 @@ defineProps<{
     font-size: var(--text-sm);
     color: var(--accordion-body-text);
     line-height: 1.6;
+  }
+
+  /* components.accordion-link — underlined text link, same treatment as
+     .contact__link / .account__link. */
+  .accordion__link {
+    display: inline-block;
+    margin-top: var(--space-sm);
+    font-size: var(--text-sm);
+    color: var(--bone);
+    text-decoration: underline;
+    text-decoration-color: var(--border-rule);
+    text-underline-offset: 0.2em;
+  }
+
+  .accordion__link:hover,
+  .accordion__link:focus-visible {
+    text-decoration-color: var(--bone);
+    /* components.focus-ring — 2px stroke, 4px offset (STI-578). */
+    outline: 2px solid var(--focus);
+    outline-offset: 4px;
   }
 </style>
