@@ -8,12 +8,20 @@
 #
 # WHY THIS FILE EXISTS
 #
-# The hoodie PDP has published "Made to order. Allow 2-3 weeks for production."
-# since before this repo's history begins, and no supplier ever quoted it. That
-# is a real defect and it is tracked (STI-638). It is tolerated in the DEPLOY
-# path only, because a step that fails on this pre-existing line would freeze
-# every deploy on main until a human answered an operator question about a
-# supplier's schedule. Freezing publishing is worse than the defect.
+# The hoodie PDP has published a 2-3 week production lead time since before
+# this repo's history begins, and no supplier ever quoted it. That is a real
+# defect and it is tracked (STI-638). It is tolerated in the DEPLOY path only,
+# because a step that fails on this pre-existing line would freeze every deploy
+# on main until a human answered an operator question about a supplier's
+# schedule. Freezing publishing is worse than the defect.
+#
+# The line is 41, not 16. It WAS 16 when this gate was first written, and it
+# moved when unrelated storefront work reshaped the catalog (#204, #207). A
+# ratchet pinned to a stale line is worse than no ratchet: --ratchet fails on
+# the moved claim, --strict-ratchet fails on the stale entry, and the two
+# together freeze every deploy while the real defect sits untouched. Re-pin
+# after ANY edit above this line, and let --strict-ratchet tell you when you
+# forgot.
 #
 # This is a ratchet, not an allowlist: the tolerated set must only shrink.
 # deploy.yml also runs the gate with --strict-ratchet, which fails if any entry
@@ -33,8 +41,8 @@
 #   2. No quote exists -> remove the timeframe from the copy and keep the
 #      made-to-order process description, then delete the entry below.
 #
-# If the copy above line 16 grows or shrinks a line, this entry's line number
+# If the copy above line 41 grows or shrinks a line, this entry's line number
 # goes stale and --strict-ratchet will fail, which is the intended prompt to
 # re-pin it. Verify the live render before claiming the fix shipped.
 
-catalog/products/sku-001.yaml:16
+catalog/products/sku-001.yaml:41

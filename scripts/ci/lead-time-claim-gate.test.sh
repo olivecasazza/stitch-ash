@@ -97,7 +97,7 @@ run_gate_args() {
 }
 
 # ── 1. The pin: the real, current defect must be caught ───────────────────
-# En dash, exactly as catalog/products/sku-001.yaml:16 has it.
+# En dash, exactly as catalog/products/sku-001.yaml has it.
 out="$WORK/o1"
 rc="$(run_gate "unsourced-en-dash" "" "$out")"
 check "unsourced en-dash range fails the gate" "1" "$rc"
@@ -155,6 +155,32 @@ check "'5-7 days' is caught alongside the weeks claim" "2" \
 out="$WORK/o6"
 rc="$(run_gate "made-to-order-no-number" "" "$out")"
 check "'Made to order' with no timeframe passes" "0" "$rc"
+
+# ── 6b. Return windows are NOT lead times ─────────────────────────────────
+#
+# Found by running the gate against real main, not by inspection. The live
+# hoodie catalog says "Returns within 14 days, unworn." A day-denominated
+# return window is not a supplier promise: no quote can validate it and it is
+# not a delivery promise. Matching it made the gate red on correct copy, and
+# because that line is live, --ratchet could never tolerate it and the deploy
+# froze on a defect that is not the one STI-638 is about. That is the mirror
+# image of the false green this gate exists to kill.
+#
+# The negative assertions below matter as much as the positive one: a fix that
+# simply drops "days" from the unit class would pass the first check and
+# reopen the real hole ("Lanyards ship in 5-7 days").
+out="$WORK/o6b"
+rc="$(run_gate "return-window-not-lead-time" "" "$out")"
+check "return/exchange/refund windows with no lead time pass" "0" "$rc"
+check "...and are reported as classified, not silently dropped" "3" \
+  "$(grep -c 'not a lead time' "$out")"
+
+# A return window must NOT excuse a real claim sitting beside it in one file.
+out="$WORK/o6c"
+rc="$(run_gate "return-window-beside-real-claim" "" "$out")"
+check "a real claim beside a return window still fails" "1" "$rc"
+check "...and the return window on that line is excused" "1" \
+  "$(grep -c 'not a lead time' "$out")"
 
 # ── 7. The other two SKUs must stay clean ─────────────────────────────────
 out="$WORK/o7"

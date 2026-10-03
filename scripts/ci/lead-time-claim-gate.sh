@@ -9,10 +9,15 @@
 #
 # ── The false green ────────────────────────────────────────────────────────
 #
-# `catalog/products/sku-001.yaml:16` has carried, since before the repo's git
+# `catalog/products/sku-001.yaml` has carried, since before the repo's git
 # history begins, this customer-facing sentence on a $185 SKU:
 #
-#     <p>Made to order. Allow 2–3 weeks for production.</p>
+#     <li>Ships in 2–3 weeks.</li>
+#
+# It is line 41 as of a871f3d; it was line 16 when this gate was authored and
+# moved when unrelated storefront work reshaped the catalog. A pin is a
+# file:line, so a moved line silently disarms the ratchet. --strict-ratchet is
+# what turns that back into a loud failure instead of a silent one.
 #
 # That dash is U+2013 EN DASH, not a hyphen. The verification command recorded in
 # docs/merch/2026-09-27-store-copy-pass.md and
@@ -144,9 +149,47 @@ is_ratcheted() {
   return 1
 }
 
+# Is this hit a return/cancellation window rather than a fulfilment promise?
+#
+# $1 = the matched line. Days are ambiguous on their own, so a day-denominated
+# number is only excused when a window NOUN governs it in the same sentence.
+# "Returns within 14 days, unworn." is excused. "Ships in 5-7 days" is not.
+#
+# Weeks and months are never excused here: no return window in this catalog is
+# denominated in them, so keeping them unconditional costs no true negative and
+# removes a whole class of "I softened the regex" false green.
+is_non_lead_window() {
+  local hit="$1" sentence
+
+  # Only "N days" can be a window; anything else is always a commitment.
+  printf '%s' "$hit" | grep -Eq '[0-9]+[[:space:]]+(business[[:space:]]+days|days?)\b' || return 1
+
+  # Look at the sentence the number sits in. HTML <li>/<p> boundaries do not
+  # end a sentence, so also split on them; that is what keeps "Returns within
+  # 14 days" from seeing a "ships" that lives in a neighbouring element.
+  while IFS= read -r sentence; do
+    if printf '%s' "$sentence" \
+      | grep -Eiq "$NON_LEAD_WINDOW_RE" \
+      && printf '%s' "$sentence" | grep -Eiq "$NON_LEAD_SENTENCE_RE$NON_LEAD_WINDOW_RE"
+    then
+      return 0
+    fi
+  done < <(printf '%s' "$hit" | sed -e 's/<\/\?[a-zA-Z][^>]*>/\n/g' -e 's/[.!?]/\n/g')
+
+  return 1
+}
+
 # Report a hit as fatal, tolerated, or (strict-ratchet) stale.
 handle_hit() {
   local file="$1" line_no="$2" hit="$3"
+
+  if is_non_lead_window "$hit"; then
+    printf 'not a lead time (return/cancellation window, not a supplier promise): %s:%s\n' \
+      "$file" "$line_no"
+    echo "    $hit"
+    return 0
+  fi
+
   if [ "$MODE" = "ratchet" ] && is_ratcheted "$file" "$line_no"; then
     RATCHETED_HITS+=("$file:$line_no")
     printf 'ratcheted (known unquoted claim, tolerated, STI-638 open): %s:%s\n' \
@@ -184,6 +227,47 @@ export LC_ALL=C.UTF-8
 # this whole file exists to prevent. "business days" is matched ahead of "days"
 # so the longer unit wins at the same position.
 LEAD_TIME_RE='([0-9]+)([[:space:]]*(-+|to)[[:space:]]*([0-9]+))?[[:space:]]+(business[[:space:]]+days|weeks?|months?|days?)'
+
+# ── Return and cancellation windows are NOT lead times ────────────────────
+#
+# A bare day-denominated range is ambiguous, and the real catalog is full of
+# honest ones that have nothing to do with production:
+#
+#     <li>Returns within 14 days, unworn.</li>
+#
+# That is a return WINDOW. It is not a promise about when an order arrives, it
+# is not a supplier commitment, and no supplier quote can validate or invalidate
+# it. Matching it made the gate fail on the correct copy, and because that line
+# is in the LIVE hoodie catalog it meant --ratchet could never tolerate it and
+# the deploy was frozen on a defect that is not the one we are chasing. That is
+# the mirror image of the false green this gate exists to kill: a gate that is
+# red for the wrong reason trains people to delete the gate.
+#
+# So a day-denominated claim is only a LEAD TIME when it is about fulfilment.
+# These classes were measured against the live catalog and both are required
+# context, not decoration:
+#
+#   FULFILMENT_RE  past/present-tense fulfilment verbs and the word "ship"
+#                  -> "ships in 5-7 days", "ready to ship within 3 days",
+#                     "dispatched in 5-7 days", "ships in 3 weeks"
+#   LEAD_WINDOW_RE the noun the window applies to, i.e. the thing arriving
+#                  -> "delivery in 5-7 days", "dispatch in 5-7 days"
+#
+# A WINDOW_RE word appearing ANYWHERE in the file line is not enough: the
+# current false positive is exactly that case, so the class is deliberately
+# narrow and every case is asserted in the fixture tests. Weeks and months
+# stay ungated by this rule, because nothing in this catalog states a
+# weeks/months return window and "Ships in 2-3 weeks" is unambiguous.
+FULFILMENT_RE='(ship|ships|shipped|shipping|dispatch|dispatched|dispatching|ready|produced|fulfil|fulfill|deliver|delivers|delivered|delivery)'
+LEAD_WINDOW_RE='(delivery|dispatch|lead[[:space:]]+time|processing|turnaround)'
+# A return/cancellation/refund window. If the number belongs to one of these,
+# it is not a lead time and is not this gate's business.
+NON_LEAD_WINDOW_RE='(return|returns|returning|refund|refunds|exchange|exchanges|cancel|cancellation|cancellations|withdraw|withdrawn)'
+# "Returns within 14 days" must be classified by its noun ("returns"), so the
+# non-lead test only excuses a number when a window NOUN governs it. Bounded to
+# the sentence so an unrelated "returns" later in the line cannot excuse a real
+# claim; normalised copy puts each sentence's text before its terminator.
+NON_LEAD_SENTENCE_RE='[^.!?]*'
 
 normalise() {
   # Fold every dash-like separator onto a plain ASCII hyphen, and strip CR.
