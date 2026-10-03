@@ -44,7 +44,7 @@ useSeoMeta({
     <p class="eyebrow">Account</p>
     <h1 class="account__title">Your account</h1>
 
-<p class="account__lede section-title">
+    <p class="account__lede section-title">
       Your orders, addresses, and tracking live in the STITCH AND ASH account you
       use at checkout. It is the same account for every order, so there is
       nothing to sign up for twice.
