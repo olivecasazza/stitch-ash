@@ -895,3 +895,111 @@ It does not read the built output, and it did not catch this regression because
 the defect is a *missing* element rather than a prohibited string — a lint for
 "no ops copy" cannot see "no product art at all". Passing this gate is not
 evidence a page is complete; it is evidence no banned word shipped.
+
+### `auto/best-vision` is down far more often than up — pin the reviewer
+
+The 2026-10-03T00:28Z daily pass hit four distinct reviewer failures in nine
+captures on a perfectly healthy site, and the failure changed identity *between
+attempts inside a single run*:
+
+| attempt | model | result |
+| --- | --- | --- |
+| 1 | `auto/best-vision` | `402 Payment Required` |
+| 2 | `auto/best-vision` | `429 Too Many Requests` (cooldown tripped by the 402) |
+| after 120s | `auto/best-vision` | `401 Unauthorized` — `You need to sign in to use this model` |
+| pinned | `openrouter/anthropic/claude-opus-5.5` | **200, 9 of 9 graded** |
+
+`auto/best-vision` is a router alias, so its 401 is ambiguous: the credential may
+be dead, or the alias may have resolved to a model the pool has no active
+connection for. In one sweep `openai/gpt-4o` and `anthropic/claude-sonnet-4-5`
+both returned `401 No active credentials for provider`, while the pinned
+OpenRouter Claude route returned `200` on the identical 148 KB image payload.
+The alias is the variable, not the key.
+
+**Pass `--model openrouter/anthropic/claude-opus-5.5` by default.** It is the
+one route that has actually graded captures on this board; do not spend a run
+rediscovering that the alias is down.
+
+Two script defects bite the moment the reviewer *does* return, and both surface
+as a Python traceback rather than a review result:
+
+1. `AttributeError: 'NoneType' object has no attribute 'strip'` at
+   `visual_review.py:365` — the model replied `finish_reason: stop` with
+   `message.content: null`. Transient and unrelated to the request; the same
+   prompt and image graded fine on retry. Retry it, never file it.
+2. One invocation aborts the whole run on the first such traceback, so captures
+   2..N never get graded. Drive the viewports in a loop with per-call retry
+   (75s backoff, 4 attempts) instead of trusting a single 9-shot run.
+
+Isolate the reviewer the same way every time — text leg, then the same call with
+a real production-size PNG, then the pinned model:
+
+| `auto/best-vision` text | `auto/best-vision` + real PNG | pinned OpenRouter Claude | conclusion |
+| --- | --- | --- | --- |
+| 200 | 401/402/429 | 200 | alias down, key fine — pin the model and the gate passes |
+| 200 | 429 `model_cooldown` | 429 `model_cooldown` | whole vision pool cooling — wait out `reset_seconds` |
+| 401 | 401 | 401 | key genuinely rejected — escalate |
+
+A 200 on the text leg proves the key and the endpoint are fine, which is the one
+thing a bare "review failed" line cannot tell you. Re-measure a blocker before
+inheriting its conclusion: [STI-575](/issues/STI-575) has sat on an
+exhausted-credit 401 for four days while the reviewer was in fact usable.
+
+### The cart pill is a filled button: a real DESIGN.md violation the lints cannot see
+
+The graded gate's most useful output on 2026-10-03 was not a crash — it was a
+`medium` finding the reviewer raised independently at **9 of 9 captures**: the
+header cart renders as a filled button rather than the quiet numeric indicator
+`DESIGN.md` specifies, and that fill breaks the focus ring the code relies on.
+
+`DESIGN.md` is unambiguous in two places (lines 522-525 "Navigation", 563-566
+"Header"): *"cart indicator as a numeric (\"02\"), no badge box"* and *"Cart
+indicator should be numeric and quiet, not a large badge."* The shipped
+declaration at `app/components/Header.vue:115-124` is `background: var(--bone)`
+with `border: 1px solid var(--bone)`.
+
+The part worth keeping is **how to prove it without arguing about taste**:
+
+- `--bone` is `#E8E8E8`, a legitimate greyscale token. It is **not** the
+  forbidden warm bone `#F7F3EC` (0 occurrences in the served CSS), so this is
+  not a palette regression and filing it as one would be wrong.
+- The objective failure is arithmetic: `background` and `border` are the same
+  token, so the control's boundary against itself is **1.00:1**.
+- `Header.vue:162` sets `outline: 2px solid var(--focus)`, and `--focus` is
+  `#FFFFFF`. Against the `#E8E8E8` fill it actually renders on, that is
+  **1.23:1** — failing SC 1.4.11 3:1. The STI-608 comment above that rule
+  reasons as though the pill were transparent over ink; once the bone fill
+  ships, that reasoning no longer describes the surface a user sees.
+- The **text** leg is fine: `#E8E8E8` on `#000000` is 17.14:1. State that in the
+  issue. Over-claiming a defect you did not measure costs more credibility
+  than the defect does.
+
+**Token existence is not token conformance.** Every gate in `scripts/ci/` passed
+on this commit — `no-internal-copy-in-storefront.sh` exited 0, `DESIGN.md`
+linted clean (0 errors, 0 warnings), the radius bridge held at `--radius-*` and
+`--ui-radius` all `0`. None of them check that a component *uses* a declared
+token the way `DESIGN.md` says it should. A green lint suite is evidence no
+banned thing shipped; it is not evidence the page matches its design system.
+Only the graded visual gate catches the second class.
+
+### When a graded finding names a rule, read the rule before filing it
+
+Vision findings are graded against `DESIGN.md`, so the rubric text is in the
+repo. Two patterns from the same run:
+
+- **"Account is missing from the nav"** fired at 7 of 9 captures. Before filing,
+  `grep -rniE 'account' app/components/Header.vue app/layouts/*.vue` returned
+  nothing — Account is not implemented *anywhere*, not hidden at a breakpoint.
+  That reclassifies it from "rendering regression" to "declared feature not
+  built", which is a different owner and a different urgency.
+- **"Prose block is too long"** and **"type scale skips a step"** fired on some
+  captures with a *pixel estimate* attached ("about 17-18px", "roughly 20px").
+  The reviewer is estimating off rendered pixels against a type scale it only
+  read as text. Do not file a measured-sounding claim off an unmeasured
+  estimate, and do not dismiss the underlying copy question either — report it
+  as unverified.
+
+Filter every graded line through: (1) is it visible in the screenshot *I*
+captured, (2) does it break a rule I have *read* in `DESIGN.md` rather than
+remembered, (3) does it reproduce at all three viewports. Lines failing (2) are
+candidates, not defects.
