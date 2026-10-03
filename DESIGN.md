@@ -517,6 +517,40 @@ the entries and the override both go.
   typography for the price.
 - No "quick add" — direct to PDP for size selection.
 
+### Product copy
+Product copy is a spec sheet, not prose. It states what the thing is; it
+does not sell it.
+
+- **Format** — the Shopify description (`bodyHtml` in
+  `catalog/products/*.yaml`) is one `<ul>` of at most 6 `<li>` lines. The
+  PDP renders it as a list. No `<p>`, no headings.
+- **Line** — one fact per line, at most 8 words. Fragments, not
+  sentences: "Cotton fleece. Brushed interior." A line may hold two short
+  fragments of the same fact.
+- **Content** — material, fit, construction, decoration, size or
+  dimensions, lead time. Nothing else.
+- **Banned** — adjectives of judgement (premium, precise, intentional,
+  substantial), claims about the buyer ("built for people who…"),
+  second person, "we/our", metaphors, em-dash asides, explanations of why
+  a detail matters ("that's the point").
+- **Detail panels** — the PDP accordion holds only what the description
+  does not: Care, and Shipping & Returns. Same line rules. A fact appears
+  once on the page.
+- **Enforced** — `src/catalog/product-copy.test.ts` fails CI on any line
+  that breaks these rules, in both the catalog YAML and
+  `app/data/products.ts`.
+
+Example (sku-001):
+
+```
+Cotton fleece. Brushed interior.
+Oversized fit. Dropped shoulder.
+Double-stitched seams.
+Embroidered chest. Mark on left sleeve.
+Black thread on black.
+Made to order. Ships in 2–3 weeks.
+```
+
 ### Navigation
 - Sticky, transparent over hero, ink-black on scroll.
 - Wordmark left; primary links right; cart indicator as a numeric

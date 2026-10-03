@@ -63,6 +63,7 @@ export const PRODUCT_FRAGMENT = `#graphql
         handle
         title
         description
+        descriptionHtml
         availableForSale
         featuredImage {
             ...ImageFields
