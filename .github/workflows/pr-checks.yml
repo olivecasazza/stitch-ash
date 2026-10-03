@@ -265,6 +265,34 @@ jobs:
       - name: Run storefront mock gate
         run: ./scripts/ci/storefront-mock-gate.sh
 
+  # STI-628: the storefront's public access token is served to every anonymous
+  # visitor inside `config.public`. That is correct — a Storefront *public* token
+  # is a browser credential by design, and using the published value against the
+  # Admin API returns 401 (see the decision record below). But nothing held the
+  # property. @nuxtjs/shopify reads admin.accessToken, privateAccessToken and
+  # customers.clientSecret in the same runtimeConfig family, one line away, and in
+  # the served HTML a private token looks byte-identical to today's page — so a
+  # one-line refactor could publish a real credential with no gate noticing.
+  #
+  # This gate is that check. Static and offline: it reads no env var, no secret,
+  # and needs no store. The self-test runs first because a gate that cannot detect
+  # the violation is not a gate — it asserts ten private-publication shapes are
+  # rejected and five legitimate ones accepted, so this job cannot go green on a
+  # gate that has stopped working.
+  public-runtime-config-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Self-test the public runtime config gate
+        run: ./scripts/ci/public-runtime-config-gate.test.sh
+
+      - name: Run public runtime config gate
+        run: ./scripts/ci/public-runtime-config-gate.sh
+
   # STI-542: the build was not reproducible, so "CI is green" did not mean "the
   # artifact is the one that was reviewed". Two builds of 9c55c363 published
   # different font files: the brand face was resolved through @nuxt/fonts with
