@@ -68,6 +68,19 @@ const onInput = (event: Event) => {
 
     quantity.value = raw === '' ? MIN_QUANTITY : clamp(Number(raw))
 }
+
+// Shares the row's one-request lock: a second click while the removal is in
+// flight would remove a line that is already gone and raise an error toast
+// over the undo row the first click produces. On success the row unmounts.
+async function onRemove() {
+    if (pending.value) return
+
+    pending.value = true
+
+    await remove(props.line.id)
+
+    pending.value = false
+}
 </script>
 
 <template>
@@ -165,7 +178,8 @@ const onInput = (event: Event) => {
             type="button"
             class="line-item__remove"
             :aria-label="`Remove ${variant.product.title} from cart.`"
-            @click="remove(props.line.id)"
+            :disabled="pending"
+            @click="onRemove"
         >
             <Icon
                 name="i-lucide-x"
@@ -300,7 +314,7 @@ const onInput = (event: Event) => {
     transition: color var(--transition-fast);
 }
 
-.line-item__remove:hover {
+.line-item__remove:hover:not(:disabled) {
     color: var(--bone);
 }
 

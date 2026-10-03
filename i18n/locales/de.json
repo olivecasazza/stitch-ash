@@ -3,6 +3,8 @@
         "title": "Warenkorb",
         "description": "Ausgewählte Artikel.",
         "empty": "Leer.",
+        "removed": "{title} entfernt.",
+        "undo": "Rückgängig",
         "subtotal": "Zwischensumme",
         "checkout": "Zur Kasse",
         "open": "Warenkorb öffnen",
@@ -40,8 +42,6 @@
         "to": "bis"
     },
     "product": {
-        "add": "Hinzufügen",
-        "choose": "Auswählen",
         "view": "Produkt ansehen",
         "recommendations": "Das könnte Ihnen auch gefallen"
     },
