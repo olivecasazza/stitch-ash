@@ -70,19 +70,35 @@ lane at all.
 
 ## What was actually missing, and is now fixed
 
-Nothing held the property. "This one value is fine" was true of the config *at
-that commit* and nothing stopped the next commit from publishing a different
-one. The realistic accident is small and the blast radius is total:
+> **Correction, 2026-10-03, later the same day.** An earlier revision of this
+> record claimed that adding `admin: { accessToken: … }` to this config would
+> publish a private credential to every anonymous visitor, and that the repo was
+> one refactor away from a breach. **That was wrong, and it was asserted rather
+> than verified.** `@nuxtjs/shopify` already strips those values; see "What the
+> module already does" below. The claim is corrected here rather than quietly
+> deleted, because a security record that overstates its own risk is worse than
+> no record — it teaches the next reader to trust a mechanism that does not
+> exist. The gate is still worth having, but for a narrower and correctly-stated
+> reason.
 
-- `@nuxtjs/shopify` reads `admin.accessToken`, `privateAccessToken` and
-  `customers.clientSecret` in the **same** `runtimeConfig` family, one line away
-  from where `publicAccessToken` sits.
-- A one-line edit adding `admin: { accessToken: … }` publishes a private
-  credential to every anonymous visitor.
-- In the served HTML that looks **byte-identical** to today's page. A
-  downstream HTML diff, a size check, or a smoke test would not notice.
+Nothing held the *repo's own* property. The module holds part of it; the repo
+asserted none of it. Two things were genuinely unguarded:
 
-`scripts/ci/public-runtime-config-gate.sh` is that missing check. It is static
+1. **The published surface outside the `shopify` subtree.** Nuxt publishes
+   `runtimeConfig.public` **verbatim** — no filtering, no whitelist. The module's
+   schema covers only `runtimeConfig.shopify`. So a value added to
+   `runtimeConfig.public` is handed to every anonymous visitor exactly as
+   written, and the first version of this gate passed a config containing
+   `public: { databaseUrl: process.env.DATABASE_URL }`. That is a real hole, and
+   it is the one the gate now closes.
+
+2. **The env var behind the one deliberate publication.** The module whitelist
+   says which *keys* may be published. It says nothing about which *value* fills
+   `publicAccessToken`. Repointing it at `SHOPIFY_ADMIN_TOKEN` satisfies the
+   schema perfectly and publishes an Admin token — the module will not stop
+   that, and no HTML diff would notice, because the shape is unchanged.
+
+`scripts/ci/public-runtime-config-gate.sh` checks those two things. It is static
 and offline: it reads no environment variable, no secret, and needs no store.
 It fails when
 
@@ -111,6 +127,48 @@ One specific trap is asserted explicitly. The warning comment in
 someone "fixes" it by deleting the warning. The gate masks comments and string
 bodies before scanning, and the suite proves it.
 
+## What the module already does
+
+`@nuxtjs/shopify` publishes its config through a **Zod whitelist**, not by
+copying whatever it was given. Every config passes
+`publicConfigSchema.parse(config)` (`dist/module.mjs:164`), and the schema omits
+the private keys by name (`dist/runtime/utils/config.js:212`):
+
+```js
+export const publicConfigSchema = configObjectSchema
+  .omit({ clients: true, fragments: true, webhooks: true })
+  .extend({
+    clients: z.object({
+      storefront: storefrontClientSchema.omit({
+        privateAccessToken: true,   // <- stripped
+        ...
+      }),
+      customerAccount: customerAccountClientSchema.omit({
+        clientSecret: true,         // <- stripped
+        ...
+      }),
+    }),
+  })
+```
+
+Zod strips keys the schema does not declare, so `clients.admin` is dropped
+entirely (the published `clients` object has only `storefront`). Measured, not
+inferred, by feeding a config with private values at every layer through the
+pinned module's own schema:
+
+```
+PUBLISHED  PUBLIC storefront token (expected present)
+STRIPPED   PRIVATE storefront token
+STRIPPED   ADMIN accessToken
+STRIPPED   WEBHOOK secret
+--- published keys under clients: [ 'storefront' ]
+```
+
+The deployed artifact agrees — none of the stripped names appear in the served
+HTML. **The module is the first line of defence, and it is a real one.** The gate
+exists for the two things it does not cover: the unfiltered `runtimeConfig.public`
+surface, and which env var fills the one key the schema does allow.
+
 ## What this gate does NOT prove
 
 Stated plainly so nobody over-reads it green:
@@ -123,6 +181,13 @@ Stated plainly so nobody over-reads it green:
 - It does not prove the public token is not over-privileged. The Admin-API 401
   above was measured once, out of band. It is evidence in this record, not a
   recurring check.
+- **It is not what stops `admin.accessToken` from being published** — the module
+  whitelist is. If a future `@nuxtjs/shopify` release drops or loosens that
+  schema, this gate would not notice, because it never claimed to be the control
+  for that. The module is pinned in `pnpm-lock.yaml` (`0.5.4`) and `package.json`
+  requests `latest`, so an unpinned upgrade is the way that protection would go
+  away quietly. That is the real residual risk on this boundary, and it is not
+  addressed here.
 
 ## Reproducing
 

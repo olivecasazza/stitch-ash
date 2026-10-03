@@ -22,8 +22,6 @@ trap 'rm -rf "$WORK"' EXIT
 PASS=0
 FAIL=0
 
-cleanup() { :; }
-
 # assert_rejects <name> <config-body>
 # The fixture must FAIL the gate. A gate that passes it is not gating.
 assert_rejects() {
@@ -242,15 +240,112 @@ assert_rejects "computed publicAccessToken expression" 'export default defineNux
 })'
 
 # ---------------------------------------------------------------------------
+# 11. `runtimeConfig.public` — the surface with NO filtering behind it.
+#
+#     This group exists because the first version of this gate PASSED all of
+#     them. `@nuxtjs/shopify`'s Zod whitelist covers the `shopify` subtree only;
+#     Nuxt publishes `runtimeConfig.public` verbatim, so a credential placed
+#     there is handed to every anonymous visitor and nothing strips it.
+#
+#     DATABASE_URL is the case that proved it: the name asserts nothing private,
+#     so a name-based check cannot see it, which is exactly why the rule is
+#     "no env reads under `public`" rather than a longer list of banned names.
+# ---------------------------------------------------------------------------
+assert_rejects "DATABASE_URL published via runtimeConfig.public" 'export default defineNuxtConfig({
+    runtimeConfig: {
+        shopify: {
+            clients: {
+                storefront: {
+                    mock: false,
+                    publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? "",
+                },
+            },
+        },
+        public: {
+            databaseUrl: process.env.DATABASE_URL ?? "",
+        },
+    },
+})'
+
+assert_rejects "SHOPIFY_ADMIN_ACCESS_TOKEN under runtimeConfig.public" 'export default defineNuxtConfig({
+    runtimeConfig: {
+        shopify: {
+            clients: {
+                storefront: {
+                    mock: false,
+                    publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? "",
+                },
+            },
+        },
+        public: {
+            adminToken: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN ?? "",
+        },
+    },
+})'
+
+# Even the one var this gate otherwise allows is refused HERE, because this
+# surface is published with no schema. The deliberate publication lives under
+# `shopify`, where the module filters it; allowing it in both places would make
+# the allowlist mean nothing.
+assert_rejects "even SHOPIFY_STOREFRONT_TOKEN is refused under public" 'export default defineNuxtConfig({
+    runtimeConfig: {
+        shopify: {
+            clients: {
+                storefront: {
+                    mock: false,
+                    publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? "",
+                },
+            },
+        },
+        public: {
+            token: process.env.SHOPIFY_STOREFRONT_TOKEN ?? "",
+        },
+    },
+})'
+
+# `import.meta.env` is the same hazard through Nuxt's other env accessor.
+assert_rejects "import.meta.env read under runtimeConfig.public" 'export default defineNuxtConfig({
+    runtimeConfig: {
+        shopify: {
+            clients: {
+                storefront: {
+                    mock: false,
+                    publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? "",
+                },
+            },
+        },
+        public: {
+            endpoint: import.meta.env.SHOPIFY_ADMIN_STORE_DOMAIN ?? "",
+        },
+    },
+})'
+
+# ---------------------------------------------------------------------------
+# 12. THE GATE IS NOT THE CONTROL FOR `admin` — the module is.
+#
+#     A gate that gets credited with a protection it does not provide is worse
+#     than no gate, because it is deleted when it fails and kept when it passes
+#     for the wrong reason. `@nuxtjs/shopify` strips `clients.admin`,
+#     `privateAccessToken` and `clientSecret` via publicConfigSchema; this gate
+#     rejects them a second time as defence in depth, and it says so.
+#
+#     The assertion that would catch a future module regression is the
+#     comment-trap fixture further down plus the recorded evidence in
+#     docs/decisions/2026-10-03-storefront-token-publish-boundary.md. This
+#     comment is here so the next reader does not re-derive the wrong claim the
+#     first revision of that record made.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
 echo ""
 echo "-- must accept --"
 # ---------------------------------------------------------------------------
 
-# 11. The REAL nuxt.config.ts from the repository, verbatim in shape. If this
+# 13. The REAL nuxt.config.ts from the repository, verbatim in shape. If this
 #     ever fails, the gate is wrong, not the config.
 assert_accepts "the repository's own nuxt.config.ts" "$(cat "$REPO_ROOT/nuxt.config.ts")"
 
-# 12. The checked-in baseline, so a future refactor that reshapes the config
+# 14. The checked-in baseline, so a future refactor that reshapes the config
 #     deliberately can be re-baselined here rather than by weakening the gate.
 if [ -f "$FIXTURES/baseline.ts" ]; then
   assert_accepts "checked-in baseline fixture" "$(cat "$FIXTURES/baseline.ts")"
@@ -258,7 +353,7 @@ else
   echo "NOTE: no baseline fixture at $FIXTURES/baseline.ts (skipped)"
 fi
 
-# 13. Public token inlined with a single-quoted empty fallback.
+# 15. Public token inlined with a single-quoted empty fallback.
 assert_accepts "single-quoted fallback form" 'export default defineNuxtConfig({
     runtimeConfig: {
         shopify: {
@@ -272,7 +367,7 @@ assert_accepts "single-quoted fallback form" 'export default defineNuxtConfig({
     },
 })'
 
-# 14. Non-credential descriptive config must not trip the gate. An over-broad
+# 16. Non-credential descriptive config must not trip the gate. An over-broad
 #     gate gets deleted rather than fixed, so this direction is asserted too.
 assert_accepts "descriptive non-credential config" 'export default defineNuxtConfig({
     runtimeConfig: {
@@ -293,8 +388,30 @@ assert_accepts "descriptive non-credential config" 'export default defineNuxtCon
     },
 })'
 
+# 17. A LITERAL in runtimeConfig.public is legitimate — that is what the surface
+#     is for. Nuxt publishes these to the browser and the client cannot read an
+#     env var at runtime, so a public flag, a feature name or a locale string
+#     must be allowed to live there. Only env READS are refused. If this fails,
+#     the rule in 2d is over-broad and will block legitimate config.
+assert_accepts "literals under runtimeConfig.public are allowed" 'export default defineNuxtConfig({
+    runtimeConfig: {
+        shopify: {
+            clients: {
+                storefront: {
+                    mock: false,
+                    publicAccessToken: process.env.SHOPIFY_STOREFRONT_TOKEN ?? "",
+                },
+            },
+        },
+        public: {
+            siteUrl: "https://stitch-ash.com",
+            enableWaitlist: true,
+        },
+    },
+})'
+
 # ---------------------------------------------------------------------------
-# 15. THE COMMENT TRAP. This is the failure mode storefront-mock-gate.sh exists
+# 18. THE COMMENT TRAP. This is the failure mode storefront-mock-gate.sh exists
 #     for, and it is the single most likely way this gate gets neutered: the
 #     warning comment names the forbidden shapes, a naive grep matches the
 #     warning, and someone "fixes" it by deleting the warning. The real
