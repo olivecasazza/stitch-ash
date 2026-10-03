@@ -391,18 +391,26 @@ useSeoMeta({
      .btn-primary and .signup button; this button was missed because the
      primary-CTA style is not in global.css (STI-515 F2). The page's body
      stylesheet sets `font: inherit`, so without the label step the button
-     inherited the PDP's base weight and size — both off-token. */
+     inherited the PDP's base weight and size — both off-token.
+
+     STI-634: `label`'s `fontFeature: "'tnum' 1"` was the one property still
+     missing here after the size/weight pair landed, so the add-to-cart CTA
+     shipped proportional figures. `font: inherit` was also retained from the
+     STI-515 note above, where it was the *symptom*; it is now the `label`
+     step in full, so the shorthand is dropped for the same reason as on
+     `.btn-primary` in global.css — it resets every longhand and is then
+     overridden one by one, so the two declarations can only disagree. */
   .pdp__atc-btn {
     width: 100%;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font: inherit;
     font-family: var(--font-body);
     font-size: var(--text-xs);
     font-weight: 500;
     line-height: 1.3;
     letter-spacing: 0.12em;
+    font-feature-settings: "tnum" 1;
     text-transform: uppercase;
     padding: var(--space-md) var(--space-lg);
     cursor: pointer;
