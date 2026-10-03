@@ -38,14 +38,25 @@ defineProps<{
     margin-top: 0;
   }
 
-  /* components.accordion-body declares typography.body-sm for the panel; the
-     <summary> is a different element and DESIGN.md gives it no token of its
-     own. typography.body-sm is used here — the nearest declared ramp step
-     for 12px tracked copy — rather than editing DESIGN.md from the component
-     side (STI-515 F4). Shipped 600 / 0.08em: 600 is a weight the ramp never
-     declares (400 or 500, nothing else). design-lead owns the question of
-     whether the summary wants its own components: entry or is covered by
-     accordion-body; tracked on STI-521. */
+  /* components.accordion-summary — the <summary> is a DISCLOSURE CONTROL, not
+     body copy, and is deliberately NOT covered by components.accordion-body.
+     typography.label (JetBrains Mono 500 / 0.6875rem / 1.3 / 0.12em / 'tnum' 1),
+     rounded.none, textColor colors.bone (STI-521, DESIGN.md:147).
+
+     STI-634 closes this rule's long-standing drift. The comment it replaces said
+     DESIGN.md "gives it no token of its own" and deferred the question to
+     STI-521. STI-521 was closed on 2026-09-28 by DESIGN.md commit 7bc9b26
+     ("docs(STI-521): decide accordion-summary, cart-pill-count, badge
+     tokens"), which is an ancestor of main and which states the answer
+     outright: "STI-515 shipped it on `body-sm` (400) as a temporary landing
+     on the nearest declared step; that is superseded here." The decision was
+     made and written down; only this mirror never followed. So the four
+     properties below were not an unresolved choice — they were an
+     unreconciled CSS mirror of a decision that already exists upstream, and
+     Option B in STI-634 is the answer DESIGN.md already gave.
+
+     Rendered size narrows 12px -> 11px by design: controls are 11px tracked
+     uppercase in this system. */
   .accordion__summary {
     display: flex;
     align-items: center;
@@ -54,10 +65,11 @@ defineProps<{
     padding-block: var(--space-md);
     cursor: pointer;
     list-style: none;
-    font-size: var(--text-sm);
-    line-height: 1.5;
-    font-weight: 400;
-    letter-spacing: 0.02em;
+    font-size: var(--text-xs);
+    line-height: 1.3;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    font-feature-settings: "tnum" 1;
     text-transform: uppercase;
     color: var(--bone);
     transition: color var(--transition-base);
