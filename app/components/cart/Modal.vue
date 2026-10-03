@@ -61,7 +61,16 @@ const checkoutReady = computed(() => !loading.value && lines.value.length > 0)
         v-if="lines.length > 0"
         class="flex flex-col gap-4 w-full"
       >
-        <div class="flex items-center justify-between gap-3 w-full">
+        <!-- The row is gated on `subtotal` as well as on the lines above: the
+             footer as a whole stays gated on `lines.length`, which is what
+             keeps $0.00 and Checkout off an empty cart, while this narrower
+             gate is what narrows `subtotal` (a `MoneyV2 | undefined`) to the
+             `PriceFieldsFragment` ProductPrice requires. An empty cart has
+             no price to render; a cart with lines always has one. -->
+        <div
+          v-if="subtotal"
+          class="flex items-center justify-between gap-3 w-full"
+        >
           <p class="text-[var(--grey-400)] text-[var(--text-xs)] font-medium tracking-[0.12em] uppercase">
             {{ $t('cart.subtotal') }}
           </p>
