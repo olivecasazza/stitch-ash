@@ -20,6 +20,28 @@ const { quantity, open } = useCart()
     <nav class="nav-menu" aria-label="Primary">
       <NuxtLink to="/products" class="nav-link">Shop</NuxtLink>
       <NuxtLink to="/#statement" class="nav-link">Story</NuxtLink>
+      <!-- STI-633: DESIGN.md:564 specifies "Left: wordmark. Right: Shop, Story,
+           Account, Cart." Account was never implemented, so the shipped nav had
+           three of the four required items.
+
+           It points at /account, which is a real page in this change rather than
+           an unwired route. There is no customer-account integration in this
+           repo — checkout hands off to Shopify's hosted checkoutUrl
+           (app/composables/cart.ts, consumed by app/components/cart/Modal.vue)
+           and no order is ever written to a system this app can read back — so
+           /account states that plainly and routes order questions to /contact
+           instead of faking a sign-in form.
+
+           The Shopify customer-account integration that would make this page
+           functional is commerce-eng's, not mine; it is delegated on this issue.
+
+           Placement and treatment are the existing ones by construction: same
+           `nav-link` class as the two siblings above, between Story and the cart
+           button. No new selector, no background pill — DESIGN.md:524 marks an
+           active route with the underline, which is what `.nav-link::after`
+           already does for hover/focus. DESIGN.md and tokens.css are untouched
+           by this change, so the mirror rule has nothing to sync. -->
+      <NuxtLink to="/account" class="nav-link">Account</NuxtLink>
 
       <button class="cart-pill" @click.prevent="open = true" aria-label="Open cart">
         <span class="cart-pill__label">Cart</span>
