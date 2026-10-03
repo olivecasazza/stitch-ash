@@ -17,18 +17,27 @@
 # in the decision doc above.
 #
 # But "this one value is fine" is a property of the CURRENT config, and nothing
-# held it. The failure mode worth guarding is a DIFFERENT value arriving in the
-# same public island, which would be byte-identical in the HTML and WOULD be a
-# breach: an Admin API access token, a customer-account client secret, or any
-# value read from an env var whose name says *_SECRET / *_KEY / *_PRIVATE. A
-# one-line edit adds one of those, the deploy pipeline publishes it to every
-# visitor, and no existing gate notices. `@nuxtjs/shopify` already reads
-# `admin.accessToken`, `customerAccount.clientSecret` and `privateAccessToken`
-# in the same config family, so the neighbours a well-meaning refactor reaches
-# for are all real and all private.
+# in the repo asserted it. Two surfaces are genuinely unguarded:
 #
-# This gate is that check. It is static, offline, reads no environment variable
-# and no secret, and needs no store.
+#   1. `runtimeConfig.public` is published VERBATIM by Nuxt — no whitelist, no
+#      filtering. `@nuxtjs/shopify`'s schema covers only the `shopify` subtree,
+#      so a value placed in `runtimeConfig.public` reaches every anonymous
+#      visitor exactly as written and no module stops it.
+#   2. The schema constrains which KEYS are published, never which VALUE fills
+#      them. Repointing `publicAccessToken` at `SHOPIFY_ADMIN_TOKEN` satisfies
+#      the schema and publishes an Admin token, with the HTML shape unchanged so
+#      no downstream diff would notice.
+#
+# WHAT THE MODULE ALREADY DOES, so this gate is not credited with work that is
+# not its own: `@nuxtjs/shopify` runs every config through a Zod whitelist
+# (`publicConfigSchema.parse()`, dist/module.mjs:164) which omits
+# `privateAccessToken`, `customerAccount.clientSecret` and the whole `admin`
+# client. Those are stripped by the MODULE, verified against the pinned 0.5.4.
+# This gate is the second layer, for the two surfaces above that the whitelist
+# does not cover.
+#
+# This gate is static, offline, reads no environment variable and no secret, and
+# needs no store.
 #
 # WHAT THIS GATE IS NOT, stated plainly so nobody over-reads it green:
 #   - It does NOT prove the token is valid, or what it is scoped to. That is an
@@ -39,6 +48,10 @@
 #   - It does NOT prove the public token is not over-privileged. That was
 #     measured once, out of band: an Admin-API probe with the public token
 #     returned HTTP 401. That is evidence in the decision doc, not a gate.
+#   - It is NOT the control that strips `admin.accessToken`; the module whitelist
+#     is. `package.json` requests `@nuxtjs/shopify@latest`, so an unpinned
+#     upgrade that loosens that schema would remove that protection without any
+#     check here failing.
 #
 # Usage: public-runtime-config-gate.sh [path/to/nuxt.config.ts]
 # The argument exists so the failure modes are directly testable.
@@ -118,10 +131,19 @@ FAILS = (
     "customer-account secret, or anything named *_SECRET / *_KEY / *_PRIVATE in\n"
     "that island is published to the internet on the next deploy.\n"
     "\n"
-    "If you need a private credential, it does NOT belong in `runtimeConfig` at\n"
-    "the top level: put it in `privateAccessToken` (server-only; `@nuxtjs/shopify`\n"
-    "strips it from the public config) or keep it out of runtimeConfig entirely\n"
-    "and read it inside a server route. See\n"
+    "Two different surfaces, two different rules:\n"
+    "\n"
+    "  runtimeConfig.shopify  is filtered by @nuxtjs/shopify, which strips\n"
+    "    admin, privateAccessToken and customerAccount.clientSecret by name. Do\n"
+    "    not rely on that as your control, and do not fight it either.\n"
+    "\n"
+    "  runtimeConfig.public  has NO filtering at all. Nuxt publishes it as\n"
+    "    written. Anything read from the environment there reaches every\n"
+    "    visitor, so keep credentials out of it entirely.\n"
+    "\n"
+    "To pass a private credential to server code, keep it out of runtimeConfig\n"
+    "and read it inside a server route (or a Nitro/Nuxt server plugin), where\n"
+    "it stays server-only. See\n"
     "docs/decisions/2026-10-03-storefront-token-publish-boundary.md (STI-628)."
 )
 
@@ -163,28 +185,15 @@ block = masked[m.end():close]
 base = m.end()
 
 # --- 2. No key that names a private capability may be published. -------------
-# `\badmin\b` matches a nested `clients: { admin: { accessToken: ... } }` too,
-# which is the realistic accident: an admin client configured inside the same
-# block, one line away from the storefront client, silently published.
-PRIVATE_KEY = re.compile(
-    r"\b([A-Za-z_$][\w$]*)"
-    r"\s*:"
-    r"[^,{}]*"
-    r"|"
-    r"\b(admin|secret|private|clientSecret|accessToken|refreshToken|appSecret|"
-    r"apiKey|webhooks|serviceAccount|jwtSecret)\b\s*:",
-    re.IGNORECASE,
-)
+# Collect every `key: value` pair inside runtimeConfig with the value expression
+# as written. Depth-aware, so a nested `clients: { admin: { ... } }` is found by
+# its own leaf keys rather than only by its parent.
 
-# Collect every key that is a DIRECT child of runtimeConfig, at any depth, with
-# the value expression as written. Depth-aware so `clients:` is reported, not
-# every leaf -- the operator needs the line to go look at, and the key name is
-# what the shape rules below test.
 entries = []
 
 
-def walk(seg, seg_base, level):
-    """Yield (key, value_text, abs_offset, depth) for every `key: value` pair."""
+def walk(seg, seg_base, path):
+    """Yield (key, value_text, abs_offset, key_path) for every `key: value`."""
     for km in re.finditer(r"\b([A-Za-z_$][\w$]*)\s*:", seg):
         key = km.group(1)
         # value runs to the next comma or closing brace at this level
@@ -203,44 +212,13 @@ def walk(seg, seg_base, level):
                 break
             v += 1
         value = seg[vstart:v]
-        entries.append((key, value, seg_base + km.start(), level))
+        here = path + (key,)
+        entries.append((key, value, seg_base + km.start(), here))
         if value.strip().startswith("{"):
-            walk(value, seg_base + vstart, level + 1)
+            walk(value, seg_base + vstart, here)
 
 
-walk(block, base, 0)
-
-# `accessToken` and `refreshToken` alone are not forbidden: the Storefront
-# client legitimately declares `publicAccessToken`. Only an UNQUALIFIED one, or
-# one under a private-sounding parent, is a finding.
-ALLOWED_EXACT = {
-    # The one deliberate publication. Verified in
-    # docs/decisions/2026-10-03-storefront-token-publish-boundary.md.
-    "publicaccesstoken",
-    # Non-credential descriptive config that legitimately lives here.
-    "name",
-    "mock",
-    "apiversion",
-    "retries",
-    "proxy",
-    "cache",
-    "client",
-    "options",
-    "private",
-    "public",
-    "errors",
-    "throw",
-    "path",
-    "ttl",
-    "maxage",
-    "staleMaxAge".lower(),
-    "swr",
-    "short",
-    "long",
-    "storefront",
-    "clients",
-    "shopify",
-}
+walk(block, base, ())
 
 # Anything whose NAME asserts privacy. Checked against the key itself and the
 # env-var / function name in its value, because `accessToken:
@@ -262,9 +240,20 @@ PRIVATE_ENV = re.compile(
 
 ALLOWED_ENV_SOURCES = {"SHOPIFY_STOREFRONT_TOKEN"}
 
+# `runtimeConfig.public` is published VERBATIM by Nuxt: no schema, no filtering,
+# no module in between. Anything under it goes to every anonymous visitor
+# exactly as written, so the rule there is stricter than the name-based checks
+# above — an env read under `public` is a finding on the strength of being an
+# env read, regardless of what the variable is called. `DATABASE_URL` is the
+# case that motivated this: its name asserts nothing private, so a name-based
+# check cannot see it, and the first version of this gate passed it.
+def under_public(key_path):
+    return bool(key_path) and key_path[0].lower() == "public"
+
+
 findings = []
 
-for key, value, off, level in entries:
+for key, value, off, key_path in entries:
     key_l = key.lower()
 
     # --- 2a. A key that asserts a private capability. ---
@@ -274,30 +263,51 @@ for key, value, off, level in entries:
         )
 
     # --- 2b. An unqualified private token key. ---
-    if key_l in ("accesstoken", "refreshtoken", "privateaccesstoken",
-                 "clientseretcret"[:0] or "clientsecret", "token"):
-        if key_l != "privateaccesstoken":
-            findings.append(
-                f"`{key}` is an unqualified token key; `publicAccessToken` is the "
-                f"only token key allowed in the public runtime config"
-            )
+    # `accessToken` and `refreshToken` are not forbidden in themselves: the
+    # Storefront client legitimately declares `publicAccessToken`, and the
+    # substring test in 2a does not match those names. Only an UNQUALIFIED one
+    # is a finding.
+    if key_l in ("accesstoken", "refreshtoken", "clientsecret", "token"):
+        findings.append(
+            f"`{key}` is an unqualified token key; `publicAccessToken` is the "
+            f"only token key allowed in the public runtime config"
+        )
 
     # --- 2c. A value that reads a private env var. ---
     for em in PRIVATE_ENV.finditer(value):
         var = next((g for g in em.groups() if g), None)
         if var is None:
             continue
+        # --- 2d. Anything under `runtimeConfig.public`. ---
+        # Checked before the allowance below, because this surface has no
+        # whitelist behind it: nothing downstream will strip a bad value here,
+        # so the gate does not get to reason about which vars are "probably
+        # fine". The one deliberate publication lives under `shopify`, not here.
+        #
+        # Only the leaf is reported. A container key's value text spans its whole
+        # subtree, so `public: { databaseUrl: ... }` would otherwise be reported
+        # twice — once as `public` and once as `public.databaseUrl` — and two
+        # findings for one mistake trains people to skim the output.
+        if under_public(key_path) and not value.strip().startswith(("{", "[")):
+            findings.append(
+                f"`{'.'.join(key_path)}` reads ${{{var}}} — `runtimeConfig.public` "
+                f"is published to every anonymous visitor verbatim, with no "
+                f"schema and no filtering. Publish a literal or a build-time "
+                f"constant there, never a credential"
+            )
+            continue
         if var in ALLOWED_ENV_SOURCES:
             continue
         if PRIVATE_NAME.search(var):
             findings.append(
-                f"`{key}` reads ${{{var}}} — that env var name asserts a private "
-                f"credential"
+                f"`{'.'.join(key_path)}` reads ${{{var}}} — that env var name "
+                f"asserts a private credential"
             )
         elif var.startswith("SHOPIFY_"):
             findings.append(
-                f"`{key}` reads ${{{var}}} — only SHOPIFY_STOREFRONT_TOKEN may be "
-                f"published; other SHOPIFY_* vars are operator-owned secrets"
+                f"`{'.'.join(key_path)}` reads ${{{var}}} — only "
+                f"SHOPIFY_STOREFRONT_TOKEN may be published; other SHOPIFY_* vars "
+                f"are operator-owned secrets"
             )
 
 # --- 3. The storefront public token must come from the one allowed source. ----
