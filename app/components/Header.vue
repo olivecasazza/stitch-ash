@@ -127,13 +127,16 @@ const cartLabel = computed(() => `Open cart, ${quantity.value ?? 0} items`)
   outline-offset: 4px;
 }
 
-/* typography.numeric — tabular figures on every count. Shipped 0.7rem (a
-   literal that traces to no type step) and 600 (a weight the ramp never
-   declares). Stepped down to --text-xs (11px) so the numeral stays on the
-   ramp: --text-base (13px, the token's own size) is taller than the 1.4em
-   box it sits in. DESIGN.md declares no components: token for this count
-   chip and the class is not minted in tokens.css, so no mirror ships here;
-   design-lead's token decision is tracked on STI-521. */
+/* components.cart-pill-count declares `typography.numeric` — 13px /
+   500 / tnum 1. The chip had stepped DOWN to --text-xs (11px) to fit a
+   `1.4em` box, but that box is expressed in em of the chip's own
+   font-size, so it scales with the type and was never a fixed constraint
+   (STI-515). At the token's own 13px the count sits on the ramp and the
+   box grows with it. `tnum` is the reason this is `numeric` and not
+   `label`: a bare integer must be tabular or the digit jitters between 9
+   and 10 (STI-521). The chip is 1.4em ≈ 18px, inset in a 44px-tall button
+   beside a fixed-width label in a `flex: 0 0 auto` pill, so the wider
+   numeral cannot overflow at 320px. */
 .cart-pill__count {
   display: inline-flex;
   align-items: center;
@@ -141,12 +144,12 @@ const cartLabel = computed(() => `Open cart, ${quantity.value ?? 0} items`)
   min-width: 1.4em;
   height: 1.4em;
   padding-inline: 4px;
-  font-size: var(--text-xs);
+  font-size: var(--text-base);
   font-weight: 500;
   font-feature-settings: "tnum" 1;
+  line-height: 1;
   background: var(--ink-black);
   color: var(--bone);
   border-radius: 0;
-  line-height: 1;
 }
 </style>

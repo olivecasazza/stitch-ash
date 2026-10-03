@@ -228,10 +228,12 @@ useSeoMeta({
         <!-- The page had a single H1 and no subheads, so the accordion read as
              orphaned content to a screen reader. A visually-hidden H2 gives the
              detail panels a place in the outline without moving a pixel. -->
-        <h2 class="pdp__section-heading">Details</h2>
-        <div class="pdp__accordion-wrap">
-          <DetailsAccordion :sections="accordionSections" />
-        </div>
+        <template v-if="accordionSections.length">
+          <h2 class="pdp__section-heading">Details</h2>
+          <div class="pdp__accordion-wrap">
+            <DetailsAccordion :sections="accordionSections" />
+          </div>
+        </template>
       </div>
     </div>
   </main>
@@ -442,9 +444,6 @@ useSeoMeta({
     cursor: not-allowed;
   }
 
-  .pdp__accordion-wrap {
-    margin-block-start: var(--space-sm);
-  }
 
   /* Info panel at >=768px — left-align the whole column, so the price and
      description read naturally, as the comment above `.pdp__info` states.

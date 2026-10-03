@@ -1,8 +1,8 @@
 {
     "cart": {
         "title": "Cart",
-        "description": "Review your selected items",
-        "empty": "Your cart is empty.",
+        "description": "Selected items.",
+        "empty": "Empty.",
         "subtotal": "Subtotal",
         "checkout": "Checkout",
         "open": "Open Cart",
@@ -18,7 +18,7 @@
                 "add": "Could not add item to cart.",
                 "update": "Could not update item in cart.",
                 "remove": "Could not remove item from cart.",
-                "tryAgain": "Please try again."
+                "tryAgain": "Not saved."
             }
         }
     },
