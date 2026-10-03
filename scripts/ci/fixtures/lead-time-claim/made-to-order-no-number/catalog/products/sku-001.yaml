@@ -1,0 +1,10 @@
+id: stitch-ash.sku-001
+title: Embroidered Hoodie
+handle: sku-001
+bodyHtml: |
+  <p>Heavy cotton. Baggy silhouette.</p>
+  <p>Black-on-black embroidered design across the chest.</p>
+  <p>Made to order. We embroider each one before it ships.</p>
+variants:
+  - sku: sku-001-M
+    price: "185.00"

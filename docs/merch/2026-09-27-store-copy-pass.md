@@ -128,9 +128,34 @@ confirming the *surviving value*. `2–3 weeks` is a production commitment on a
 **$185** flagship, and it currently has no provenance:
 
 ```
-$ git grep -n -P "2.3 weeks" origin/main -- catalog/ src/ app/
+$ LC_ALL=C.UTF-8 git grep -n -P "2.3 weeks" origin/main -- catalog/ src/ app/
 origin/main:catalog/products/sku-001.yaml:16     <-- the only customer-facing source
 ```
+
+> **Correction (STI-638), and read this before copying the command above.** The
+> `LC_ALL=C.UTF-8` prefix was missing when this was first written, and that made
+> the recorded check a **false green**. The dash in `2–3 weeks` is U+2013 EN DASH,
+> so the `.` in `"2.3 weeks"` only matches it when the regex engine is running
+> with a UTF-8 character type. Re-measured 2026-10-03 at `origin/main` = `04a35dc6`
+> on the default locale of this company's runners (`LANG` unset,
+> `LC_CTYPE=POSIX`):
+>
+> ```
+> $ git grep -c -P "2.3 weeks" 04a35dc6 -- catalog/
+> exit 1                          <-- "not found", on a string that IS present
+> $ git grep -c -P "2–3 weeks" 04a35dc6 -- catalog/
+> 04a35dc6:catalog/products/sku-001.yaml:1
+> $ LC_ALL=C.UTF-8 git grep -c -P "2.3 weeks" 04a35dc6 -- catalog/
+> 04a35dc6:catalog/products/sku-001.yaml:1
+> ```
+>
+> So the version originally recorded here reports this defect as **already
+> fixed**, and an audit that trusts it closes a defect that is live. This is the
+> STI-226 failure shape reproduced inside a verification command. Two traps, one
+> cause: fixing only the pattern would leave any future non-ASCII lead-time
+> string unmatched, and fixing only the locale would leave a wrong dash. Use
+> `scripts/ci/lead-time-claim-gate.sh`, which normalises the catalog to ASCII and
+> matches a class of separators, and carries no locale assumption.
 
 The live PDP shows it **three times** from that one source: `<meta
 name="description">` (via `useSeoMeta` at `app/pages/product/[handle].vue:155`),
