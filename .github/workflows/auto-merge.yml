@@ -236,12 +236,32 @@ jobs:
             // all", so GITHUB_TOKEN can dispatch this itself.
             //
             // Bounds, because a job that waits forever is worse than no fix:
-            //   * mergeWait  — hard ceiling on the wait (5 min).
+            //   * mergeWait  — hard ceiling on the wait (15 min).
             //   * backstop   — this is belt-and-braces with deploy.yml's */30
             //                  cron, so a miss here costs at most one cron
             //                  window, not a stuck site.
             // A PR that is never merged simply times out and returns cleanly.
-            const mergeWait  = 5 * 60 * 1000;
+            //
+            // STI-655: the ceiling was 5 minutes and it was the measured cause of
+            // an un-deployed main. The wait is not a fixed latency — it is however
+            // long GitHub's merge queue takes to drain the required checks, and
+            // that grows with the number of checks and the queue depth. Measured
+            // on PR #195 (merged as e19a846, the commit ash-gm filed STI-655
+            // over): armed 14:23:34Z, still unmerged at the 14:28:42Z ceiling,
+            // merged 14:29:16Z — 34s after this job gave up and returned. The
+            // two invocations that mattered both logged `PR did not merge within
+            // the wait` and neither dispatched. Live PRs measured the other side
+            // of the same distribution: #199 merged 124s after arming, #200
+            // merged 122s after arming. So 300s was not comfortably above the
+            // real latency; it sat inside the tail of it.
+            //
+            // 15 minutes is a ceiling, not a target: a healthy PR still merges in
+            // ~2 minutes and still returns on its first successful poll. Only the
+            // genuinely-stuck case now pays the wait, and that case is already
+            // covered by the cron backstop. The gate above is unchanged, so a
+            // *newer* merge landing while this one waits is still picked up on
+            // re-entry — STI-655 measures three invocations for one merge.
+            const mergeWait  = 15 * 60 * 1000;
             const mergeStep  = 10 * 1000;
             const mergeUntil = Date.now() + mergeWait;
 
@@ -352,7 +372,7 @@ jobs:
             // This job re-enters on every check_suite/status/synchronize event
             // and on the Semver Label workflow_run, so this block runs many
             // times per PR. Most of those invocations are AFTER the merge, and
-            // waiting 5 minutes on each would burn a lot of CI time to
+            // waiting 15 minutes on each would burn a lot of CI time to
             // rediscover a fact already true. Check the answer first and only
             // wait when the merge genuinely has not happened yet.
             //
@@ -374,7 +394,24 @@ jobs:
             }
 
             if (!mergeSha) {
-              core.info('PR did not merge within the wait — deploy.yml cron backstop will catch it.');
+              // STI-655: this branch used to log one INFO line and return,
+              // which is how a merge that landed 34s later (PR #195 -> e19a846)
+              // produced a run concluding `success` that had published nothing.
+              // A green run is the exact artefact the STI-226 class of false
+              // claims is built on, so a timeout must NOT be able to conclude
+              // green: it escalates to a real failure. The merge itself is
+              // unaffected — GitHub's merge queue owns that — so nothing about
+              // this failure is retried by a human.
+              //
+              // What it buys: the failure is loud, so "CI green" stops standing
+              // in for "deployed" in any agent's or operator's report. The merge
+              // itself is still published by deploy.yml's */30 cron, which is
+              // the intended recovery path and is unaffected by this step.
+              core.setFailed(
+                `PR #${prNumber} was armed but did not merge within ${Math.round(mergeWait / 1000)}s. ` +
+                `Nothing was dispatched for it, so this run did NOT publish a deploy — do not read ` +
+                `this run's success as a live site. deploy.yml's */30 cron remains the recovery path.`
+              );
               return;
             }
 
