@@ -357,7 +357,6 @@ useSeoMeta({
 
   .pdp__specs {
     margin: 0;
-    margin-inline: auto;
     padding: 0;
     list-style: none;
     max-width: var(--measure);
