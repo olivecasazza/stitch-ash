@@ -140,6 +140,31 @@ then either write the count through the Admin UI/API or flip
 `0 pending product actions` as "stock is fine" — it means the catalog is
 reconciled, nothing more.
 
+### A clean plan is not a safe store: read the exit code
+
+`plan` is read-only, so `0 pending product actions` says only that the catalog is
+reconciled. It says nothing about whether a buyer can actually check out. Because
+the shipping block above is prose, `plan` also exits non-zero when it *measures*
+that problem, so the outage is visible to `$?` and to CI:
+
+| code | meaning |
+|---|---|
+| `0` | no shipping measured broken |
+| `2` | `CHECKOUT-BLOCKING` — a declared destination is quoted **no shipping option at all**; the store accepts the address, mints a `checkoutUrl`, and then offers the buyer nothing, so checkout cannot complete there |
+| `3` | a probe address was rejected, so reachability is **unknown** — not a pass and not a defect |
+
+`planExitFor` is what computes this, and it is deliberately narrow. It raises `2`
+only for `no_options` (address accepted, zero options). It does **not** raise it
+for an inconclusive probe, which proves nothing about shipping, nor for a
+carrier-calculated rate, which is an Admin-API observability limit rather than
+evidence a buyer is blocked — the live store's own international rule is exactly
+that case, so a broader predicate would fail every plan forever.
+
+Exit `2` is not something `catalog:apply` can fix; it writes neither delivery
+profiles nor inventory. It means the store's shipping configuration needs a human
+decision before a plan that mentions `REST_OF_WORLD` should be treated as
+approval-ready.
+
 ## Fulfillment/tracking workflow
 
 Tracking is runtime state, not Git state. Validate a tracking operation with:
