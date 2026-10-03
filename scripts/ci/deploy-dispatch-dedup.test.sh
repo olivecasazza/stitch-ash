@@ -343,6 +343,71 @@ else
   printf '  skip deploy.yml freshness clause (workflow not present)\n'
 fi
 
+# 15. STI-655: the merge-wait ceiling must stay above the measured merge latency.
+#
+#     The defect this asserts against is measured, not hypothetical. auto-merge.yml
+#     armed native auto-merge and then waited up to 5 minutes for the merge to
+#     land so it could dispatch the post-merge commit. On PR #195 (merged as
+#     e19a846) the merge landed 34s AFTER the ceiling, so both invocations took
+#     the timeout branch, neither dispatched, and both runs concluded `success` —
+#     a green run that published nothing, which is the artefact every STI-226
+#     false claim is built from.
+#
+#     A future edit that lowers the ceiling back under the measured latency must
+#     fail here rather than wait for someone to notice a stale site weeks later.
+auto_merge_yaml="$HERE/../../.github/workflows/auto-merge.yml"
+if [ -f "$auto_merge_yaml" ]; then
+  wait_secs="$(sed -nE 's/^[[:space:]]*const mergeWait[[:space:]]*=[[:space:]]*([0-9]+)[[:space:]]*\*[[:space:]]*60[[:space:]]*\*[[:space:]]*1000;.*/\1/p' \
+    "$auto_merge_yaml" | head -1)"
+  if [ -z "$wait_secs" ]; then
+    record_fail "merge-wait ceiling is declared and parseable" \
+      "could not read 'const mergeWait = N * 60 * 1000;' from auto-merge.yml"
+  else
+    printf '  ok   merge-wait ceiling is declared and parseable (%ss)\n' "$((wait_secs * 60))"
+    PASS=$((PASS + 1))
+    # 342s is the measured arm->merge latency for PR #195, the commit STI-655 was
+    # filed over. The ceiling must exceed it with room to spare, because the
+    # latency is a property of GitHub's merge queue, not of this repo: it grows
+    # with the number of required checks and with queue depth.
+    if [ "$wait_secs" -ge 15 ]; then
+      printf '  ok   merge-wait ceiling (%ss) exceeds the measured 342s latency\n' "$((wait_secs * 60))"
+      PASS=$((PASS + 1))
+    else
+      record_fail "merge-wait ceiling exceeds the measured 342s latency" \
+        "ceiling is $((wait_secs * 60))s; PR #195 merged 342s after arming, so a merge can land after this job has already returned"
+    fi
+  fi
+
+  # 16. STI-655: the timeout branch must not conclude green.
+  #
+  #     This is the half of the fix that closes the false-green, and it is the
+  #     half most likely to be reverted as "noisy". A timeout means this run
+  #     dispatched nothing. If it can still finish `success`, then any agent or
+  #     operator reading the checks list reads a green run that published no
+  #     deploy — precisely the STI-226 pattern. core.setFailed makes the miss
+  #     loud; the merge itself and the */30 cron recovery are unaffected.
+  if grep -qE '^\s*core\.setFailed\(' "$auto_merge_yaml"; then
+    printf '  ok   merge-wait timeout escalates instead of concluding green\n'
+    PASS=$((PASS + 1))
+  else
+    record_fail "merge-wait timeout escalates instead of concluding green" \
+      "auto-merge.yml has no core.setFailed; a timed-out wait returns success and a green no-op run can be reported as a deploy"
+  fi
+
+  # The setFailed must sit on the timeout path specifically, not merely exist
+  # somewhere in the file, or this assertion can be satisfied by an unrelated
+  # error handler.
+  if sed -n '/if (!mergeSha)/,/^            }/p' "$auto_merge_yaml" | grep -qE 'core\.setFailed\('; then
+    printf '  ok   setFailed is on the timeout branch itself\n'
+    PASS=$((PASS + 1))
+  else
+    record_fail "setFailed is on the timeout branch itself" \
+      "the 'if (!mergeSha)' branch does not call core.setFailed"
+  fi
+else
+  printf '  skip merge-wait ceiling (auto-merge.yml not present)\n'
+fi
+
 echo
 printf '%d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1
