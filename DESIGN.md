@@ -129,6 +129,34 @@ components:
   price:
     textColor:        "{colors.grey-200}"
     typography:       "{typography.numeric}"
+  # ── The section eyebrow (STI-659) ───────────────────────────────────────────
+  # The small uppercase line that sits above a section title ("Collections",
+  # "Get in touch"). It rendered in four places from
+  # `app/assets/css/global.css` with NO declaration here while wearing
+  # `--text-xs` — an undeclared rule on a declared step, not a variant. It is
+  # now declared, on `label`, which is a ruling with two consequences the
+  # mirror must honour:
+  #
+  # 1. The shipped `letter-spacing: 0.18em` is DROPPED for `label`'s 0.12em.
+  #    Two near-identical uppercase micro-steps at the same 11px size is the
+  #    same drift this declaration closes; the 0.06em gap is ~0.66px at this
+  #    size and the step reads apart on colour, the hairline and the size
+  #    drop to `text-2xl`, not on tracking. A distinct 0.18em step would have
+  #    meant a ninth `--text-*` step at an 11px size already claimed.
+  # 2. `label` carries `fontFeature: "'tnum' 1"`, so the rule rejoins the
+  #    label-step family instead of standing outside it. In JetBrains Mono
+  #    every glyph is fixed-width, so `tnum` is belt-and-braces here — the
+  #    point is that the declaration is now uniform, not that digits move.
+  #
+  # Uppercase is part of `label` itself (see "Labels" under Typography), not
+  # a component override, and is not repeated as a sub-token. The hairline is
+  # `border-block-end`, which the schema has no sub-token for, so it is stated
+  # in prose under "Section eyebrows" — same treatment as the badge boundary.
+  eyebrow:
+    textColor:        "{colors.grey-400}"
+    typography:       "{typography.label}"
+    rounded:          "{rounded.none}"
+    padding:          "0 0 4px"
   accordion-body:
     # The panel is transparent. It used to be `charcoal`, which put the body
     # copy on a 12px inset slab while the summary sat at x=0 — the column
@@ -148,6 +176,18 @@ components:
   # buttons and form labels use — and NOT on `body-sm`. STI-515 shipped it
   # on `body-sm` (400) as a temporary landing on the nearest declared step;
   # that is superseded here.
+  #
+  # STI-659 ruled on the open naming question raised by STI-634 and the
+  # answer is (a): this stays a `typography.label` INSTANCE and gets no step
+  # of its own. The rule is settled by the type scale, not by taste — a
+  # "distinct" step would have to differ from `label` in some property, and
+  # every property is already the one that control voice wants: 500 weight
+  # over a 400 panel, 11px so the panel outweighs its trigger, 0.12em
+  # tracking, tabular figures, uppercase. A second step differing only in
+  # name would be a duplicate with a different key, and the type scale's
+  # stated invariant is one step per size. Declaring it here as a component
+  # that RESOLVES to `label` is what makes it traceable; a parallel step
+  # would make it a second source for the same 11px.
   #
   # Its hit height is set by `padding-block: spacing.lg` (16px) top and bottom
   # over `label`'s 1.3 line-height at 11px: 46.3px, clearing the 44px
@@ -574,6 +614,46 @@ shipping. / Returns within 14 days, unworn.
 - The cart hit area is at least 44px tall, and the row fits a 320px viewport
   with no horizontal overflow.
 - Active route marked with an underline, never a background pill.
+
+### Section eyebrows
+The eyebrow is the small tracked line that introduces a section — `Shop —
+the full capsule`, `Collections`, `Brand`, `Get in touch`. It is the quietest
+type on the site and it is declared as `components.eyebrow` →
+`typography.label` (STI-659).
+
+- **It is `label`, at `label`'s tracking.** 500 weight / 11px / 0.12em /
+  tabular / uppercase. An earlier revision of the rule carried its own
+  `letter-spacing: 0.18em`; that is dropped. At 11px the difference is about
+  0.66px, and it bought a second uppercase micro-step at a size `label`
+  already owns — the same undeclared-drift problem the declaration exists to
+  close. The eyebrow separates from its section title on colour
+  (`grey-400` against `bone`) and on the size drop to `text-2xl`, not on
+  tracking.
+- **It is grey, not bone.** `grey-400` (#9A9A9A) at 11px is a secondary
+  voice; `bone` is reserved for copy the reader is expected to read.
+- **The hairline is `border-block-end`, not a box.** 1px
+  `var(--border-rule)` — the standard `rule` hairline, same as the accordion's
+  dividers. `borderColor` is not a declared component sub-token, so like the
+  badge boundary it is stated here rather than forced into a key the linter
+  would flag. No full border, no plate, no fill.
+- **`padding-block-end` is `spacing.xs` (4px)** — the hairline sits one grid
+  step below the text. `display: inline-block` so the rule tracks the text
+  width instead of the column width, and `text-wrap: balance` so a
+  two-line eyebrow does not set a rag. This is a grid-pure padding, so it is
+  declared as `padding: "0 0 4px"`.
+- **UA margins are neutralised.** The eyebrow is sometimes an `<h2>`
+  (homepage, `ProductGrid`) and sometimes a `<p>` (contact, the brand line).
+  `margin-block-end: 0` keeps the computed box identical in both cases, so
+  the rule does not move the outline of the section it sits in.
+- It is never a button and never navigable. No hover, no focus ring, no
+  underline — nothing to click means nothing to signal.
+- **One declaration site.** `.eyebrow` lives in
+  `app/assets/css/global.css` and is consumed as a class from four pages and
+  `ProductGrid.vue`. `ProductGrid` takes the string as an `eyebrow` prop and
+  renders it with the class; no page may restate the tracking, colour or
+  hairline locally, and no component may grow a second `.eyebrow`-shaped
+  micro-label with its own values — a new use of this step is a new
+  consumer of `components.eyebrow`, not a new rule.
 
 ### Badges
 - Transparent fill, hairline `primary` border, tracked-uppercase `label`
