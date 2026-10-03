@@ -108,7 +108,7 @@
      @nuxt/ui v4.8 also ships a LIGHT semantic ramp in `@layer theme`
      (`.light,:host,:root`): `--ui-bg:#fff`, `--ui-text:var(--ui-color-neutral-700)`,
      `--ui-border:var(--ui-color-neutral-200)`, and the whole neutral ramp
-     resolved from Tailwind `slate` (app.config.ts sets `ui.colors.neutral`).
+     resolved from Tailwind `slate` (the neutral palette set in app.config.ts).
      That is why a U* component on this black storefront rendered a white
      line-item card, a #0f172b heading, #e2e8f0 dividers and a slate "navy"
      Checkout: the vendor vars, not our tokens, decided the colour.
@@ -118,8 +118,9 @@
      unlayered for the same reason `--ui-radius` is: unlayered beats
      `@layer theme` at any specificity. It also covers the neutral ramp,
      because `--ui-primary` is generated as `var(--ui-color-neutral-500)`
-     (app.config.ts sets `ui.colors.primary: 'neutral'`), so a slate 500 was
-     the primary ink, the focus outline and the solid button fill at once.
+     (app.config.ts points the primary colour at that same neutral palette),
+     so a slate 500 was the primary ink, the focus outline and the solid
+     button fill at once.
 
      The three secondary text steps deliberately collapse onto `--grey-400`:
      the ramp has one secondary ink, and a chain of three dimmer greys would
