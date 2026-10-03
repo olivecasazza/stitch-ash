@@ -201,6 +201,27 @@ handle_hit() {
   echo "    $hit"
 }
 
+# Report a structured (key: value) production lead-time claim. Same ratchet
+# accounting and same fatal-report shape as a prose hit, deliberately: a claim
+# is a claim however it is written down. Only the return-window exemption is
+# skipped, because "madeToOrderMinDays" has no return-window reading.
+handle_structured_hit() {
+  local file="$1" line_no="$2" hit="$3"
+
+  if [ "$MODE" = "ratchet" ] && is_ratcheted "$file" "$line_no"; then
+    RATCHETED_HITS+=("$file:$line_no")
+    printf 'ratcheted (known unquoted claim, tolerated, STI-638 open): %s:%s\n' \
+      "$file" "$line_no"
+    echo "    $hit"
+    return 0
+  fi
+
+  report "unverified production lead time in customer-facing catalog file: $file:$line_no"
+  echo "    $hit"
+  echo "    The unit is in the key, so the prose lead-time pattern cannot see this line."
+  echo "    It is still a customer-visible fulfilment commitment with no supplier quote."
+}
+
 # Normalise to ASCII so the separator class below matches regardless of the
 # dash actually authored. LC_ALL=C.UTF-8 is set for the whole gate so that -P
 # behaves identically here and on a CI runner; without it this script would
@@ -305,6 +326,43 @@ while IFS= read -r file; do
       line_no="${hit%%:*}"
       handle_hit "$file" "$line_no" "$hit"
     done <<< "$matches"
+  fi
+
+  # ── The same claim, written as machine-readable fields ──────────────────
+  #
+  # LEAD_TIME_RE only sees a number that is followed by a UNIT WORD. The
+  # shipping policy declares the identical commitment as two structured keys:
+  #
+  #     processingTime:
+  #       madeToOrderMinDays: 14
+  #       madeToOrderMaxDays: 35
+  #
+  # The unit is in the KEY, not after the number, so the prose pattern above
+  # cannot see it and the gate reported a clean catalog while a $185 SKU's
+  # fulfilment window was declared twice, in two different ranges, with neither
+  # number quoted by anyone.
+  #
+  # This is a real false green, not a theoretical one: it shipped because the
+  # gate is only ever exercised against the file where the claim is prose.
+  # Matching the key names as a CLASS rather than pinning one spelling keeps a
+  # renamed or newly-added key from being a free pass: a leadTimeMaxDays or
+  # productionMinDays key carries the same commitment and must be caught the
+  # same way. The values are matched through the same normalise path so a
+  # quoted/unquoted or spaced form still lands.
+  #
+  # These are keys, not prose, so is_non_lead_window does not apply: a
+  # madeToOrderMinDays key is a production commitment by construction, and
+  # there is no return-window reading of "made to order minimum days".
+  #
+  # The negative cases are asserted in the fixture tests, so the class cannot
+  # quietly widen into refund/return windows, transit estimates or stock counts
+  # and turn the gate red on correct data.
+  if s_matches="$(printf '%s' "$normalised" \
+    | grep -En '^[[:space:]]*[A-Za-z_]*(madeToOrder|production|processing|fulfillment|fulfilment|leadTime|lead_time)[A-Za-z_]*(Min|Max|Window)?[A-Za-z_]*Days[[:space:]]*:[[:space:]]*[0-9]+')"; then
+    while IFS= read -r hit; do
+      line_no="${hit%%:*}"
+      handle_structured_hit "$file" "$line_no" "$hit"
+    done <<< "$s_matches"
   fi
 done < <(find "$CATALOG_DIR" -type f \( -name '*.yaml' -o -name '*.yml' \) | sort)
 

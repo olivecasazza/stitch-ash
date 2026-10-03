@@ -96,6 +96,34 @@ run_gate_args() {
   echo $?
 }
 
+# Append one structured "  <key>: <n>" line to a fixture's shipping policy and
+# run the gate in strict mode.
+#
+# Written as a helper rather than as ten copies of a 6-line cp/append/run block
+# because the thing it exists to prove is that the gate is run AGAINST THE TREE
+# BEING MUTATED. An earlier hand-written probe got that wrong -- it invoked the
+# gate by absolute path while sitting in a different tree, and the gate cd's to
+# its own repo root, so the probe silently measured the untouched branch clone
+# and reported "not caught" for a pattern that does catch. Every assertion in
+# 7f/7g below now mutates the tree the gate actually scans.
+#
+# $1 = fixture dir, $2 = key name, $3 = env prefix, $4 = out file
+run_gate_key() {
+  local fixture="$1" key="$2" envspec="$3" out="$4"
+  local dir="$WORK/$(basename "$fixture")-k-$$-$key"
+  mkdir -p "$dir"
+  cp -R "$FIXTURES/$fixture/." "$dir/"
+  mkdir -p "$dir/scripts/ci" "$dir/catalog/shipping"
+  cp "$GATE" "$dir/scripts/ci/lead-time-claim-gate.sh"
+  printf '    %s: 30\n' "$key" >>"$dir/catalog/shipping/default.yaml"
+
+  local -a env_args=()
+  [ -n "$envspec" ] && env_args=(env $envspec)
+
+  ( cd "$dir" && "${env_args[@]}" bash scripts/ci/lead-time-claim-gate.sh ) >"$out" 2>&1
+  echo $?
+}
+
 # ── 1. The pin: the real, current defect must be caught ───────────────────
 # En dash, exactly as catalog/products/sku-001.yaml has it.
 out="$WORK/o1"
@@ -186,6 +214,76 @@ check "...and the return window on that line is excused" "1" \
 out="$WORK/o7"
 rc="$(run_gate "other-skus-clean" "" "$out")"
 check "lanyard + sticker copy with no number passes" "0" "$rc"
+
+# ── 7b. The same claim as structured fields ───────────────────────────────
+#
+# Found by running the gate against real main on 2026-10-03, not by inspection.
+# catalog/shipping/default.yaml declares the identical commitment twice more as
+#
+#     processingTime:
+#       madeToOrderMinDays: 14
+#       madeToOrderMaxDays: 35
+#
+# The unit lives in the KEY, so LEAD_TIME_RE -- which needs a unit WORD after
+# the number -- cannot match, and the gate reported a clean catalog while a
+# $185 SKU's fulfilment window was declared in three different places in two
+# different ranges with no supplier quote behind any of them.
+#
+# Worse, the two structured numbers CONTRADICT the prose one: 35 days is five
+# weeks, while the PDP promises two to three. A customer can be told either.
+out="$WORK/o7b"
+rc="$(run_gate "structured-madt" "" "$out")"
+check "madeToOrderMinDays/MaxDays claims fail the gate" "1" "$rc"
+check "...and both structured lines are reported" "2" \
+  "$(grep -c 'unverified production lead time' "$out")"
+check "...and the report explains the key-carried unit" "2" \
+  "$(grep -c 'unit is in the key' "$out")"
+
+# The negative control matters as much: the key match must stay narrow. A
+# refundWindow or a return-window field is not a production commitment, and
+# widening the pattern to "any key ending in Days" would make the gate red on
+# correct data — which is how this gate got a bad name in the first place.
+out="$WORK/o7c"
+rc="$(run_gate "structured-madt-clean-window" "" "$out")"
+check "refund/return window day fields pass" "0" "$rc"
+
+# A structured claim obeys the same ratchet accounting as a prose one, or
+# deploy.yml would freeze the moment the pattern learned to see it.
+out="$WORK/o7d"
+rc="$(run_gate_r "structured-madt" "catalog/shipping/default.yaml:6
+catalog/shipping/default.yaml:7" "" "$out" --ratchet)"
+check "ratchet tolerates the pinned structured lines" "0" "$rc"
+check "...and says so" "3" "$(grep -c 'ratcheted' "$out")"
+
+# One tolerated structured line must not excuse the other: the tolerated set is
+# exact file:line, so a partial pin is still a red deploy.
+out="$WORK/o7e"
+rc="$(run_gate_r "structured-madt" "catalog/shipping/default.yaml:6" "" "$out" --ratchet)"
+check "a partial structured pin still fails" "1" "$rc"
+
+# ── 7f. The key match must be a CLASS, not one spelling ───────────────────
+#
+# The first cut of the structured pattern matched `madeToOrder(Min|Max)Days`
+# and nothing else. Verified against real main on 2026-10-03 by appending
+# `leadTimeMaxDays: 30` to the shipping policy: the gate still exited 0. So a
+# renamed or newly-added key would have been a free pass, and the fix would have
+# been a false green that LOOKED like a fix.
+#
+# asserted structurally below, because a probe you run once is not a test.
+for key in madeToOrderMinDays madeToOrderMaxDays productionMinDays \
+           processingMaxDays fulfillmentMinDays leadTimeMaxDays \
+           lead_time_max_days; do
+  out="$WORK/o7f-$key"
+  rc="$(run_gate_key "structured-madt" "$key" "" "$out")"
+  check "structured key '$key' is caught" "1" "$rc"
+done
+
+# ...and the class must not widen into data that is not a production promise.
+for key in refundWindowDays restockDays estimatedTransitDays; do
+  out="$WORK/o7g-$key"
+  rc="$(run_gate_key "structured-madt-clean-window" "$key" "" "$out")"
+  check "non-lead-time key '$key' is not flagged" "0" "$rc"
+done
 
 # ── 8. Docs: a verified claim is a violation, a disclaimer is not ─────────
 out="$WORK/o8"

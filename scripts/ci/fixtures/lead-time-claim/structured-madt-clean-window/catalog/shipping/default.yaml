@@ -1,0 +1,14 @@
+id: stitch-ash.shipping.default
+policyName: STITCH AND ASH pilot shipping
+processingTime:
+  refundWindowDays: 14
+returnWindow:
+  minDays: 14
+  maxDays: 30
+# Names the class must NOT match: transit estimates and stock counts are not
+# production lead times, and a class that swallowed them would be red on
+# correct data.
+estimatedTransitDays:
+  min: 3
+  max: 7
+restockDays: 10
