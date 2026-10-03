@@ -50,14 +50,21 @@ body {
    Display type uses --font-display (mono, weight 500, tight letter-spacing);
    body uses --font-body (mono); --font-mono reserved as the explicit mono key. */
 
-/* Eyebrow label — uppercase, tracked, grey */
+/* components.eyebrow (STI-659) — textColor colors.grey-400, typography.label,
+   rounded.none, padding 0 0 4px. Eyebrow label — uppercase, tracked, grey.
+   Tracking moves 0.18em -> label's 0.12em and line-height / tnum are added so
+   this rule is the same shape as every other label-step rule (.badge,
+   .accordion__summary). The 0.18em was an undeclared second uppercase step at
+   a size label already owns; see DESIGN.md "Section eyebrows". */
 .eyebrow {
   /* Used as a section heading (<h2>) on the homepage. Neutralise the UA
      heading margins so the computed box is identical to when it was a <p> — the
      outline fix must not move a pixel. */
   margin-block-end: 0;
   font-size: var(--text-xs);
-  letter-spacing: 0.18em;
+  line-height: 1.3;
+  letter-spacing: 0.12em;
+  font-feature-settings: "tnum" 1;
   text-transform: uppercase;
   color: var(--grey-400);
   display: inline-block;
