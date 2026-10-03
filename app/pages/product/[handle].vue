@@ -22,7 +22,7 @@ const { data, error } = await useStorefrontData(`product-${handle.value}`, `#gra
     product(handle: $handle) {
       id
       title
-      description
+      descriptionHtml
       images(first: 20) {
         edges {
           node {
