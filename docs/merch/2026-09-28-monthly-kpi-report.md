@@ -290,7 +290,8 @@ sections as published 2026-09-28).
 | **Product photography missing, all 3 SKUs** | **OPEN** | `featuredImage` absent from live Storefront data; PDP renders an SVG mark (`aria-label="Embroidered Hoodie"`), **zero `<img>` elements** | storefront-lead — [STI-309](/STI/issues/STI-309) `blocked` by [STI-318](/STI/issues/STI-318) |
 | Hoodie landed-cost quote outstanding | OPEN — hoodie pricing provisional | ceiling $86.83 vs $75 base estimate | supplier via operator ask — [STI-418](/STI/issues/STI-418) |
 | No analytics tag before launch traffic | OPEN | [STI-419](/STI/issues/STI-419) | storefront-lead |
-| ~~`og:image` served a third-party demo logo~~ | **RESOLVED this period** | `og:image` → `https://preview.stitch-ash.com/og-brand-card.png` on `/` and on PDP; asset fetches `HTTP 200`, `20987` bytes, `image/png` | og:image item resolved; lead-time item resolved 2026-09-29 — see the fourth amendment above; [STI-439](/STI/issues/STI-439) `in_progress` for photography only |
+| ~~`og:image` served a third-party demo logo~~ | **RESOLVED this period** | `og:image` → `https://preview.stitch-ash.com/og-brand-card.png` on `/` and on PDP; asset fetches `HTTP 200`, `20987` bytes, `image/png` | og:image item resolved. **Lead-time item is NOT resolved** — retracted 2026-10-01, see fifth correction; operator quote outstanding at [STI-638](/STI/issues/STI-638). [STI-439](/STI/issues/STI-439) open for photography **and** lead time |
+| Hoodie PDP states an unquoted production lead time | **OPEN** | `catalog/products/sku-001.yaml:16` ships `Allow 2–3 weeks for production`, sourced once and rendered 3× per PDP view via `app/pages/product/[handle].vue:155`; re-verified live 2026-10-03: `2–3 weeks` ×3, `3–5 weeks` ×0 | operator — supplier quote [STI-638](/STI/issues/STI-638), tracked from [STI-609](/STI/issues/STI-609) |
 
 Photography is worth restating as a **conversion** risk rather than a
 cosmetic one. A brand selling a $185 garment that has never been photographed
@@ -343,7 +344,7 @@ counts.
 | Three SKUs price live | `https://preview.stitch-ash.com/products` | `200`, `20304` bytes, `$185`/`$35`/`$15` one match each | **Unchanged** |
 | No product photography | `https://preview.stitch-ash.com/product/sku-00{1,2,3}` | all `200`, **0** `<img>` elements on all three; 8 `<svg>` marks on the hoodie PDP | **Unchanged — still OPEN** |
 | `og:image` fixed | `https://preview.stitch-ash.com` | `og:image` → `.../og-brand-card.png`; asset `200`, `20987` bytes, `image/png` | **Unchanged — resolved** |
-| Hoodie lead-time contradiction | `https://preview.stitch-ash.com/product/sku-001` | `Shipping & Returns` = `Made to order. Ships tracked. Returns accepted within 14 days of delivery…`; no `2–3 weeks` / `3–5 weeks` on the page | **CHANGED — now RESOLVED** |
+| Hoodie lead-time contradiction | `https://preview.stitch-ash.com/product/sku-001` | ⚠️ **The observation in this row was wrong and has been re-measured.** As written it claimed `no 2–3 weeks / 3–5 weeks on the page`. Re-fetched 2026-10-03 at `origin/main` = `04a35dc6`: `2–3 weeks` ×**3**, `3–5 weeks` ×0. The page is no longer self-contradictory, but the lead time is **present**, not absent | **REOPENED — not resolved** |
 | Latent demo strings | `i18n/locales/en.json` | no `Nuxt Shopify Demo` / `Welcome to our demo store`; `home` block empty, `seo.description` is brand copy | **Unchanged — resolved** |
 
 **Correction logged:** the lead-time row was stale (fourth amendment, above).
