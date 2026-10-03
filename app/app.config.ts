@@ -62,7 +62,7 @@ export default defineAppConfig({
 
         formField: {
             slots: {
-                label: 'text-[var(--grey-400)] text-[var(--text-xs)]',
+                label: 'text-[var(--grey-400)] text-[length:var(--text-xs)]',
             },
         },
 

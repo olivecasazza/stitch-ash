@@ -164,7 +164,9 @@ const { add: addToCart, open: openCart } = useCart()
 
 const handleAddToCart = async () => {
   if (!variantId.value) return
-  await addToCart(variantId.value, 1)
+  // The panel opens the moment the mutation lands, so it is the feedback:
+  // a toast here would double up over the subtotal and Checkout.
+  await addToCart(variantId.value, 1, { notify: false })
   openCart.value = true
 }
 

@@ -79,7 +79,10 @@ export const useCart = () => {
         console.warn('[cart] read failed; continuing with an empty cart', error)
     }).finally(() => setLoading(false))
 
-    const add = (variantId: string, quantity = 1): Promise<unknown> => setLoading(true).then(() => storefront.request(`#graphql
+    // `notify: false` is for callers that open the cart panel themselves the
+    // moment the mutation lands — the panel then IS the feedback, and a toast
+    // on top of it would double up and cover the subtotal.
+    const add = (variantId: string, quantity = 1, options: { notify?: boolean } = {}): Promise<unknown> => setLoading(true).then(() => storefront.request(`#graphql
         mutation AddToCart($cartId: ID!, $lines: [CartLineInput!]!, $language: LanguageCode, $country: CountryCode)
         @inContext(language: $language, country: $country) {
             cartLinesAdd(cartId: $cartId, lines: $lines) {
@@ -111,7 +114,7 @@ export const useCart = () => {
     })).then(({ data }) => {
         cart.value = data?.cartLinesAdd?.cart ?? undefined
 
-        if (!open.value) toast.add({
+        if ((options.notify ?? true) && !open.value) toast.add({
             title: t('cart.toast.add'),
             avatar: getAvatar(variantId, data?.cartLinesAdd?.cart?.lines),
             actions: [
@@ -129,7 +132,7 @@ export const useCart = () => {
         // the toast carries an explicit Retry rather than a red the palette
         // does not have.
         actions: [
-            { label: t('cart.toast.retry'), onClick: () => { void add(variantId, quantity) }, size: 'sm', class: 'min-h-6 min-w-6' },
+            { label: t('cart.toast.retry'), onClick: () => { void add(variantId, quantity, options) }, size: 'sm', class: 'min-h-6 min-w-6' },
         ],
     })).finally(() => setLoading(false))
 
