@@ -33,6 +33,22 @@ pnpm catalog:validate
 pnpm catalog:plan
 ```
 
+### `catalog:plan` exit codes
+
+`plan` is read-only, but it exits non-zero when it *measures* a customer-facing
+problem, so a live outage is visible to `$?` and to CI rather than living only in
+the prose at the bottom of the output.
+
+| code | meaning | action |
+|---|---|---|
+| `0` | plan clean, no shipping measured broken | normal review |
+| `2` | `CHECKOUT-BLOCKED` — a declared destination is quoted **no shipping option at all**, so checkout cannot complete there | operator decision on shipping scope; `catalog:apply` cannot fix it (it writes neither delivery profiles nor inventory) |
+| `3` | `PROBE-INCONCLUSIVE` — the Storefront API rejected a probe address, so reachability is **unknown**, not good and not broken | fix the postal code in `PROBE_POSTAL_CODES`, or treat as unverified |
+
+An inconclusive probe and a carrier-calculated rate deliberately do **not** raise
+`2`: neither is evidence that a buyer is blocked, and a gate that cries wolf on
+the live store's own international rule would fail every plan forever.
+
 See [docs/shopify-bot-bootstrap.md](docs/shopify-bot-bootstrap.md) and `.hermes/skills/shopify-bot-ops/SKILL.md`.
 
 ## Build
