@@ -117,6 +117,26 @@ export default defineNuxtConfig({
                 language: 'en',
                 file: 'en.json',
             },
+            // STI-647: `de.json` has been authored and maintained here since
+            // before the storefront shipped, and `src/catalog/not-found-copy.test.ts`
+            // reads it off disk, so it read as supported copy. It was never in
+            // this array, so the build never loaded it and no German URL could
+            // resolve: the file passed review and CI while being unreachable.
+            //
+            // `code` is the URL prefix and the value of `locale.value` under
+            // `prefix_except_default`, so German is served at `/de/...` and
+            // stays unprefixed for the default locale. `language` is the ISO
+            // tag for `<html lang>` and is NOT the code.
+            //
+            // `code` is deliberately `de` and not `de-de`: `useLocalization`
+            // splits the code on `-` to derive the Shopify `@inContext` market,
+            // and a bare `de` is the German market itself. See
+            // `app/composables/localization.ts`.
+            {
+                code: 'de',
+                language: 'de',
+                file: 'de.json',
+            },
         ],
     },
 

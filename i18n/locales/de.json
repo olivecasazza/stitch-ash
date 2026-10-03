@@ -6,7 +6,7 @@
         "title": "Warenkorb",
         "description": "Überprüfen Sie Ihre ausgewählten Artikel",
         "empty": "Ihr Warenkorb ist leer.",
-        "subtotal": "Summe",
+        "subtotal": "Zwischensumme",
         "checkout": "Zur Kasse",
         "open": "Warenkorb öffnen",
         "toast": {
