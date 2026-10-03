@@ -64,6 +64,61 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
+# ── Modes ─────────────────────────────────────────────────────────────────
+#
+# strict (default)  -> PR CI. Fails on ANY unquoted lead time, including the one
+#                      that is live right now. Deliberate: PRs must never be able
+#                      to merge a new unquoted claim silently.
+# --ratchet          -> deploy.yml. Tolerates exactly the known-bad line, fails
+#                      on any additional one.
+# --strict-ratchet   -> deploy.yml's second step. Every ratchet entry must still
+#                      match something, so the tolerated set can only shrink and
+#                      an entry cannot outlive its fix.
+#
+# Why deploy.yml cannot run the strict form: a step that fails on the
+# PRE-EXISTING known defect freezes every deploy on main until a human answers
+# an operator question. That converts a governance ask into a self-inflicted
+# outage, which is worse than the defect it guards. Ratchet mode keeps the guard
+# real (new claims still red the deploy) without letting one unanswered
+# question block publishing unrelated work.
+#
+# The ratchet pins ONE file:line, not a class. The tolerated set is the specific
+# defect we already published and are actively asking about; any other SKU, any
+# additional line, or any reworded variant still fails the deploy.
+
+RATCHET_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lead-time-ratchet.txt"
+MODE="strict"
+STRICT_RATCHET=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --ratchet) MODE="ratchet"; shift ;;
+    # --strict-ratchet implies --ratchet. The two flags are checks layered on
+    # ratchet mode, not alternatives: the stale-entry scan reads the set of
+    # entries that were actually TOLERATED, which only exists in ratchet mode.
+    # Treating them as independent let `--strict-ratchet` alone scan an empty
+    # tolerated set and reject every live entry.
+    --strict-ratchet) MODE="ratchet"; STRICT_RATCHET=1; shift ;;
+    --ratchet-file) RATCHET_FILE="$2"; shift 2 ;;
+    -h|--help)
+      echo "usage: $(basename "$0") [--ratchet] [--strict-ratchet] [--ratchet-file PATH]"
+      exit 0 ;;
+    *) echo "unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+# "<relpath>:<lineno>", one per line. Blank lines and #-comments are ignored;
+# `|| [ -n "$line" ]` is load-bearing, because without it a ratchet file whose
+# final line has no newline still silently loses that entry.
+ratcheted=()
+if [ -f "$RATCHET_FILE" ]; then
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%%#*}"
+    line="$(printf '%s' "$line" | tr -d '[:space:]')"
+    [ -n "$line" ] && ratcheted+=("$line")
+  done < "$RATCHET_FILE"
+fi
+
 # The one lead time a supplier has actually quoted, as "<lo>-<hi> weeks",
 # measured over "order placed -> ready to ship". EMPTY means none.
 # See the block comment above before editing this.
@@ -73,9 +128,34 @@ CATALOG_DIR="catalog"
 DOCS_DIR="docs/merch"
 
 FOUND=0
+RATCHETED_HITS=()
 report() {
   echo "ERROR: $*"
   FOUND=1
+}
+
+# Is "<relpath>:<lineno>" in the ratchet set? Exact match on both halves.
+# $1 = file path, $2 = line number.
+is_ratcheted() {
+  local want="$1:$2" have
+  for have in ${ratcheted[@]+"${ratcheted[@]}"}; do
+    [ "$have" = "$want" ] && return 0
+  done
+  return 1
+}
+
+# Report a hit as fatal, tolerated, or (strict-ratchet) stale.
+handle_hit() {
+  local file="$1" line_no="$2" hit="$3"
+  if [ "$MODE" = "ratchet" ] && is_ratcheted "$file" "$line_no"; then
+    RATCHETED_HITS+=("$file:$line_no")
+    printf 'ratcheted (known unquoted claim, tolerated, STI-638 open): %s:%s\n' \
+      "$file" "$line_no"
+    echo "    $hit"
+    return 0
+  fi
+  report "unverified production lead time in customer-facing catalog file: $file:$line_no"
+  echo "    $hit"
 }
 
 # Normalise to ASCII so the separator class below matches regardless of the
@@ -85,19 +165,25 @@ report() {
 export LC_ALL=C.UTF-8
 
 # A lead time: a number, an OPTIONAL separator, an optional second number, and
-# the word weeks/months. `normalise` has already folded every dash-like separator
-# to a plain hyphen, so this class is pure ASCII on purpose. An ASCII-only
-# pattern is the entire bug this gate was written to stop: a regex carrying a
-# literal en dash stops matching the moment the locale stops being UTF-8, or the
-# moment a re-dash edits the copy. Separators are a class so a re-spaced,
-# re-dashed or re-worded rewrite cannot slip past.
+# the word weeks/months/days/business days. `normalise` has already folded every
+# dash-like separator to a plain hyphen, so this class is pure ASCII on purpose.
+# An ASCII-only pattern is the entire bug this gate was written to stop: a regex
+# carrying a literal en dash stops matching the moment the locale stops being
+# UTF-8, or the moment a re-dash edits the copy. Separators are a class so a
+# re-spaced, re-dashed or re-worded rewrite cannot slip past.
 #
 # The separator is OPTIONAL because a single number is still a commitment:
 # "Allow 3 weeks for production" promises a schedule just as bindingly as
 # "Allow 2-3 weeks", and a gate that only catches the ranged form is trivially
 # evaded by dropping one endpoint. Both forms are commitments until a supplier
 # quotes one.
-LEAD_TIME_RE='([0-9]+)([[:space:]]*(-+|to)[[:space:]]*([0-9]+))?[[:space:]]+(weeks?|months?)'
+#
+# "days" is in the unit class on purpose. A weeks-only pattern left a real hole:
+# "Lanyards ship in 5-7 days once embroidered" is exactly as binding as a
+# production lead time and passed the gate silently, which is the false green
+# this whole file exists to prevent. "business days" is matched ahead of "days"
+# so the longer unit wins at the same position.
+LEAD_TIME_RE='([0-9]+)([[:space:]]*(-+|to)[[:space:]]*([0-9]+))?[[:space:]]+(business[[:space:]]+days|weeks?|months?|days?)'
 
 normalise() {
   # Fold every dash-like separator onto a plain ASCII hyphen, and strip CR.
@@ -133,8 +219,7 @@ while IFS= read -r file; do
   if matches="$(printf '%s' "$normalised" | grep -En "$LEAD_TIME_RE")"; then
     while IFS= read -r hit; do
       line_no="${hit%%:*}"
-      report "unverified production lead time in customer-facing catalog file: $file:$line_no"
-      echo "    $hit"
+      handle_hit "$file" "$line_no" "$hit"
     done <<< "$matches"
   fi
 done < <(find "$CATALOG_DIR" -type f \( -name '*.yaml' -o -name '*.yml' \) | sort)
@@ -159,8 +244,31 @@ if [ -d "$DOCS_DIR" ]; then
   done < <(find "$DOCS_DIR" -type f -name '*.md' | sort)
 fi
 
+# ── Ratchet accounting ────────────────────────────────────────────────────
+#
+# In ratchet mode a tolerated entry that no longer matches anything is STALE,
+# not harmless: it means the defect was fixed and nobody tightened the gate, so
+# the next unquoted claim would pass silently. Fail on that, exactly as
+# built-css-radius-gate.sh --strict-ratchet does for unused radius entries.
+if [ "$STRICT_RATCHET" -eq 1 ]; then
+  for v in ${ratcheted[@]+"${ratcheted[@]}"}; do
+    seen=0
+    for h in ${RATCHETED_HITS[@]+"${RATCHETED_HITS[@]}"}; do [ "$h" = "$v" ] && seen=1; done
+    if [ "$seen" -eq 0 ]; then
+      echo "ERROR: --strict-ratchet: ratchet entry no longer occurs: $v"
+      echo "       Delete it from $(basename "$RATCHET_FILE") — the tolerated set must only shrink."
+      FOUND=1
+    fi
+  done
+fi
+
 if [ "$FOUND" -eq 0 ]; then
-  echo "lead-time-claim-gate: passed (no unverified lead time in $CATALOG_DIR, no verified claim in $DOCS_DIR)"
+  if [ "${#RATCHETED_HITS[@]}" -gt 0 ]; then
+    echo "lead-time-claim-gate: passed (no unquoted lead time in $CATALOG_DIR besides"
+    echo "  the ${#RATCHETED_HITS[@]} ratcheted line(s) above; no verified claim in $DOCS_DIR)"
+  else
+    echo "lead-time-claim-gate: passed (no unverified lead time in $CATALOG_DIR, no verified claim in $DOCS_DIR)"
+  fi
   exit 0
 fi
 

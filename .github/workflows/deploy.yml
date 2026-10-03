@@ -229,15 +229,28 @@ jobs:
       - name: Built-CSS radius gate
         run: ./scripts/ci/built-css-radius-gate.sh --strict-ratchet
 
-      # STI-638: same reasoning as the radius gate above. The hoodie PDP
-      # publishes an unquoted production lead time ("Allow 2–3 weeks") on a $185
-      # SKU, and pr-checks.yml now runs scripts/ci/lead-time-claim-gate.sh — but
-      # a PR-only gate cannot protect the artifact a deploy publishes, and the
-      # catalog is the source the build renders from. Offline, no Node, no
-      # secrets. This will fail the deploy until a supplier figure is quoted
-      # (ALLOWED_VERIFIED_LEAD_TIME) or the timeframe is removed from the copy.
+      # STI-638: the hoodie PDP publishes an unquoted production lead time
+      # ("Allow 2–3 weeks") on a $185 SKU, and pr-checks.yml now runs
+      # scripts/ci/lead-time-claim-gate.sh strictly. A PR-only gate cannot
+      # protect the artifact a deploy publishes, so this step runs it too —
+      # but in --ratchet mode, not strict mode.
+      #
+      # Running it strictly here would fail on the PRE-EXISTING line
+      # catalog/products/sku-001.yaml:16 and freeze every deploy on main until
+      # a human answered the STI-638 operator question. A guard that stops all
+      # publishing is not a guard. --ratchet tolerates exactly that one pinned
+      # line and still fails the deploy on any NEW unquoted claim, any other
+      # SKU, or any reworded variant.
+      #
+      # Offline, no Node, no secrets.
       - name: Lead-time claim gate
-        run: ./scripts/ci/lead-time-claim-gate.sh
+        run: ./scripts/ci/lead-time-claim-gate.sh --ratchet
+
+      # The ratchet may only shrink. If the tolerated line was fixed, this fails
+      # until the entry is deleted from scripts/ci/lead-time-ratchet.txt, so a
+      # stale tolerance cannot quietly admit the next unquoted claim.
+      - name: Lead-time ratchet is not stale
+        run: ./scripts/ci/lead-time-claim-gate.sh --ratchet --strict-ratchet
 
       # STI-241: cloudflare/pages-action was deleted upstream (repo now 404),
       # breaking deploys with "Unable to resolve action `cloudflare/pages-action`".

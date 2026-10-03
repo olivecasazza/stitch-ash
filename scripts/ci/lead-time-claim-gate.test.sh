@@ -60,6 +60,42 @@ run_gate() {
   echo $?
 }
 
+# Same, but writing a ratchet file and passing gate flags.
+# $1 = fixture dir, $2 = ratchet contents ("" = no ratchet file at all),
+# $3 = env prefix, $4 = out file, $5.. = extra gate args
+run_gate_r() {
+  local fixture="$1" ratchet="$2" envspec="$3" out="$4"
+  shift 4
+  local dir="$WORK/$(basename "$fixture")-r-$$-RANDOM"
+  mkdir -p "$dir"
+  cp -R "$FIXTURES/$fixture/." "$dir/"
+  mkdir -p "$dir/scripts/ci"
+  cp "$GATE" "$dir/scripts/ci/lead-time-claim-gate.sh"
+  if [ -n "$ratchet" ]; then
+    printf '%s\n' "$ratchet" > "$dir/scripts/ci/lead-time-ratchet.txt"
+  else
+    rm -f "$dir/scripts/ci/lead-time-ratchet.txt"
+  fi
+
+  local -a env_args=()
+  [ -n "$envspec" ] && env_args=(env $envspec)
+
+  ( cd "$dir" && "${env_args[@]}" bash scripts/ci/lead-time-claim-gate.sh "$@" ) >"$out" 2>&1
+  echo $?
+}
+
+# Only for the argument-parsing assertion: run with no ratchet file.
+run_gate_args() {
+  local fixture="$1" flag="$2" out="$3"
+  local dir="$WORK/$(basename "$fixture")-a-$$-RANDOM"
+  mkdir -p "$dir"
+  cp -R "$FIXTURES/$fixture/." "$dir/"
+  mkdir -p "$dir/scripts/ci"
+  cp "$GATE" "$dir/scripts/ci/lead-time-claim-gate.sh"
+  ( cd "$dir" && bash scripts/ci/lead-time-claim-gate.sh "$flag" ) >"$out" 2>&1
+  echo $?
+}
+
 # ── 1. The pin: the real, current defect must be caught ───────────────────
 # En dash, exactly as catalog/products/sku-001.yaml:16 has it.
 out="$WORK/o1"
@@ -102,6 +138,17 @@ out="$WORK/o5"
 rc="$(run_gate "single-number-months" "" "$out")"
 check "'Allow 3 weeks' is caught" "1" "$rc"
 
+# ── 5b. Day-denominated commitments are caught too ────────────────────────
+#
+# The unit class was weeks|months only, which left a real hole: "Lanyards ship
+# in 5-7 days" is exactly as binding as a production lead time and passed the
+# gate silently. That is the same false green this gate exists to prevent, found
+# by the ratchet work rather than by inspection.
+out="$WORK/o5b"
+rc="$(run_gate "unsourced-two-lines" "" "$out")"
+check "'5-7 days' is caught alongside the weeks claim" "2" \
+  "$(grep -c 'unverified production lead time' "$out")"
+
 # ── 6. Verbs that do not commit are not failures ──────────────────────────
 # A made-to-order process sentence with no timeframe is the honest fallback
 # and must stay shippable, or the gate pressures a team into inventing a number.
@@ -132,6 +179,75 @@ rc="$(run_gate "unsourced-en-dash" "" "$out")"
 check "failure output names the operator ask" "1" "$(grep -c 'STI-638' "$out")"
 check "failure output forbids loosening the patterns" "1" \
   "$(grep -c 'not satisfy this gate by loosening\|Do not satisfy this gate by loosening' "$out")"
+
+# ── 10. Ratchet mode: the deploy must not freeze, but must still bite ─────
+#
+# deploy.yml runs --ratchet. If that mode failed on the pre-existing line,
+# every deploy on main would be blocked until a human answered STI-638, which
+# is a self-inflicted outage. So ratchet mode MUST tolerate the pinned line.
+#
+# But tolerating one line must not become tolerating the defect class: any
+# ADDITIONAL unquoted claim, or a claim on another line or another SKU, must
+# still fail the deploy.
+out="$WORK/o10r-posix"
+rc="$(run_gate_r "unsourced-en-dash" "catalog/products/sku-001.yaml:16" "" "$out" --ratchet)"
+check "ratchet mode tolerates the pinned line" "0" "$rc"
+check "...and says the tolerated line is line 16" "1" "$(grep -c 'sku-001.yaml:16' "$out")"
+
+out="$WORK/o10r-utf8"
+rc="$(run_gate_r "unsourced-en-dash" "catalog/products/sku-001.yaml:16" "LC_ALL=C.UTF-8" "$out" --ratchet)"
+check "ratchet mode tolerates it under C.UTF-8 too" "0" "$rc"
+
+# A different line number on the same file is NOT the pinned defect.
+out="$WORK/o10r-wrongline"
+rc="$(run_gate_r "unsourced-en-dash" "catalog/products/sku-001.yaml:17" "" "$out" --ratchet)"
+check "ratchet does not tolerate a different line" "1" "$rc"
+
+# A different file is not the pinned defect either: no allowlist wildcard.
+out="$WORK/o10r-other"
+rc="$(run_gate_r "unsourced-other-sku" "catalog/products/sku-001.yaml:16" "" "$out" --ratchet)"
+check "ratchet does not tolerate another SKU's claim" "1" "$rc"
+
+# Two claims, only one pinned -> the unpinned one must still fail.
+out="$WORK/o10r-extra"
+rc="$(run_gate_r "unsourced-two-lines" "catalog/products/sku-001.yaml:16" "" "$out" --ratchet)"
+check "ratchet still fails when a second claim appears" "1" "$rc"
+
+# A reworded variant on the pinned line: the value is the same promise, so the
+# pin is by line, not by text. Still tolerated — the pinned defect is still the
+# one we are asking about.
+out="$WORK/o10r-reworded"
+rc="$(run_gate_r "single-number-months" "catalog/products/sku-001.yaml:16" "" "$out" --ratchet)"
+check "ratchet tolerates the pinned line whatever it says" "0" "$rc"
+
+# An EMPTY ratchet in deploy mode must behave like strict, so the guard cannot
+# be disarmed by emptying the ratchet file without noticing.
+out="$WORK/o10r-empty"
+rc="$(run_gate_r "unsourced-en-dash" "" "" "$out" --ratchet)"
+check "ratchet mode with empty ratchet still fails" "1" "$rc"
+
+# ── 11. --strict-ratchet: the tolerated set may only shrink ────────────────
+# A stale entry means the defect was fixed and nobody tightened the gate, so the
+# next unquoted claim would pass silently. That must fail.
+out="$WORK/o11stale"
+rc="$(run_gate_r "no-lead-time" "catalog/products/sku-001.yaml:16" "" "$out" --ratchet --strict-ratchet)"
+check "stale ratchet entry fails under --strict-ratchet" "1" "$rc"
+check "...and names the stale entry" "1" "$(grep -c 'ratchet entry no longer occurs' "$out")"
+
+# Live entry + --strict-ratchet -> clean.
+out="$WORK/o11live"
+rc="$(run_gate_r "unsourced-en-dash" "catalog/products/sku-001.yaml:16" "" "$out" --strict-ratchet)"
+check "live ratchet entry passes --strict-ratchet" "0" "$rc"
+
+# --strict-ratchet must not mask a real new claim either.
+out="$WORK/o11extra"
+rc="$(run_gate_r "unsourced-two-lines" "catalog/products/sku-001.yaml:16" "" "$out" --strict-ratchet)"
+check "--strict-ratchet still fails on a second claim" "1" "$rc"
+
+# ── 12. Bad arguments fail loudly rather than defaulting to a mode ─────────
+out="$WORK/o12"
+rc="$(run_gate_args "unsourced-en-dash" "--nonsense" "$out")"
+check "unknown argument is rejected" "2" "$rc"
 
 echo
 echo "lead-time-claim-gate.test.sh: $pass_count passed, $fail_count failed"
