@@ -25,7 +25,7 @@ const checkoutReady = computed(() => !loading.value && lines.value.length > 0)
       description: 'sr-only',
       // The slideover title is a control-face label, not a heading: 11px /
       // 500 / 0.12em / uppercase on bone (14.3:1 on charcoal).
-      title: 'text-[var(--bone)] text-[var(--text-xs)] font-medium tracking-[0.12em] uppercase',
+      title: 'text-[var(--bone)] text-[length:var(--text-xs)] font-medium tracking-[0.12em] uppercase',
       content: 'cart-panel',
     }"
   >
@@ -47,7 +47,7 @@ const checkoutReady = computed(() => !loading.value && lines.value.length > 0)
       <!-- Empty cart: one fragment, in label voice. No price, no action. -->
       <p
         v-if="lines.length === 0"
-        class="my-auto text-center text-[var(--grey-400)] text-[var(--text-xs)] font-medium tracking-[0.12em] uppercase"
+        class="my-auto text-center text-[var(--grey-400)] text-[length:var(--text-xs)] font-medium tracking-[0.12em] uppercase"
       >
         {{ $t('cart.empty') }}
       </p>
@@ -71,14 +71,14 @@ const checkoutReady = computed(() => !loading.value && lines.value.length > 0)
           v-if="subtotal"
           class="flex items-center justify-between gap-3 w-full"
         >
-          <p class="text-[var(--grey-400)] text-[var(--text-xs)] font-medium tracking-[0.12em] uppercase">
+          <p class="text-[var(--grey-400)] text-[length:var(--text-xs)] font-medium tracking-[0.12em] uppercase">
             {{ $t('cart.subtotal') }}
           </p>
 
           <div class="flex items-center gap-2">
             <ProductPrice
               :price="subtotal"
-              class="text-[var(--grey-200)] text-[var(--text-base)] font-medium tabular-nums"
+              class="text-[var(--grey-200)] text-[length:var(--text-base)] font-medium tabular-nums"
             />
 
             <Icon
@@ -97,7 +97,7 @@ const checkoutReady = computed(() => !loading.value && lines.value.length > 0)
           :label="$t('cart.checkout')"
           trailing-icon="i-lucide-arrow-right"
           :ui="{
-            base: 'w-full justify-center min-h-11 rounded-none shadow-none ring-0 bg-[var(--white)] text-[var(--ink-black)] hover:bg-[var(--white)] active:bg-[var(--white)] px-4 py-3 text-[var(--text-xs)] font-medium tracking-[0.12em] uppercase',
+            base: 'w-full justify-center min-h-11 rounded-none shadow-none ring-0 bg-[var(--white)] text-[var(--ink-black)] hover:bg-[var(--white)] hover:text-[var(--ink-black)] active:bg-[var(--white)] active:text-[var(--ink-black)] px-4 py-3 text-[length:var(--text-xs)] font-medium tracking-[0.12em] uppercase',
             trailingIcon: 'size-4',
           }"
         />
@@ -108,7 +108,7 @@ const checkoutReady = computed(() => !loading.value && lines.value.length > 0)
           disabled
           :label="$t('cart.checkout')"
           :ui="{
-            base: 'w-full justify-center min-h-11 rounded-none shadow-none ring-0 bg-[var(--white)] text-[var(--ink-black)] px-4 py-3 text-[var(--text-xs)] font-medium tracking-[0.12em] uppercase',
+            base: 'w-full justify-center min-h-11 rounded-none shadow-none ring-0 bg-[var(--white)] text-[var(--ink-black)] hover:bg-[var(--white)] hover:text-[var(--ink-black)] active:bg-[var(--white)] active:text-[var(--ink-black)] px-4 py-3 text-[length:var(--text-xs)] font-medium tracking-[0.12em] uppercase',
           }"
         />
       </div>
