@@ -79,7 +79,10 @@ export const useCart = () => {
         console.warn('[cart] read failed; continuing with an empty cart', error)
     }).finally(() => setLoading(false))
 
-    const add = (variantId: string, quantity = 1): Promise<unknown> => setLoading(true).then(() => storefront.request(`#graphql
+    // `notify: false` is for callers that open the cart panel themselves the
+    // moment the mutation lands — the panel then IS the feedback, and a toast
+    // on top of it would double up and cover the subtotal.
+    const add = (variantId: string, quantity = 1, options: { notify?: boolean } = {}): Promise<unknown> => setLoading(true).then(() => storefront.request(`#graphql
         mutation AddToCart($cartId: ID!, $lines: [CartLineInput!]!, $language: LanguageCode, $country: CountryCode)
         @inContext(language: $language, country: $country) {
             cartLinesAdd(cartId: $cartId, lines: $lines) {
@@ -111,13 +114,15 @@ export const useCart = () => {
     })).then(({ data }) => {
         cart.value = data?.cartLinesAdd?.cart ?? undefined
 
-        if (!open.value) toast.add({
+        if ((options.notify ?? true) && !open.value) toast.add({
             title: t('cart.toast.add'),
             avatar: getAvatar(variantId, data?.cartLinesAdd?.cart?.lines),
             actions: [
                 { label: t('cart.toast.view'), onClick: () => { open.value = true } },
             ],
-            color: 'success',
+            // DESIGN.md has no colour-as-state: the toast states its outcome in
+            // words, not in green.
+            color: 'neutral',
             ui: { avatar: 'rounded-none size-14' },
         })
     }).catch(() => toast.add({
@@ -127,11 +132,18 @@ export const useCart = () => {
         // the toast carries an explicit Retry rather than a red the palette
         // does not have.
         actions: [
-            { label: t('cart.toast.retry'), onClick: () => { void add(variantId, quantity) } },
+            { label: t('cart.toast.retry'), onClick: () => { void add(variantId, quantity, options) }, size: 'sm', class: 'min-h-6 min-w-6' },
         ],
     })).finally(() => setLoading(false))
 
-    const update = (variantId: string, quantity: number): Promise<unknown> => setLoading(true).then(() => storefront.request(`#graphql
+    // Resolves with the quantity the server now holds for the line: the
+    // requested one on success, the previous one when the mutation failed. A
+    // failed update therefore rolls the row's input back instead of leaving a
+    // number on screen that the subtotal does not reflect.
+    const update = (variantId: string, quantity: number): Promise<number> => {
+        const previous = lines.value.find(line => line.id === variantId)?.quantity ?? quantity
+
+        return setLoading(true).then(() => storefront.request(`#graphql
         mutation UpdateCart($cartId: ID!, $lines: [CartLineUpdateInput!]!, $language: LanguageCode, $country: CountryCode) 
         @inContext(language: $language, country: $country) {
             cartLinesUpdate(cartId: $cartId, lines: $lines) {
@@ -169,19 +181,26 @@ export const useCart = () => {
             actions: [
                 { label: t('cart.toast.view'), onClick: () => { open.value = true } },
             ],
-            color: 'success',
+            color: 'neutral',
             ui: { avatar: 'rounded-none size-14' },
         })
-    }).catch(() => toast.add({
-        title: t('cart.toast.error.update'),
-        description: t('cart.toast.error.tryAgain'),
-        // Recoverable, and DESIGN.md forbids signalling state with colour — so
-        // the toast carries an explicit Retry rather than a red the palette
-        // does not have.
-        actions: [
-            { label: t('cart.toast.retry'), onClick: () => { void update(variantId, quantity) } },
-        ],
-    })).finally(() => setLoading(false))
+
+        return quantity
+    }).catch(() => {
+        toast.add({
+            title: t('cart.toast.error.update'),
+            description: t('cart.toast.error.tryAgain'),
+            // Recoverable, and DESIGN.md forbids signalling state with colour —
+            // so the toast carries an explicit Retry rather than a red the
+            // palette does not have.
+            actions: [
+                { label: t('cart.toast.retry'), onClick: () => { void update(variantId, quantity) }, size: 'sm', class: 'min-h-6 min-w-6' },
+            ],
+        })
+
+        return previous
+    }).finally(() => setLoading(false))
+    }
 
     const remove = (variantId: string): Promise<unknown> => setLoading(true).then(() => storefront.request(`#graphql
         mutation RemoveFromCart($cartId: ID!, $lineIds: [ID!]!, $language: LanguageCode, $country: CountryCode) 
@@ -215,16 +234,17 @@ export const useCart = () => {
             actions: [
                 { label: t('cart.toast.view'), onClick: () => { open.value = true } },
             ],
-            color: 'success',
+            color: 'neutral',
         })
     }).catch(() => toast.add({
         title: t('cart.toast.error.remove'),
         description: t('cart.toast.error.tryAgain'),
         // Recoverable, and DESIGN.md forbids signalling state with colour — so
         // the toast carries an explicit Retry rather than a red the palette
-        // does not have.
+        // does not have. The removal never touched `cart`, so the row's state
+        // needs no rollback here.
         actions: [
-            { label: t('cart.toast.retry'), onClick: () => { void remove(variantId) } },
+            { label: t('cart.toast.retry'), onClick: () => { void remove(variantId) }, size: 'sm', class: 'min-h-6 min-w-6' },
         ],
     })).finally(() => setLoading(false))
 

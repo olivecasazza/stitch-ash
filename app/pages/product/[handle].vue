@@ -22,7 +22,7 @@ const { data, error } = await useStorefrontData(`product-${handle.value}`, `#gra
     product(handle: $handle) {
       id
       title
-      description
+      descriptionHtml
       images(first: 20) {
         edges {
           node {
@@ -94,7 +94,23 @@ if (resolution === 'not_found') {
 
 // 2. Resolve display values
 const displayName = computed(() => data.value?.product?.title ?? staticProduct.value?.name ?? '')
-const displayDescription = computed(() => data.value?.product?.description ?? staticProduct.value?.description ?? '')
+// DESIGN.md "Product copy": there is no description block on the PDP. Every
+// product fact lives in the expander, so Shopify's description is parsed into
+// sections; the static mirror covers a product with no description yet.
+const displaySections = computed(() => {
+  const live = specSections(data.value?.product?.descriptionHtml)
+  return live.length ? live : staticProduct.value?.details ?? []
+})
+
+// The Shipping & Returns panel is where a customer asks about an order, so it
+// carries the only link inside the expander.
+const accordionSections = computed(() =>
+  displaySections.value.map(section =>
+    section.label === 'Shipping & Returns'
+      ? { ...section, link: { to: '/contact', text: 'Contact' } }
+      : section,
+  ),
+)
 const displayPrice = computed(() => {
   const shopifyVariants = data.value?.product?.variants?.edges || []
   const firstPrice = shopifyVariants[0]?.node?.price?.amount
@@ -148,13 +164,15 @@ const { add: addToCart, open: openCart } = useCart()
 
 const handleAddToCart = async () => {
   if (!variantId.value) return
-  await addToCart(variantId.value, 1)
+  // The panel opens the moment the mutation lands, so it is the feedback:
+  // a toast here would double up over the subtotal and Checkout.
+  await addToCart(variantId.value, 1, { notify: false })
   openCart.value = true
 }
 
 useSeoMeta({
   title: computed(() => `${displayName.value} — STITCH AND ASH`),
-  description: computed(() => displayDescription.value)
+  description: computed(() => displaySections.value.flatMap(s => s.lines).join(' '))
 })
 </script>
 
@@ -184,10 +202,6 @@ useSeoMeta({
         <h1 class="pdp__name">{{ displayName }}</h1>
         <p class="pdp__price">${{ displayPrice }}</p>
 
-        <p class="pdp__description">{{ displayDescription }}</p>
-
-        <p class="pdp__embroidery-note">{{ staticProduct?.embroideryCopy }}</p>
-
         <!-- Size configuration swatches -->
         <div class="pdp__size-wrap">
           <SizeSelector v-if="hasRealSizes" :sizes="sizeValues" v-model="selectedSize" />
@@ -216,10 +230,12 @@ useSeoMeta({
         <!-- The page had a single H1 and no subheads, so the accordion read as
              orphaned content to a screen reader. A visually-hidden H2 gives the
              detail panels a place in the outline without moving a pixel. -->
-        <h2 class="pdp__section-heading">Details</h2>
-        <div class="pdp__accordion-wrap">
-          <DetailsAccordion :sections="staticProduct?.details || []" />
-        </div>
+        <template v-if="accordionSections.length">
+          <h2 class="pdp__section-heading">Details</h2>
+          <div class="pdp__accordion-wrap">
+            <DetailsAccordion :sections="accordionSections" />
+          </div>
+        </template>
       </div>
     </div>
   </main>
@@ -350,28 +366,6 @@ useSeoMeta({
     font-feature-settings: "tnum" 1;
   }
 
-  .pdp__embroidery-note {
-    margin: 0;
-    margin-inline: auto;
-    max-width: var(--measure);
-    font-size: var(--text-sm);
-    color: var(--grey-400);
-    letter-spacing: 0.04em;
-    border-inline-start: 2px solid var(--bone);
-    padding-inline-start: var(--space-md);
-    text-align: left;
-  }
-
-  .pdp__description {
-    margin: 0;
-    margin-inline: auto;
-    max-width: var(--measure);
-    color: var(--grey-400);
-    line-height: 1.65;
-    font-size: var(--text-base);
-    text-align: left;
-  }
-
   .pdp__one-size {
     margin: 0;
     font-size: var(--text-sm);
@@ -452,9 +446,6 @@ useSeoMeta({
     cursor: not-allowed;
   }
 
-  .pdp__accordion-wrap {
-    margin-block-start: var(--space-sm);
-  }
 
   /* Info panel at >=768px — left-align the whole column, so the price and
      description read naturally, as the comment above `.pdp__info` states.

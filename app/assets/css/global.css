@@ -80,7 +80,7 @@ body {
 .text-secondary { color: var(--grey-400); }
 .text-muted     { color: var(--grey-400); }
 
-/* ── Header / nav ───────────────────────────────────────────────────────── */
+/* ── Header ─────────────────────────────────────────────────────────────── */
 .site-header {
   width: min(100%, var(--content-wide));
   margin-inline: auto;
@@ -94,70 +94,6 @@ body {
   position: sticky;
   top: 0;
   z-index: 50;
-}
-
-.site-header nav {
-  display: flex;
-  align-items: center;
-  gap: clamp(12px, 2vw, 24px);
-  font-size: var(--text-sm);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 500;
-}
-
-.site-header nav a,
-.site-header nav button {
-  color: var(--grey-400);
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  padding-block-end: var(--space-xs);
-  transition: color var(--transition-base), border-color var(--transition-base);
-  background: none;
-  border-top: none;
-  border-left: none;
-  border-right: none;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-}
-
-.site-header nav a:hover,
-.site-header nav button:hover,
-.site-header nav a:focus-visible,
-.site-header nav button:focus-visible {
-  color: var(--bone);
-  border-bottom-color: var(--bone);
-}
-
-/* components.focus-ring — 2px stroke, 4px offset (STI-578). The nav carried
-   `outline: none` on :focus-visible, leaving a border-colour swap as the whole
-   affordance: the same defect STI-608 and STI-614 ruled on for the cart pill
-   and the wordmark. The swap stays above as a secondary cue. */
-.site-header nav a:focus-visible,
-.site-header nav button:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 4px;
-}
-
-/* Tap target — WCAG 2.5.8. Measured at 390x844: nav links render 33x28. The
-   visual box is untouched (padding, type size and the underline position are
-   unchanged); the hit area grows via a pseudo-element instead. Expansion is
-   vertical-only because horizontal neighbours are already separated by the flex
-   gap — widening horizontally would make adjacent links steal each other's
-   taps. */
-.site-header nav a,
-.site-header nav button {
-  position: relative;
-}
-
-.site-header nav a::before,
-.site-header nav button::before {
-  content: '';
-  position: absolute;
-  inset: -8px 0;
 }
 
 /* Logo / Wordmark — inline SVG */
@@ -443,19 +379,6 @@ body {
   outline-offset: 4px;
 }
 
-/* ── Site footer ────────────────────────────────────────────────────────── */
-.site-foot {
-  padding: var(--space-3xl) var(--gutter);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-xl);
-  color: var(--grey-400);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
 
 /* ── Product detail page ────────────────────────────────────────────────── */
 .product {

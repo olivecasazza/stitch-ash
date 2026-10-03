@@ -9,9 +9,31 @@ tags:
   - black-on-black
   - made-to-order
 bodyHtml: |
-  <p>Heavy woven black fabric. Double-stitched edges. The brand mark repeats along the full length in black-on-black embroidery — visible in texture, invisible in noise.</p>
-  <p>The same construction logic as the hoodie, applied to carry. Built to last, not to be noticed.</p>
-  <p>One size.</p>
+  <h3>Material</h3>
+  <ul>
+    <li>Woven black fabric.</li>
+    <li>Double-stitched edges.</li>
+    <li>Breakaway clip.</li>
+  </ul>
+  <h3>Size</h3>
+  <ul>
+    <li>90 cm.</li>
+  </ul>
+  <h3>Embroidery</h3>
+  <ul>
+    <li>Black thread on black.</li>
+    <li>Mark repeated full length.</li>
+  </ul>
+  <h3>Care</h3>
+  <ul>
+    <li>Spot clean only.</li>
+  </ul>
+  <h3>Shipping &amp; Returns</h3>
+  <ul>
+    <li>Made to order.</li>
+    <li>Tracked shipping.</li>
+    <li>Final sale.</li>
+  </ul>
 options:
   - name: Title
     values: ["Default Title"]

@@ -17,7 +17,8 @@ export interface ProductSize {
 
 export interface ProductAccordionSection {
   label: string;
-  body: string;
+  /** One fact per line, DESIGN.md "Product copy". */
+  lines: string[];
 }
 
 export interface StaticProduct {
@@ -27,16 +28,14 @@ export interface StaticProduct {
   name: string;
   /** Price in USD (whole dollars). */
   price: number;
-  /** Short editorial description shown on cards and PDP. */
-  description: string;
-  /** Embroidery technique callout shown on PDP. */
-  embroideryCopy: string;
   /** Available sizes. Single-entry ["One size"] for non-sized items. */
   sizes: ProductSize[];
   /** Badge variant for ProductCard + PDP. Optional — only set when a card
    *  warrants one (per UX_FRAMEWORK: "use sparingly"). Not set on every card. */
   badge?: "made-to-order";
-  /** PDP accordion content. */
+  /** Every product fact, as expander sections. Static mirror of the catalog
+   *  YAML `bodyHtml` pairs, used when Shopify returns no description.
+   *  DESIGN.md "Product copy". */
   details: ProductAccordionSection[];
   /** Optional product image URL for ProductCard. */
   imageSrc?: string;
@@ -46,76 +45,6 @@ export interface StaticProduct {
    *  shipped one generic hoodie outline for every product, so the Lanyard and
    *  Sticker cards pictured a hoodie. Declared per SKU so this cannot recur. */
 }
-
-const HOODIE_DETAILS: ProductAccordionSection[] = [
-  {
-    label: "Fabric",
-    body: "High-quality black cotton fleece. Fuzzy interior, smooth exterior. Substantial hand feel — built to take repeated wash without pilling.",
-  },
-  {
-    label: "Embroidery",
-    body: "Black thread on black cotton. Design embroidered on chest panel; small brand mark on left sleeve. Two-pass construction — design layer first, mark layer second.",
-  },
-  {
-    label: "Fit",
-    body: "Baggy, oversized silhouette. Size up if you want a more relaxed drop-shoulder. Double-stitched seams throughout.",
-  },
-  {
-    label: "Care",
-    body: "Cold wash, inside out. Tumble dry low or hang flat. Do not dry-clean — heat damages the embroidery thread tension.",
-  },
-  {
-    label: "Shipping & Returns",
-    body: "Made to order. Ships tracked. Returns accepted within 14 days of delivery if unworn and unaltered.",
-  },
-];
-
-const LANYARD_DETAILS: ProductAccordionSection[] = [
-  {
-    label: "Fabric",
-    body: "Heavy woven black fabric. Dense weave holds the embroidery without puckering. Double-stitched edges at clip and loop ends.",
-  },
-  {
-    label: "Embroidery",
-    body: "Black thread on black weave. Repeated brand-mark pattern along full length — visible in raking light, near-invisible face on.",
-  },
-  {
-    label: "Fit",
-    body: "Standard lanyard length, 90cm total. Hardware breakaway clip. One size.",
-  },
-  {
-    label: "Care",
-    body: "Spot-clean only. Do not machine wash — breakaway hardware and embroidery tension are both sensitive to extended soak.",
-  },
-  {
-    label: "Shipping & Returns",
-    body: "Made to order. Ships tracked. All sales final on accessories.",
-  },
-];
-
-const STICKER_DETAILS: ProductAccordionSection[] = [
-  {
-    label: "Material",
-    body: "Embroidered black-on-black patch with adhesive backing. Merrowed border finish. Not a printed sticker — fully stitched.",
-  },
-  {
-    label: "Embroidery",
-    body: "Black thread on black backing. Single design with embedded brand mark — the two read as one composition. 6cm × 6cm working area.",
-  },
-  {
-    label: "Application",
-    body: "Peel and press. Works on most fabric surfaces; use a heat press or iron for permanent bond on garments. Cold peel backing.",
-  },
-  {
-    label: "Care",
-    body: "If heat-pressed onto fabric: cold wash inside out, hang dry. As a standalone patch: keep away from moisture.",
-  },
-  {
-    label: "Shipping & Returns",
-    body: "Made to order. Ships tracked. All sales final.",
-  },
-];
-
 
 // TODO (STI-318): Replace imageSrc values with real Shopify CDN URLs once commerce-eng
 // uploads product photography. Expected format:
@@ -133,10 +62,28 @@ const PRODUCTS_DATA: StaticProduct[] = [
     handle: "sku-001",
     name: "Embroidered Hoodie",
     price: 185,
-    description:
-      "Baggy, oversized, and completely black. The design sits on the chest panel; the brand mark anchors the left sleeve. Two embroidered elements, one piece. Built for the long haul.",
-    embroideryCopy:
-      "Black thread on black cotton. Design embroidered on chest panel; small brand mark on left sleeve.",
+    details: [
+      { label: "Material", lines: ["Cotton fleece.", "Brushed interior."] },
+      { label: "Fit", lines: ["Oversized.", "Dropped shoulder."] },
+      { label: "Construction", lines: ["Double-stitched seams."] },
+      {
+        label: "Embroidery",
+        lines: ["Black thread on black.", "Design on chest.", "Mark on left sleeve."],
+      },
+      {
+        label: "Care",
+        lines: ["Cold wash, inside out.", "Tumble dry low or hang.", "Do not dry-clean."],
+      },
+      {
+        label: "Shipping & Returns",
+        lines: [
+          "Made to order.",
+          "Ships in 2–3 weeks.",
+          "Tracked shipping.",
+          "Returns within 14 days, unworn.",
+        ],
+      },
+    ],
     sizes: [
       { label: "S", value: "S" },
       { label: "M", value: "M" },
@@ -144,7 +91,6 @@ const PRODUCTS_DATA: StaticProduct[] = [
       { label: "XL", value: "XL" },
       { label: "XXL", value: "XXL" },
     ],
-    details: HOODIE_DETAILS,
     imageSrc: undefined,
     imageAlt: "Embroidered Hoodie — flat lay on black surface",
   },
@@ -152,12 +98,23 @@ const PRODUCTS_DATA: StaticProduct[] = [
     handle: "sku-002",
     name: "Embroidered Lanyard",
     price: 35,
-    description:
-      "Heavy woven black fabric. The brand mark runs the full length — repeated, tight, only visible when the light catches. One size. Breakaway clip.",
-    embroideryCopy:
-      "Black thread on black weave. Repeated brand-mark pattern along length.",
+    details: [
+      {
+        label: "Material",
+        lines: ["Woven black fabric.", "Double-stitched edges.", "Breakaway clip."],
+      },
+      { label: "Size", lines: ["90 cm."] },
+      {
+        label: "Embroidery",
+        lines: ["Black thread on black.", "Mark repeated full length."],
+      },
+      { label: "Care", lines: ["Spot clean only."] },
+      {
+        label: "Shipping & Returns",
+        lines: ["Made to order.", "Tracked shipping.", "Final sale."],
+      },
+    ],
     sizes: [{ label: "One size", value: "one-size" }],
-    details: LANYARD_DETAILS,
     imageSrc: undefined,
     imageAlt: "Embroidered Lanyard — hanging with breakaway clip",
   },
@@ -165,12 +122,21 @@ const PRODUCTS_DATA: StaticProduct[] = [
     handle: "sku-003",
     name: "Embroidered Sticker",
     price: 15,
-    description:
-      "Not a print. Fully stitched, black thread on black backing. A single composition — design and brand mark merged. Adhesive backing for flat surfaces or heat press for fabric.",
-    embroideryCopy:
-      "Black thread on black backing. Single design with embedded brand mark.",
+    details: [
+      { label: "Material", lines: ["Embroidered patch.", "Merrowed border."] },
+      { label: "Size", lines: ["6 × 6 cm design area."] },
+      { label: "Embroidery", lines: ["Black thread on black."] },
+      { label: "Application", lines: ["Adhesive back.", "Heat-press onto fabric."] },
+      {
+        label: "Care",
+        lines: ["On fabric: cold wash inside out, hang dry.", "Loose: keep dry."],
+      },
+      {
+        label: "Shipping & Returns",
+        lines: ["Made to order.", "Tracked shipping.", "Final sale."],
+      },
+    ],
     sizes: [{ label: "One size", value: "one-size" }],
-    details: STICKER_DETAILS,
     imageSrc: undefined,
     imageAlt: "Embroidered Sticker patch on black fabric",
   },

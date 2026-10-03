@@ -103,8 +103,64 @@
      Declared unlayered so it wins over the vendor's layered default. */
   --ui-radius: 0; /* rounded.ui */
 
+  /* ─── Vendor semantic bridge — @nuxt/ui 4.8 colour aliases ───────────────
+     `--ui-radius` above is the only vendor token the system used to own.
+     @nuxt/ui v4.8 also ships a LIGHT semantic ramp in `@layer theme`
+     (`.light,:host,:root`): `--ui-bg:#fff`, `--ui-text:var(--ui-color-neutral-700)`,
+     `--ui-border:var(--ui-color-neutral-200)`, and the whole neutral ramp
+     resolved from Tailwind `slate` (the neutral palette set in app.config.ts).
+     That is why a U* component on this black storefront rendered a white
+     line-item card, a #0f172b heading, #e2e8f0 dividers and a slate "navy"
+     Checkout: the vendor vars, not our tokens, decided the colour.
+
+     This block re-points every semantic alias at the DESIGN.md ramp so the
+     vendor layer and the token layer resolve to the SAME value. Declared
+     unlayered for the same reason `--ui-radius` is: unlayered beats
+     `@layer theme` at any specificity. It also covers the neutral ramp,
+     because `--ui-primary` is generated as `var(--ui-color-neutral-500)`
+     (app.config.ts points the primary colour at that same neutral palette),
+     so a slate 500 was the primary ink, the focus outline and the solid
+     button fill at once.
+
+     The three secondary text steps deliberately collapse onto `--grey-400`:
+     the ramp has one secondary ink, and a chain of three dimmer greys would
+     reintroduce steps DESIGN.md does not declare. `DESIGN.md` -> this file
+     -> components; every alias below names its token on the same line. */
+  --ui-bg: var(--charcoal);                    /* colors.charcoal */
+  --ui-bg-muted: var(--grey-950);              /* colors.grey-950 */
+  --ui-bg-elevated: var(--grey-950);           /* colors.grey-950 */
+  --ui-bg-accented: var(--border-rule);        /* colors.border-rule */
+  --ui-bg-inverted: var(--bone);               /* colors.bone */
+
+  --ui-text: var(--bone);                      /* colors.bone */
+  --ui-text-highlighted: var(--white);         /* colors.white */
+  --ui-text-muted: var(--grey-400);            /* colors.grey-400 */
+  --ui-text-dimmed: var(--grey-400);           /* colors.grey-400 */
+  --ui-text-toned: var(--grey-400);            /* colors.grey-400 */
+  --ui-text-inverted: var(--ink-black);        /* colors.ink */
+
+  --ui-border: var(--border-rule);             /* colors.border-rule */
+  --ui-border-muted: var(--border-rule);       /* colors.border-rule */
+  --ui-border-accented: var(--outline);        /* colors.outline */
+  --ui-border-inverted: var(--bone);           /* colors.bone */
+
+  /* Neutral ramp, remapped off Tailwind `slate`. 500 is the load-bearing
+     one: `--ui-primary` resolves to it, so it carries `components.button-primary`
+     (`bg-primary` + `text-inverted` -> white fill, ink text) and the focus
+     outline in one move. */
+  --ui-color-neutral-50: var(--charcoal);      /* colors.charcoal */
+  --ui-color-neutral-100: var(--grey-950);     /* colors.grey-950 */
+  --ui-color-neutral-200: var(--border-rule);  /* colors.border-rule */
+  --ui-color-neutral-300: var(--outline);      /* colors.outline */
+  --ui-color-neutral-400: var(--grey-400);     /* colors.grey-400 */
+  --ui-color-neutral-500: var(--white);        /* colors.white */
+  --ui-color-neutral-600: var(--grey-200);     /* colors.grey-200 */
+  --ui-color-neutral-700: var(--grey-400);     /* colors.grey-400 */
+  --ui-color-neutral-800: var(--bone);         /* colors.bone */
+  --ui-color-neutral-900: var(--white);        /* colors.white */
+
   /* ─── Component tokens ───────────────────────────────────────────────────── */
-  --accordion-body-bg:     var(--charcoal); /* components.accordion-body.backgroundColor */
+  --accordion-body-bg:     transparent;     /* components.accordion-body.backgroundColor */
   --accordion-body-text:  var(--bone);      /* components.accordion-body.textColor */
   --accordion-icon:       var(--grey-400);  /* components.accordion-icon.textColor */
 

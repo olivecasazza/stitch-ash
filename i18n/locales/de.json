@@ -1,11 +1,8 @@
 {
-    "footer": {
-        "message": "Stitch and Ash. Bestickte Kleidung, auf Bestellung gefertigt."
-    },
     "cart": {
         "title": "Warenkorb",
-        "description": "Überprüfen Sie Ihre ausgewählten Artikel",
-        "empty": "Ihr Warenkorb ist leer.",
+        "description": "Ausgewählte Artikel.",
+        "empty": "Leer.",
         "subtotal": "Zwischensumme",
         "checkout": "Zur Kasse",
         "open": "Warenkorb öffnen",
@@ -21,7 +18,7 @@
                 "add": "Artikel konnte nicht zum Warenkorb hinzugefügt werden.",
                 "update": "Artikel im Warenkorb konnte nicht aktualisiert werden.",
                 "remove": "Artikel konnte nicht aus dem Warenkorb entfernt werden.",
-                "tryAgain": "Bitte versuchen Sie es erneut."
+                "tryAgain": "Nicht gespeichert."
             }
         }
     },
