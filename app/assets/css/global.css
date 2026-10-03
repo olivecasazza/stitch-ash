@@ -285,11 +285,33 @@ body {
   padding: var(--space-xl) var(--space-xl) var(--space-2xl);
 }
 
+/* STI-648: DESIGN.md (Product card) — "Name and price on a single row below
+   the image, 12px gap". This is that row. The gap is `spacing.md`, which is
+   --space-md = 12px (grid-pure, 3 x 4px); the previous 4px body gap was the
+   vertical stack step and was the wrong axis to read the pair from.
+
+   `baseline` keeps the price on the name's first baseline, so the two read as
+   one typeset line rather than as a top box and a bottom box.
+
+   Wrapping policy (merch-lead, STI-648): a long product name WRAPS. The
+   identity cell and the name both carry `min-width: 0`, and nothing here sets
+   `text-overflow: ellipsis`, so no product name is ever silently truncated.
+   The price is the fixed element of the pair — `flex: 0 0 auto` plus
+   `white-space: nowrap` — which keeps "$185.00" from breaking across lines
+   while the name wraps around it. */
 .product-card__row {
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.product-card__ident {
+  display: flex;
+  align-items: flex-start;
   gap: var(--space-sm);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .product-card__name {
@@ -303,7 +325,7 @@ body {
   min-width: 0;
 }
 
-.product-card__row > .badge {
+.product-card__ident > .badge {
   flex: 0 0 auto;
 }
 
@@ -326,6 +348,8 @@ body {
   color: var(--grey-200);
   font-weight: 500;
   font-feature-settings: "tnum" 1;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 /* ── Brand statement / editorial section ────────────────────────────────── */

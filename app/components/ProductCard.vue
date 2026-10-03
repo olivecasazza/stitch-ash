@@ -49,15 +49,25 @@ const formattedPrice = computed(() => formatPriceAmount(props.price, locale.valu
     </div>
 
     <div class="product-card__body">
+      <!-- STI-648: DESIGN.md (Product card) requires the name and the price on
+           a single row below the image at a 12px gap. They were siblings in the
+           column-flex body, so the price always fell to its own line. The row is
+           now [identity cell, price]; the identity cell keeps the name and the
+           Badge glued together so the pair still reads as one unit on the left
+           and the price can sit at the trailing edge. -->
       <div class="product-card__row">
-        <h3 class="product-card__name">{{ name }}</h3>
-        <Badge v-if="badge" :variant="badge" />
+        <div class="product-card__ident">
+          <h3 class="product-card__name">{{ name }}</h3>
+          <Badge v-if="badge" :variant="badge" />
+        </div>
+        <!-- components.price: one textColor (colors.grey-200) and one numeric run
+             for the whole string. The symbol stays inside the run, so the
+             currency glyph and the digits share one tabular box (STI-486 F1). -->
+        <p v-if="formattedPrice" class="product-card__price">${{ formattedPrice }}</p>
       </div>
+      <!-- The note is supporting copy, not part of the name+price pair, so it
+           sits under the row rather than between the name and the price. -->
       <p v-if="note" class="product-card__note">{{ note }}</p>
-      <!-- components.price: one textColor (colors.grey-200) and one numeric run
-           for the whole string. The symbol stays inside the run, so the
-           currency glyph and the digits share one tabular box (STI-486 F1). -->
-      <p v-if="formattedPrice" class="product-card__price">${{ formattedPrice }}</p>
     </div>
   </NuxtLink>
 </template>
