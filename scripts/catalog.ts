@@ -17,15 +17,29 @@ import { describeReachability, PROBE_POSTAL_CODES, verdictFor } from "../src/cat
 import { probeCheckoutRates, storefrontClientFromEnv } from "../src/catalog/storefront-rates.ts";
 
 /**
- * STI-539: representative countries for a `REST_OF_WORLD` shipping rule.
+ * STI-539 / STI-618: the destinations probed for a `REST_OF_WORLD` rule.
  *
  * A `REST_OF_WORLD` rule declares a price for every country Shopify does not
- * put in another zone. Probing one country proves nothing about the rest, and
- * probing all of them is a hundred-plus API calls on every plan. This spread is
- * deliberately multi-region: a single-country probe would pass while whole
- * continents stayed unsellable.
+ * put in another zone, and probing one country proves nothing about the rest.
+ *
+ * STI-539 first solved this with a hand-maintained spread of five
+ * (`CA, GB, DE, AU, JP`), chosen to be multi-region on the reasoning that
+ * probing all of them is "a hundred-plus API calls on every plan". That cost
+ * reasoning turned out to be wrong in a way that mattered: measured against
+ * the live store those five ARE blocked, but so are 19 more, so the plan
+ * reported "5 destination(s)" for an outage affecting 24 — and this issue's
+ * own title named `FR`, which the probe never checked at all. A subset chosen
+ * to be "representative" under-reports an outage that is universal.
+ *
+ * The list is now DERIVED from `PROBE_POSTAL_CODES`, the single source of truth
+ * for which countries can be addressed at all. The real cost is 24 sequential
+ * Storefront reads against a 25-country map, which is cheap enough to stop
+ * trading correctness for, and a derived list cannot silently fall behind that
+ * map again.
  */
-const REST_OF_WORLD_PROBES = ["CA", "GB", "DE", "AU", "JP"] as const;
+function restOfWorldProbes(): string[] {
+  return Object.keys(PROBE_POSTAL_CODES).filter(c => c !== "US");
+}
 
 const command = process.argv[2] ?? "validate";
 const root = process.cwd();
@@ -247,7 +261,9 @@ async function main() {
             else declared.add(rule.destination);
           }
         }
-        const countries = ["US", ...(declaresRestOfWorld ? REST_OF_WORLD_PROBES : []), ...declared];
+        const countries = ["US", ...(declaresRestOfWorld ? restOfWorldProbes() : []), ...declared].filter(
+          (c, i, all) => all.indexOf(c) === i,
+        );
         console.log("");
         console.log(`shipping: probing real checkout rates for ${countries.join(", ")} (via ${probeVariant.sku}) ...`);
         for (const countryCode of countries) {
