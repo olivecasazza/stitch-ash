@@ -228,11 +228,18 @@ git -C "$D" commit -qm "rename page"
 check "rename away from the guarded surface fails as a deletion" fail "$D" --base HEAD~1
 
 # --- 14. THE HEADLINE: f29e7d8's real diff must fail. --------------------
+# The head ref is pinned to f29e7d8 itself. Without --head the gate diffs
+# f29e7d8~1 against whatever HEAD happens to be, and once the restore commit
+# (090349e) re-added the three files that range contains no deletions at all —
+# the assertion below then rots into a permanent FAIL that says the gate has
+# stopped working, when in fact the gate is fine and the fixture drifted. That
+# is exactly what happened on 2026-10-04. Pin both ends of the range so the
+# fixture is hermetic.
 if git -C "$HERE/../.." cat-file -e f29e7d8^{commit} 2>/dev/null; then
   ROOT="$HERE/../.."
   set +e
   OUT="$("$GATE" --manifest "$ROOT/scripts/ci/deletion-scope-manifest.txt" \
-        --base f29e7d8~1 --name-only 2>&1)"
+        --base f29e7d8~1 --head f29e7d8 --name-only 2>&1)"
   RC=$?
   set -e
   # --name-only on that base lists the deletions in the real commit.
@@ -250,7 +257,7 @@ if git -C "$HERE/../.." cat-file -e f29e7d8^{commit} 2>/dev/null; then
   # And the verdict on that same diff must be non-zero.
   set +e
   OUT2="$("$GATE" --manifest "$ROOT/scripts/ci/deletion-scope-manifest.txt" \
-         --base f29e7d8~1 2>&1)"; RC2=$?
+         --base f29e7d8~1 --head f29e7d8 2>&1)"; RC2=$?
   set -e
   if [ "$RC2" -ne 0 ]; then
     echo "  ok   gate FAILS on f29e7d8's diff (exit $RC2)"
@@ -264,6 +271,17 @@ if git -C "$HERE/../.." cat-file -e f29e7d8^{commit} 2>/dev/null; then
   expect_out "app/pages/account.vue"
   expect_out "app/utils/customer-account.ts"
   expect_out "src/catalog/account-order-history.test.ts"
+
+  # 14b. Anti-drift: the headline must fail loudly if the pinned range stops
+  # containing the deletions, rather than quietly passing on an empty diff.
+  # An empty SCOPED set exits 0 under --name-only, so assert on the content.
+  if printf '%s' "$OUT" | grep -q .; then
+    echo "  ok   f29e7d8 fixture is hermetic — head pin yields a non-empty diff"
+    PASS=$((PASS + 1))
+  else
+    echo "  FAIL f29e7d8 fixture drifted: pinned range reports no deletions"
+    FAIL=$((FAIL + 1))
+  fi
 else
   echo "  skip f29e7d8 not present in this clone (shallow or partial history)"
 fi

@@ -31,11 +31,16 @@
 # default — so the silent path is closed.
 #
 # Usage:
-#   deletion-scope-gate.sh [--base <ref>] [--manifest <path>] [--repo <dir>]
-#                          [--name-only]
+#   deletion-scope-gate.sh [--base <ref>] [--head <ref>] [--manifest <path>]
+#                          [--repo <dir>] [--name-only]
 #
 #   --base <ref>     diff against this ref (default: auto-detected merge base
 #                    with origin/main, falling back to the CI-provided base sha)
+#   --head <ref>     the right-hand side of the diff (default: HEAD). Needed
+#                    because the gate's own self-test runs it against a
+#                    historical commit: diffing f29e7d8~1 against current HEAD
+#                    is not the same diff, and once the deleted files were
+#                    restored it finds nothing and the assertion silently rots.
 #   --manifest <p>   manifest to read (default: scripts/ci/deletion-scope-manifest.txt)
 #   --repo <dir>     repository to inspect (default: the repo this script lives
 #                    in). The self-test uses it to run the gate against
@@ -49,6 +54,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="${HERE}/../.."
 BASE=""
+HEAD_REF=""
 MANIFEST=""
 REPO_ROOT=""
 NAME_ONLY=0
@@ -56,10 +62,11 @@ NAME_ONLY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --base) BASE="${2:?--base needs a ref}"; shift 2 ;;
+    --head) HEAD_REF="${2:?--head needs a ref}"; shift 2 ;;
     --manifest) MANIFEST="${2:?--manifest needs a path}"; shift 2 ;;
     --repo) REPO="${2:?--repo needs a directory}"; shift 2 ;;
     --name-only) NAME_ONLY=1; shift ;;
-    -h|--help) sed -n '2,52p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,58p' "$0"; exit 0 ;;
     *) echo "ERROR: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -108,14 +115,24 @@ if [ -z "$BASE" ] || ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/nul
   exit 1
 fi
 
-BASE_SHA="$(git merge-base "$BASE" HEAD 2>/dev/null || git rev-parse "$BASE")"
+# HEAD_REF is the right-hand side of the diff. In CI that is HEAD (the PR
+# merge commit); the self-test overrides it to replay a historical commit. The
+# merge base must be taken against the same ref the diff uses, or the two
+# disagree and the gate reports on a range nobody asked about.
+HEAD_REF="${HEAD_REF:-HEAD}"
+if ! git rev-parse --verify --quiet "$HEAD_REF^{commit}" >/dev/null 2>&1; then
+  echo "ERROR: deletion-scope-gate: cannot resolve head ref '$HEAD_REF'."
+  exit 1
+fi
+
+BASE_SHA="$(git merge-base "$BASE" "$HEAD_REF" 2>/dev/null || git rev-parse "$BASE")"
 
 # --- The actual deleted paths. This is the only input that matters (AC2). ---
 # --no-renames: a git rename out of the guarded surface is a removal of a
 # shipped page as much as an unlink is. Without this, `git mv app/pages/x.vue
 # app/pages/../x.vue` would report as R and sail through the gate. With it,
 # the rename reads as D(old) + A(new), and the old path must be declared.
-DELETED="$(git diff --diff-filter=D --name-only --no-renames "$BASE_SHA" HEAD || true)"
+DELETED="$(git diff --diff-filter=D --name-only --no-renames "$BASE_SHA" "$HEAD_REF" || true)"
 
 in_scope() {
   local path="$1" prefix
@@ -249,7 +266,7 @@ while IFS= read -r path; do
   if is_test_path "$path"; then
     if [ -z "$replacement" ]; then
       BAD_TEST_REPLACEMENT+=("$path: test deleted with no '# replacement:' assertion")
-    elif ! git cat-file -e "HEAD:$replacement" 2>/dev/null; then
+    elif ! git cat-file -e "$HEAD_REF:$replacement" 2>/dev/null; then
       BAD_TEST_REPLACEMENT+=("$path: '# replacement: $replacement' does not exist at HEAD")
     fi
   fi
