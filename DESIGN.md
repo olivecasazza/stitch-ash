@@ -602,18 +602,70 @@ Construction — Double-stitched seams.
 Embroidery — Black thread on black. / Design on chest. / Mark on left sleeve.
 Care — Cold wash, inside out. / Tumble dry low or hang. / Do not dry-clean.
 Shipping & Returns — Made to order. / Ships in 2–3 weeks. / Tracked
-shipping. / Returns within 14 days, unworn.
+shipping. / [RETURNS LINE — SEE BELOW]
 ```
+
+**The returns line is deliberately not written here.** STI-681: the store
+published "Returns within 14 days, unworn." on sku-001 and "Final sale." on
+sku-002 and sku-003 simultaneously, and this spec is how the contradiction
+became durable. Commit 79ad80e ("product descriptions are spec lines, not
+brand prose", #204) introduced both strings; before it, no SKU mentioned
+returns at all. The 14-day promise was not carried over from a quote, a
+supplier, or an operator decision — that commit *authored* a quantified,
+legally-operative commercial commitment while removing unverified prose.
+
+Because this document transcribes the PDP as the exact current copy, any agent
+re-authoring from it reproduced the invented promise faithfully. Do not treat
+a returns or refund line as copy that already exists here. It must be restated
+from **one declared policy object** covering every SKU, so it cannot drift
+between products, and only once the operator has chosen the policy
+(STI-681, blocked on that decision). Until then
+`scripts/ci/returns-claim-gate.sh` fails the build when the SKUs disagree.
 
 ### Navigation
 - Sticky, transparent over hero, ink-black on scroll.
 - One row and nothing else: the wordmark on the left, linking home, and the
   cart indicator on the right as a numeric ("02") with no badge box. There is
-  no other navigation anywhere in the chrome — no Shop, Story or Account
-  links — and there is no site footer.
+  no site footer.
 - The cart hit area is at least 44px tall, and the row fits a 320px viewport
   with no horizontal overflow.
 - Active route marked with an underline, never a background pill.
+
+**Open decision (STI-633) — the row above vs. a two-link nav.** Commit
+`f29e7d8` (#207, operator-authored) reduced the header to wordmark + cart and
+banned secondary nav in the same commit that deleted the pages the nav
+pointed at. That ban is **not** re-affirmed here; it is recorded as an
+unresolved spec question, because the storefront currently has **no route into
+its own catalogue**:
+
+- At `main` @ `4662958` the only anchors in the chrome are the wordmark (`/`)
+  and `#main-content`. `Shop`, `Story` and `Account` are gone from the row.
+- `app/pages/products.vue` (the canonical full-capsule listing, STI-241) is
+  reachable from no nav link. It survives only as a direct URL and as the
+  "keep browsing" link on `/account`. `/collections`, `/contact` and `/blog`
+  are likewise unlinked from the chrome.
+- So a first-time visitor on `/` sees the hero and a product grid (STI-579)
+  whose cards link to PDPs, and **no way to reach the full capsule, a
+  collection index, or contact without knowing a URL.** For a store whose
+  entire product is a made-to-order capsule, that is a navigation hole, not a
+  minimalism.
+- The "Shop / Story / Account" quartet this rule replaced was itself
+  incidental — it was what #207 deleted, not a reviewed spec — so the choice
+  is between *some* nav and *no* nav, not between two settled designs.
+
+**What is not open:** the visual treatment. A restored link reuses the
+existing `.nav-link` selector, sits between the wordmark and the cart button,
+inherits the underline active-route rule above, adds no new token, and does
+not reintroduce a footer. Compact monochrome minimalism is a typographic and
+spatial discipline (DT-2); a single monochrome link does not violate it.
+
+**Blocked on an operator call** between: (a) restore two links — `Shop` →
+`/products`, `Story` → `/#statement` — which is the smallest change that
+closes the catalogue hole; (b) restore the full quartet including `Account`
+→ `/account`; or (c) confirm the reduction and accept that the capsule has no
+nav entry. This decision is the only thing gating [STI-633](/STI/issues/STI-633);
+the code already matches option (c), so (c) is the status quo and shipping it
+is a decision, not an omission.
 
 ### Section eyebrows
 The eyebrow is the small tracked line that introduces a section — `Shop —

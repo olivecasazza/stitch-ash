@@ -3,6 +3,8 @@
         "title": "Cart",
         "description": "Selected items.",
         "empty": "Empty.",
+        "removed": "{title} removed.",
+        "undo": "Undo",
         "subtotal": "Subtotal",
 "checkout": "Checkout",
         "open": "Open Cart",
@@ -47,8 +49,6 @@
         "to": "to"
     },
     "product": {
-        "add": "Add",
-        "choose": "Choose",
         "view": "View product",
         "recommendations": "You may also like"
     },

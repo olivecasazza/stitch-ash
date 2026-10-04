@@ -1,0 +1,47 @@
+# scripts/ci/deletion-scope-manifest.txt
+#
+# Deletion-scope gate (STI-669). This file is the ONLY way a PR may delete a
+# file under app/pages/, app/utils/, app/composables/ or src/catalog/.
+#
+# STI-669: PR #207 (f29e7d8) carried three deletions that were unrelated to its
+# stated scope — app/pages/account.vue, app/utils/customer-account.ts and
+# src/catalog/account-order-history.test.ts — through a chrome/copy PR with CI
+# green the whole way, killing two shipped, verified-live features (STI-633,
+# STI-652). The gate keys off real deleted paths (`git diff --diff-filter=D
+# --name-only`), never off the PR description, so a mismatch between the title
+# and the diff cannot authorise anything.
+#
+# DECLARED DELETIONS: none.
+#
+# This file is intentionally empty of declarations. That is the safe default:
+# an undeclared deletion fails the gate, so the silent path is closed. Add an
+# entry only when a deletion is intended and reviewed:
+#
+#     app/pages/old-thing.vue
+#     # issue: STI-123
+#     # sign-off: storefront-lead
+#     # reason: replaced by app/pages/new-thing.vue
+#
+# A deleted test needs '# replacement:' naming a test that survives at HEAD,
+# so coverage loss cannot be signed off silently:
+#
+#     src/catalog/old.test.ts
+#     # issue: STI-123
+#     # sign-off: storefront-lead
+#     # reason: behaviour now covered by src/catalog/new.test.ts
+#     # replacement: src/catalog/new.test.ts
+#
+# Gutting a test (emptying it in place, so the path survives and no deletion is
+# reported) is the same failure wearing a different hat. The gate compares each
+# touched test's assertion count against the base and fails when it drops. To
+# land an intentional reduction, declare the surviving count as a baseline:
+#
+#     src/catalog/rewritten.test.ts
+#     # issue: STI-123
+#     # sign-off: storefront-lead
+#     # reason: three overlapping cases collapse into one equivalent case
+#     # baseline: 1
+#
+# The baseline must be a non-negative count, and HEAD must still have at least
+# that many assertions, so an override cannot silently absorb a later gutting.
+# Missing issue, sign-off or reason, or a non-numeric baseline, stays a failure.

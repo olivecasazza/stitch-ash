@@ -1,4 +1,17 @@
+import { join } from 'node:path';
+import type { Nitro } from 'nitropack';
 import { readBuildCommit } from './scripts/read-build-commit.mjs';
+import {
+    ASSET_MANIFEST_ID,
+    assetManifestPlugin,
+    manifestRewriteStats,
+    neutraliseAppManifestClock,
+    resolveBuildMtime,
+} from './scripts/deterministic-asset-manifest.mjs';
+
+// One mtime for the whole build, resolved once. Every manifest entry agrees, and
+// the plugin cannot see two different values for one build.
+const buildMtime = resolveBuildMtime(process.cwd());
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -35,6 +48,83 @@ export default defineNuxtConfig({
     // the Hydrogen->Nuxt switch on 2026-06-14).
     nitro: {
         preset: 'cloudflare_pages',
+
+        // STI-625: two builds of ONE commit differed by ~54 byte-runs, all of them
+        // inside the client asset manifest Nitro embeds in the bundle it minifies:
+        // the per-asset `mtime` is a real filesystem mtime, and the `etag` of
+        // `_nuxt/builds/*.json` is a content hash of a file carrying `Date.now()`.
+        //
+        // Those clock bytes were the TRIGGER for STI-573's identifier cascade, not
+        // just noise the digest had to absorb: esbuild picks names from a
+        // frequency table over its input, so a moving input can rename symbols
+        // across the whole flat nitro.mjs scope. Removing the clock here, before
+        // the minifier sees it, is what actually makes the artifact a function of
+        // the commit.
+        //
+        // `rollupConfig.plugins` is merged AHEAD of nitro's own plugins (defu puts
+        // the config's array first, and nitro then pushes its built-ins), so this
+        // transform runs before esbuild's. It only matches the one virtual module
+        // and refuses to guess if that module's shape ever changes.
+        // The commit date, not the wall clock and not a hash of the content: see
+        // the header of scripts/deterministic-asset-manifest.mjs for why a
+        // non-monotonic value would hand clients a false 304 on changed bytes.
+        rollupConfig: {
+            plugins: [assetManifestPlugin(buildMtime.value)],
+        },
+    },
+
+    hooks: {
+        // STI-625, second clock: Nuxt writes `_nuxt/builds/latest.json` and
+        // `_nuxt/builds/meta/<buildId>.json` with `Date.now()` inside
+        // `rollup:before` (@nuxt/nitro-server), Nitro copies them into
+        // `dist/_nuxt/builds/`, and their content-derived etag is what lands in
+        // the manifest. Nothing reads that `timestamp` — the outdated-build check
+        // compares `id`, not `timestamp` — so it is rewritten here to a constant.
+        //
+        // `nitro:build:public-assets` is the one hook guaranteed to run after
+        // that copy and before rollup resolves the asset manifest, so this
+        // rewrites the bytes the etag is computed from.
+        'nitro:build:public-assets': (nitro: Nitro) => {
+            // `serveStatic` is `boolean | 'node' | 'deno' | 'inline'` and is
+            // always set, so this is a real check on the resolved config, not on
+            // an optional field: when Nitro is told not to serve static assets it
+            // never writes `dist/`, and the directory read below would throw.
+            if (!nitro.options.serveStatic) return;
+            const publicDir = nitro.options.output.publicDir;
+            neutraliseAppManifestClock(publicDir, join(publicDir, '_nuxt', 'builds'));
+        },
+
+        // The plugin above is keyed on a Nitro-internal virtual module id. If a
+        // Nitro upgrade renames it, the rewrite silently stops running and the
+        // build clock goes straight back into the bundle — the exact regression
+        // STI-625 exists to prevent, and the one the normaliser used to hide. So
+        // the build FAILS when the rewrite did not run.
+        //
+        // This rides Nitro's OWN `compiled` hook, not Nuxt's `build:done`:
+        // @nuxt/nitro-server registers its own `build:done` to run the whole Nitro
+        // build, so a config-level `build:done` fires BEFORE Nitro has built
+        // anything and would assert against a bundle that does not exist yet.
+        // `compiled` fires once the rollup output has been written, which is
+        // exactly the point where the question "did the rewrite run?" has an
+        // answer.
+        'nitro:init': (nitro: Nitro) => {
+            nitro.hooks.hook('compiled', () => {
+                if (nitro.options.dev) return;
+                const { transforms, entries } = manifestRewriteStats();
+                if (transforms === 0) {
+                    throw new Error(
+                        'STI-625: no client asset manifest was rewritten during this '
+                        + `build. The rollup plugin matches "${ASSET_MANIFEST_ID}", which `
+                        + 'Nitro appears to have renamed. Failing rather than shipping a '
+                        + 'bundle that carries the build clock again.',
+                    );
+                }
+                console.error(
+                    `[deterministic-asset-manifest] build-verified: ${transforms} manifest `
+                    + `transform(s), ${entries} asset entries, zero wall-clock mtime in bundle`,
+                );
+            });
+        },
     },
 
     css: ['~/assets/css/main.css'],

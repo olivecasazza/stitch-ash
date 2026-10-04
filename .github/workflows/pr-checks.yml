@@ -265,6 +265,38 @@ jobs:
       - name: Run storefront mock gate
         run: ./scripts/ci/storefront-mock-gate.sh
 
+  # STI-681: the $185 hoodie published "Returns within 14 days, unworn." while
+  # the lanyard and the sticker published "Final sale." — two mutually exclusive
+  # returns policies live on one store at once, measured on
+  # preview.stitch-ash.com 2026-10-04. Nothing in the repo declared which was
+  # true, and no lead-time style scan can catch it: both strings are old, and
+  # each is individually well-formed. Only CROSS-SKU AGREEMENT catches this.
+  #
+  # This job is expected to FAIL until the operator's policy decision lands and
+  # all three SKUs are restated from one declared policy object (STI-681). That
+  # is deliberate: a permanent unmissable red for a live customer-facing
+  # contradiction is the STI-226 shape made visible. Do not silence it by
+  # weakening the gate or by re-typing a policy into one YAML body.
+  #
+  # Static and offline: it reads catalog/products/*.yaml and the static fallback
+  # in app/data/products.ts. No Node, no store, no Storefront token, no secret.
+  # The self-test runs first so this job cannot go green on a gate that has
+  # stopped working — including on the false-green cases (uniform final sale,
+  # uniform returnable, uniform exchange-only) that must PASS.
+  returns-claim-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run returns-claim-gate self-test
+        run: ./scripts/ci/returns-claim-gate.test.sh
+
+      - name: Run returns-claim gate
+        run: ./scripts/ci/returns-claim-gate.sh
+
   # STI-628: the storefront's public access token is served to every anonymous
   # visitor inside `config.public`. That is correct — a Storefront *public* token
   # is a browser credential by design, and using the published value against the
@@ -292,6 +324,51 @@ jobs:
 
       - name: Run public runtime config gate
         run: ./scripts/ci/public-runtime-config-gate.sh
+
+  # STI-669: PR #207 (f29e7d8, "fix(storefront): facts in the expander, wordmark
+  # +cart header, no footer, cart on the token ramp") carried three deletions
+  # that had nothing to do with its stated scope through to main with CI green
+  # the whole way:
+  #
+  #   app/pages/account.vue                     165 -----
+  #   app/utils/customer-account.ts              75 -----
+  #   src/catalog/account-order-history.test.ts 145 -----
+  #
+  # That silently removed two shipped, verified-live features (STI-633 and
+  # STI-652 were both closed on live-verified claims that this commit falsified).
+  # Nobody wrote bad code; no check asked what the diff removed.
+  #
+  # This gate is that check. It keys off the real deleted paths from
+  # `git diff --diff-filter=D --name-only` against the merge base and never
+  # parses the PR title or body, so a description that does not match the diff
+  # cannot authorise anything. A deletion under app/pages/, app/utils/,
+  # app/composables/ or src/catalog/ must be declared in
+  # scripts/ci/deletion-scope-manifest.txt with an issue id and a named
+  # sign-off; a deleted test must additionally name a replacement test that
+  # survives at HEAD. The committed manifest declares nothing, so the default is
+  # closed rather than open.
+  #
+  # fetch-depth: 0 is required, not cosmetic: the gate diffs against the merge
+  # base with origin/main, and actions/checkout's default shallow clone of depth
+  # 1 has no merge base, which would make the gate refuse to run.
+  deletion-scope-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A gate that cannot detect the violation is not a gate. The self-test
+      # asserts the failure modes AND runs the gate against the real f29e7d8
+      # diff, so this job cannot go green on a gate that has stopped working.
+      - name: Self-test the deletion scope gate
+        run: ./scripts/ci/deletion-scope-gate.test.sh
+
+      - name: Run deletion scope gate
+        run: ./scripts/ci/deletion-scope-gate.sh
 
   # STI-542: the build was not reproducible, so "CI is green" did not mean "the
   # artifact is the one that was reviewed". Two builds of 9c55c363 published
