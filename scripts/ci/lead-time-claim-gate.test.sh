@@ -373,6 +373,72 @@ out="$WORK/o12"
 rc="$(run_gate_args "unsourced-en-dash" "--nonsense" "$out")"
 check "unknown argument is rejected" "2" "$rc"
 
+# ── 13. The app/ PDP fallback copy is in scope ─────────────────────────────
+#
+# app/data/products.ts is a second, hand-authored copy of the same shipping
+# facts. It renders on the PDP's pre-launch fallback path (app/utils/
+# pdp-product.ts), and it was OUTSIDE this gate's scan roots for the whole life
+# of the gate. That made it invisible: an unquoted "Ships in 2-3 weeks." sat at
+# app/data/products.ts:81 on main while the gate reported a clean catalog.
+#
+# The fixture's catalog copy is deliberately CLEAN, so these tests fail if the
+# app/ scan root is ever removed — which is the point. A test that only asserts
+# "the gate is red on a red fixture" would still pass after someone deleted the
+# app/ pass and added a claim to the catalog fixture; this one asserts the
+# catalog is clean AND the app copy is caught, so the two cannot drift apart.
+
+out="$WORK/o13claim"
+rc="$(run_gate "app-fallback-claim" "" "$out")"
+check "unquoted claim in the app/ fallback copy fails the gate" "1" "$rc"
+check "...and names app/data/products.ts" "1" \
+  "$(grep -c 'ERROR: unverified production lead time in customer-facing catalog file: app/data/products.ts:44' "$out")"
+
+# The return window in the same file must NOT be what fails it. If the app/
+# pass skipped is_non_lead_window this would go red on a correct line, and a
+# gate that is red for the wrong reason gets deleted.
+check "...but the return window beside it is excused" "1" \
+  "$(grep -c 'not a lead time (return/cancellation window.*app/data/products.ts' "$out")"
+
+out="$WORK/o13clean"
+rc="$(run_gate "app-fallback-clean" "" "$out")"
+check "clean app/ fallback copy passes" "0" "$rc"
+
+# The negative control: the catalog copy in this fixture has no claim, so if
+# this ever reports a catalog hit the fixture itself drifted.
+check "clean fixture reports no catalog CLAIM" "0" \
+  "$(grep -c 'ERROR.*catalog/products/sku-001.yaml' "$out")"
+
+# ── 14. The app/ copy participates in the ratchet ──────────────────────────
+#
+# Same accounting as the catalog copy, for the same reason: adding the scan
+# root without a pin would have frozen every deploy on main, because the
+# app/ occurrence is live right now.
+
+out="$WORK/o14ratchet"
+rc="$(run_gate_r "app-fallback-claim" "app/data/products.ts:44" "" "$out" --ratchet)"
+check "ratchet tolerates the pinned app/ line" "0" "$rc"
+
+# No pin at all -> deploy mode must fail, not silently pass. This is the
+# freeze-the-deploy guard: the tolerated set is explicit, never inferred.
+out="$WORK/o14nopin"
+rc="$(run_gate_r "app-fallback-claim" "" "" "$out" --ratchet)"
+check "ratchet with no app/ pin still fails" "1" "$rc"
+
+# A stale app/ pin must fail under --strict-ratchet, so an entry cannot
+# outlive its own fix.
+out="$WORK/o14stale"
+rc="$(run_gate_r "app-fallback-clean" "app/data/products.ts:44" "" "$out" --ratchet --strict-ratchet)"
+check "stale app/ ratchet entry fails --strict-ratchet" "1" "$rc"
+check "...and names the stale entry" "1" \
+  "$(grep -c 'ratchet entry no longer occurs: app/data/products.ts' "$out")"
+
+# A catalog pin must not tolerate the app/ copy. The ratchet is by exact
+# file:line, never a directory or a wildcard, so fixing one copy and leaving
+# the other is still a failure.
+out="$WORK/o14crossfile"
+rc="$(run_gate_r "app-fallback-claim" "catalog/products/sku-001.yaml:9" "" "$out" --ratchet)"
+check "a catalog pin does not tolerate the app/ copy" "1" "$rc"
+
 echo
 echo "lead-time-claim-gate.test.sh: $pass_count passed, $fail_count failed"
 [ "$fail_count" -eq 0 ] || exit 1

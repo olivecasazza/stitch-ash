@@ -132,6 +132,29 @@ ALLOWED_VERIFIED_LEAD_TIME=""
 CATALOG_DIR="catalog"
 DOCS_DIR="docs/merch"
 
+# The PDP's pre-launch fallback copy. app/data/products.ts is a hand-authored
+# second copy of the same shipping facts, NOT generated from catalog/ — nothing
+# writes it (verified: no script references it as an output; it was last touched
+# by hand in #204/#207). It renders whenever the Storefront API has no matching
+# product, which is the normal case for this store pre-launch.
+#
+# It was outside this gate's scan roots for the whole of its life, which made it
+# invisible: the unquoted "Ships in 2-3 weeks." sat at app/data/products.ts:81
+# on main while the gate reported a clean catalog. That is the same false green
+# this gate exists to kill, one directory over — and it is the more dangerous of
+# the two, because the YAML copy is what the docs and the ratchet talk about,
+# so every audit that only looked at catalog/ confirmed the "known" copy and
+# missed the one that renders.
+#
+# Only the specific hand-authored copy files are scanned. The whole of app/
+# would be far too broad: it contains code comments, changelog prose and
+# unrelated "within a few days" support copy that are not fulfilment promises,
+# and a gate that is red for the wrong reason gets deleted. This file is the
+# product-data mirror of catalog/, so it carries the same customer-facing
+# strings and belongs in scope. Add a path here if a second authored copy is
+# ever added, and let the fixture tests prove the scope is what you think.
+APP_COPY_FILES=("app/data/products.ts")
+
 FOUND=0
 RATCHETED_HITS=()
 report() {
@@ -366,6 +389,34 @@ while IFS= read -r file; do
   fi
 done < <(find "$CATALOG_DIR" -type f \( -name '*.yaml' -o -name '*.yml' \) | sort)
 
+# ── The PDP pre-launch fallback copy ──────────────────────────────────────
+#
+# Same patterns, same ratchet accounting, same fatal-report shape as the
+# catalog pass. The only difference is that these are TypeScript string
+# literals rather than YAML/HTML, so the structured key pattern below does not
+# apply — app/data/products.ts states the promise as prose in a `lines: [...]`
+# array, which LEAD_TIME_RE already catches.
+#
+# is_non_lead_window still applies and matters here: "Returns within 14 days,
+# unworn." is authored at app/data/products.ts:83 and is a return window, not a
+# fulfilment promise. Exempting it by class rather than by file is what keeps
+# this pass from being red for a correct line and getting the whole scan
+# deleted.
+if [ "${#APP_COPY_FILES[@]}" -gt 0 ]; then
+  for file in "${APP_COPY_FILES[@]}"; do
+    [ -f "$file" ] || continue
+    normalised="$(normalise < "$file")"
+    # shellcheck disable=SC2086  # LEAD_TIME_RE is intentionally unquoted.
+    if matches="$(printf '%s' "$normalised" | grep -En "$LEAD_TIME_RE")"; then
+      while IFS= read -r hit; do
+        line_no="${hit%%:*}"
+        handle_hit "$file" "$line_no" "$hit"
+      done <<< "$matches"
+    fi
+  done
+  echo "lead-time-claim-gate: scanned ${#APP_COPY_FILES[@]} PDP fallback cop(y|ies) under app/ ..."
+fi
+
 # Docs must not re-assert the number as verified. A doc may DISCUSS it, name
 # it as unverified, or point at the open ask — so only an affirmative
 # verification claim is a violation, and it is matched on the surrounding
@@ -406,10 +457,10 @@ fi
 
 if [ "$FOUND" -eq 0 ]; then
   if [ "${#RATCHETED_HITS[@]}" -gt 0 ]; then
-    echo "lead-time-claim-gate: passed (no unquoted lead time in $CATALOG_DIR besides"
+    echo "lead-time-claim-gate: passed (no unquoted lead time in $CATALOG_DIR or the app/ PDP fallback copy besides"
     echo "  the ${#RATCHETED_HITS[@]} ratcheted line(s) above; no verified claim in $DOCS_DIR)"
   else
-    echo "lead-time-claim-gate: passed (no unverified lead time in $CATALOG_DIR, no verified claim in $DOCS_DIR)"
+    echo "lead-time-claim-gate: passed (no unverified lead time in $CATALOG_DIR or the app/ PDP fallback copy, no verified claim in $DOCS_DIR)"
   fi
   exit 0
 fi
