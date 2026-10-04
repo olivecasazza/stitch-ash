@@ -76,21 +76,24 @@ const { data: products } = await useStorefrontData(key, `#graphql
 
 <template>
     <UCarousel
-        v-slot="{ item: product, index }"
+        v-slot="{ item: product }"
         :items="products"
         class="w-full mb-6"
-        :ui="{ item: 'md:basis-1/2 lg:basis-1/3' }"
+        :ui="{ item: 'w-full' }"
         arrows
         loop
     >
+        <!-- One full-width index row per slide. The carousel used to shrink
+             each item to a third of the viewport, which is a tile column and
+             broke the row: ProductCard is a hairline row, not a card. `:handle`
+             and `:loading` were never ProductCard props and fell through onto
+             the row's <NuxtLink> as junk attributes. -->
         <ProductCard
             :href="`/product/${product.handle}`"
             :name="product.title"
             :price="product.priceRange?.minVariantPrice?.amount ?? ''"
             :image-src="product.featuredImage?.url"
             :image-alt="product.featuredImage?.altText ?? product.title"
-            :handle="product.handle"
-            :loading="index < 3 ? props.loading : 'lazy'"
         />
     </UCarousel>
 </template>

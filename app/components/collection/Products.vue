@@ -122,18 +122,21 @@ watch(() => collection.value?.products.pageInfo, async () => await nextTick().th
                 </UButton>
             </div>
 
-            <div class="grid w-full grid-cols-1 gap-16 md:grid-cols-2 xl:grid-cols-3">
+            <!-- One column of hairline index rows, the same `.index-rows`
+                 treatment /products and the homepage capsule use. The old
+                 3-column Tailwind tile grid is what squeezed full-width rows
+                 into ~210px columns. `:handle` / `:loading` are gone: they are
+                 not ProductCard props any more and were falling through onto
+                 the row's <NuxtLink> as junk attributes. -->
+            <div class="index-rows">
                 <ProductCard
-                    v-for="(product, index) in products"
+                    v-for="product in products"
                     :key="product.id"
                     :href="`/product/${product.handle}`"
                     :name="product.title"
                     :price="product.priceRange?.minVariantPrice?.amount ?? ''"
                     :image-src="product.featuredImage?.url"
                     :image-alt="product.featuredImage?.altText ?? product.title"
-                    :handle="product.handle"
-                    class="pb-14 border-b border-b-default"
-                    :loading="index < 3 ? 'eager' : 'lazy'"
                 />
             </div>
 

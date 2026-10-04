@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { withoutPlaceholderSizes } from '~/utils/size-labels'
+
 /**
  * One row of the catalogue index.
  *
@@ -50,9 +52,13 @@ const formattedPrice = computed(() => formatPriceAmount(props.price, locale.valu
 
 /* "S–XXL" for a ranged option, "One size" for a single-entry one, "" for a
  * product with no size option at all — an empty cell is a gap in the column,
- * so the size column is dropped rather than padded. */
+ * so the size column is dropped rather than padded.
+ *
+ * The placeholder filter runs HERE, at the one point every listing passes
+ * through, so no surface can print Shopify's "Default Title" in the size
+ * column: `~/utils/size-labels` turns a lone placeholder into "One size". */
 const sizeRange = computed(() => {
-  const sizes = props.sizes.filter(Boolean)
+  const sizes = withoutPlaceholderSizes(props.sizes)
   if (!sizes.length) return ''
   if (sizes.length === 1) return sizes[0]!
   return `${sizes[0]!}–${sizes.at(-1)!}`
@@ -182,7 +188,12 @@ const specList = computed(() => props.specs.filter(Boolean).slice(0, 3))
 }
 
 .product-row__name {
-  overflow-wrap: anywhere;
+  /* `anywhere` broke a name one character per line inside a narrow column —
+     "Embr / oide / red". `break-word` only breaks when a word genuinely
+     cannot fit the column, so a name stays readable at every viewport from
+     320px up. */
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 
 .product-row__cell {
@@ -212,11 +223,19 @@ const specList = computed(() => props.specs.filter(Boolean).slice(0, 3))
 }
 
 /* Wide: aligned columns. Fixed min-widths on the numeric and spec columns are
-   what make the values line up down the page instead of tracking the name. */
+   what make the values line up down the page instead of tracking the name.
+   Each cell is pinned to its column rather than auto-placed: a row that has no
+   sizes or no specs would otherwise slide the cells after it one column left,
+   so prices would not line up down the page. */
 @media (min-width: 768px) {
   .product-row__grid {
     grid-template-columns: minmax(0, 2fr) 7rem minmax(0, 2fr) 6rem;
   }
+
+  .product-row__ident { grid-column: 1; }
+  .product-row__sizes { grid-column: 2; }
+  .product-row__specs { grid-column: 3; }
+  .product-row__price { grid-column: 4; }
 
   .product-row__sizes,
   .product-row__price {

@@ -99,12 +99,17 @@ body {
   font-weight: 400;
 }
 
-/* ── Product grid ───────────────────────────────────────────────────────── */
-.products {
+/* ── Index rows ──────────────────────────────────────────────────────────── */
+/* The one row treatment, shared by every surface that lists products: the
+   homepage capsule, /products and the per-collection listing. One column,
+   flush left, hairline-ruled — the rows themselves carry the top rule, so the
+   container only closes the last one. The old `.products` tile grid is gone:
+   it squeezed full-width rows into ~210px columns and wrapped product names
+   one character per line. */
+.index-rows {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
-  gap: var(--gutter);
-  padding-block: var(--section-md);
+  grid-template-columns: minmax(0, 1fr);
+  border-block-end: var(--rule);
 }
 
 /* ── Brand statement / editorial section ────────────────────────────────── */
