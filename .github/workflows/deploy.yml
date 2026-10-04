@@ -229,6 +229,43 @@ jobs:
       - name: Built-CSS radius gate
         run: ./scripts/ci/built-css-radius-gate.sh --strict-ratchet
 
+      # Commerce-data gates on the deploy path, not just on PRs.
+      #
+      # STI-415 above established the rule for this repo: a gate that only
+      # exists on a pull_request cannot protect the artifact a deploy publishes.
+      # Every commerce-data invariant gate lived only in pr-checks.yml, which
+      # fires on `pull_request` exclusively, while this file fires on
+      # `push: branches: [main]`. So main could carry a customer-facing
+      # contradiction indefinitely and every deploy would republish it.
+      #
+      # This is not hypothetical: at 9624a0a `returns-claim-gate` FAILS on main —
+      # sku-001 promises "Returns within 14 days, unworn" while sku-002 and
+      # sku-003 promise "Final sale", and app/data/products.ts repeats the same
+      # split as the no-Shopify-description fallback. All three PDPs served that
+      # contradiction live from the deployed site. The gate was correct; it was
+      # simply never in force on the way to production.
+      #
+      # These five are the customer-facing data/copy invariants that were
+      # PR-only. All are static and offline — they read source and catalog files
+      # and need no store, secret or network — so running them here cannot
+      # depend on credentials or on the live store's state. Each prints its own
+      # fix hint on failure; the first non-zero exit fails the run before the
+      # publish step, so a red invariant blocks the artifact instead of shipping.
+      #
+      # returns-claim-gate is expected to fail here until the single returns
+      # policy is decided and applied to all three SKUs in BOTH carriers. That
+      # red is the correct outcome: the alternative is continuing to publish a
+      # live store that tells customers two opposite things. See the issue
+      # "main serves a customer-facing RETURNS contradiction" (5b9a72a6).
+      - name: Commerce-data gates (catalog status, returns claim, internal copy, public runtime config, storefront mock)
+        run: |
+          set -euo pipefail
+          ./scripts/ci/catalog-status-ownership-gate.sh
+          ./scripts/ci/returns-claim-gate.sh
+          ./scripts/ci/no-internal-copy-in-storefront.sh
+          ./scripts/ci/public-runtime-config-gate.sh
+          ./scripts/ci/storefront-mock-gate.sh
+
       # STI-241: cloudflare/pages-action was deleted upstream (repo now 404),
       # breaking deploys with "Unable to resolve action `cloudflare/pages-action`".
       # Publish via wrangler-action + `wrangler pages deploy` instead — same
