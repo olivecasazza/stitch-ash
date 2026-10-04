@@ -113,8 +113,8 @@ jobs:
       # `inventory_policy = "deny"` stood in the same block. On the live store
       # that would block checkout on all 7 variants, every one of which is at
       # or below zero inventory. This suite pins that exact fixture so the
-      # false green cannot come back, and pins that a missing nixlab tree is
-      # reported SKIPPED rather than passed. Needs no Node and no secrets.
+      # false green cannot come back, and pins that a comparison which cannot
+      # be performed never reports a pass. Needs no Node and no secrets.
       #
       # STI-569: the suite used to point at an agent-host nixlab path that does
       # not exist on a runner, so this job was red on every PR and the red
@@ -124,10 +124,28 @@ jobs:
       - name: Test catalog status ownership gate
         run: ./scripts/ci/catalog-status-ownership-gate.test.sh
 
-      # This step alone is still cross-repo blind on a runner: it checks out
-      # only this repo, finds no nixlab tree, reports SKIPPED and exits 0.
-      # Closing that needs a second checkout — tracked as STI-531/STI-561,
-      # deliberately not folded into STI-569.
+      # STI-667: this step USED to be the false green STI-561 reported. It
+      # checked out only this repo, found no nixlab tree, printed `SKIPPED (not
+      # a pass)` and exited 0, so CI went green on a comparison that never
+      # happened. The message was honest; the exit code was what CI read.
+      #
+      # It now performs the comparison against the committed fixture that
+      # STI-569 added, and names which declaration it compared against. So on
+      # a runner this is a real comparison of this repo's catalog against a
+      # frozen projection of the adjacent one.
+      #
+      # What this step still CANNOT prove, do not read a green run as more than
+      # this: that the fixture still matches casazza-info/nixlab. nixlab is a
+      # private repo and this workflow cannot clone it, so that is a separate
+      # question answered by terranix-projection-pin.sh from a context with
+      # private-repo access. A green here means "the two committed declarations
+      # agree", not "nixlab was read".
+      #
+      # It is expected to go RED right now, and that is the gate working:
+      # catalog/products is ACTIVE/CONTINUE while nixlab still declares
+      # draft/deny on all three live products. The correct fix is the nixlab
+      # correction the operator is being asked to authorise on STI-650, NOT an
+      # edit to catalog/products to match it.
       - name: Run catalog status ownership gate
         run: ./scripts/ci/catalog-status-ownership-gate.sh
 
