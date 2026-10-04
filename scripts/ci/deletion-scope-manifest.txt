@@ -30,3 +30,18 @@
 #     # sign-off: storefront-lead
 #     # reason: behaviour now covered by src/catalog/new.test.ts
 #     # replacement: src/catalog/new.test.ts
+#
+# Gutting a test (emptying it in place, so the path survives and no deletion is
+# reported) is the same failure wearing a different hat. The gate compares each
+# touched test's assertion count against the base and fails when it drops. To
+# land an intentional reduction, declare the surviving count as a baseline:
+#
+#     src/catalog/rewritten.test.ts
+#     # issue: STI-123
+#     # sign-off: storefront-lead
+#     # reason: three overlapping cases collapse into one equivalent case
+#     # baseline: 1
+#
+# The baseline must be a non-negative count, and HEAD must still have at least
+# that many assertions, so an override cannot silently absorb a later gutting.
+# Missing issue, sign-off or reason, or a non-numeric baseline, stays a failure.

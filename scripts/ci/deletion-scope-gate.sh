@@ -228,6 +228,58 @@ diff_deletes_in_scope() { # diff_deletes_in_scope
   done
 }
 
+# A '# baseline:' entry is only honoured when it carries a complete signature:
+# a valid STI issue, a sign-off and a reason, plus a non-negative integer
+# count. Anything less is reported as a failure rather than ignored, so a
+# half-written override can never quietly become a free pass.
+#
+# Returns 0 (honoured) when the override is complete and head_count is at or
+# above the declared baseline. Returns 1 with the reason already printed when
+# an override was attempted but is unusable.
+declared_baseline() { # declared_baseline <path> -> 0 honoured
+  local path="$1" raw issue signoff reason baseline
+  raw="${M_BASELINE[$path]:-}"
+  [ -n "$raw" ] || return 1
+  issue="${M_ISSUE[$path]:-}"
+  signoff="${M_SIGNOFF[$path]:-}"
+  reason="${M_REASON[$path]:-}"
+  if [ -z "$issue" ] || [ -z "$signoff" ]; then
+    echo "ERROR: $path: '# baseline:' override needs both a '# issue: STI-nnn' and a '# sign-off: <name>'" >&2
+    return 1
+  fi
+  if ! [[ "$issue" =~ ^STI-[0-9]+$ ]]; then
+    echo "ERROR: $path: '# issue:' must be an STI issue id, got '$issue'" >&2
+    return 1
+  fi
+  if [ -z "$reason" ]; then
+    echo "ERROR: $path: '# baseline:' override needs a '# reason:' explaining the reduction" >&2
+    return 1
+  fi
+  if ! [[ "$raw" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: $path: '# baseline:' must be a non-negative assertion count, got '$raw'" >&2
+    return 1
+  fi
+  baseline="$raw"
+  local head_count
+  head_count="$(assertions_at "$HEAD_REF:$path")"
+  if [ "$head_count" -lt 0 ] 2>/dev/null; then
+    return 1
+  fi
+  if [ "$head_count" -lt "$baseline" ]; then
+    echo "ERROR: $path: '# baseline: $baseline' claims at least $baseline assertions, but HEAD has $head_count" >&2
+    return 1
+  fi
+  echo "NOTE: $path: assertion reduction to $head_count accepted by declared '# baseline: $baseline' ($issue, sign-off: $signoff)" >&2
+  return 0
+}
+
+# Distinguishes "no override attempted" from "override attempted and rejected",
+# so the caller can pass an untouched test through silently while a broken
+# override still fails. declared_baseline() has already printed the reason.
+baseline_declared_but_unusable() { # -> 0 when an override was present
+  [ -n "${M_BASELINE[$1]:-}" ]
+}
+
 gutting_failures() {
   local path base_count head_count spec deleted_in_scope="" subject_gone=0
   local found=0
@@ -245,6 +297,25 @@ gutting_failures() {
     [ "$base_count" -ge 0 ] 2>/dev/null || continue
     [ "$head_count" -ge 0 ] 2>/dev/null || continue
     [ "$head_count" -lt "$base_count" ] || continue
+
+    # --- The '# baseline:' override (STI-669 AC3). ---------------------------
+    # The failure message tells an author to declare an intentional reduction
+    # with an explicit '# baseline:' override. If that override is documented
+    # but not honoured, the only ways left to land a legitimate reduction are
+    # to lie to the test suite or to weaken the gate — and this issue exists
+    # because coverage was lost silently. A working override is what keeps the
+    # check trustworthy enough to stay on.
+    #
+    # It is deliberately as strict as a deletion declaration: a valid STI
+    # issue, a sign-off, a reason and a non-negative integer. An override that
+    # can be written by anyone, for any number, is just a deletion of the check.
+    if declared_baseline "$path"; then
+      continue
+    fi
+    if baseline_declared_but_unusable "$path"; then
+      found=1
+      continue
+    fi
 
     # Did this diff delete the module the test exercised? If so the assertions
     # had nothing left to assert on. Skipped when the removal is already
@@ -282,32 +353,6 @@ gutting_failures() {
   return 1
 }
 
-SCOPED=""
-while IFS= read -r line; do
-  [ -n "$line" ] || continue
-  if in_scope "$line"; then
-    SCOPED="${SCOPED}${line}"$'\n'
-  fi
-done <<< "$DELETED"
-
-if [ -z "$SCOPED" ]; then
-  if [ "$NAME_ONLY" -eq 1 ]; then
-    exit 0
-  fi
-  # No deletions is NOT automatically a pass: a test can also be emptied in
-  # place, which produces no D entry at all. Run the gutting check either way.
-  if ! gutting_failures; then
-    echo "Deletion-scope gate: passed (no deletions or gutted tests under ${SCOPE_PREFIXES[*]} vs $BASE_SHA)"
-    exit 0
-  fi
-  exit 1
-fi
-
-if [ "$NAME_ONLY" -eq 1 ]; then
-  printf '%s' "$SCOPED"
-  exit 0
-fi
-
 # --- Parse the manifest. Every declared path needs an issue and a sign-off. ---
 #
 # Format: a path on its own line, then any number of `# key: value` attribute
@@ -318,6 +363,7 @@ declare -A M_ISSUE=()
 declare -A M_SIGNOFF=()
 declare -A M_REPLACEMENT=()
 declare -A M_REASON=()
+declare -A M_BASELINE=()
 declare -A M_DECLARED=()
 
 # Trim leading/trailing whitespace without a subshell per line.
@@ -355,6 +401,10 @@ if [ -f "$MANIFEST" ]; then
       if [ -n "$cur_path" ]; then set_attr M_REASON "$cur_path" "${BASH_REMATCH[1]}"; fi
       continue
     fi
+    if [[ "$line" =~ ^[[:space:]]*#[[:space:]]*baseline:[[:space:]]*(.+)$ ]]; then
+      if [ -n "$cur_path" ]; then set_attr M_BASELINE "$cur_path" "$(trim "${BASH_REMATCH[1]}")"; fi
+      continue
+    fi
     case "$line" in
       \#*) continue ;;
     esac
@@ -365,6 +415,32 @@ if [ -f "$MANIFEST" ]; then
   done < "$MANIFEST"
 else
   echo "NOTE: no manifest at $MANIFEST — every scoped deletion is undeclared."
+fi
+
+SCOPED=""
+while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  if in_scope "$line"; then
+    SCOPED="${SCOPED}${line}"$'\n'
+  fi
+done <<< "$DELETED"
+
+if [ -z "$SCOPED" ]; then
+  if [ "$NAME_ONLY" -eq 1 ]; then
+    exit 0
+  fi
+  # No deletions is NOT automatically a pass: a test can also be emptied in
+  # place, which produces no D entry at all. Run the gutting check either way.
+  if ! gutting_failures; then
+    echo "Deletion-scope gate: passed (no deletions or gutted tests under ${SCOPE_PREFIXES[*]} vs $BASE_SHA)"
+    exit 0
+  fi
+  exit 1
+fi
+
+if [ "$NAME_ONLY" -eq 1 ]; then
+  printf '%s' "$SCOPED"
+  exit 0
 fi
 
 UNDECLARED=""

@@ -376,6 +376,85 @@ import assert from 'node:assert/strict'
 test('placeholder', () => { assert.ok(true) })"
 check "gutted test outside the guarded surface passes this gate" pass "$D" --base HEAD~1
 
+# --- 21. The '# baseline:' override HONOURS an intentional reduction. -----
+# The gate's own failure message instructs an author to declare a deliberate
+# reduction with a '# baseline:' override. An override that is documented but
+# unimplemented is worse than none: the only ways left to land a legitimate
+# reduction are to lie to the test suite or to weaken the gate, and this issue
+# exists because coverage was lost silently. It must actually work.
+GUTTED_TEST="import { test } from 'node:test'
+import assert from 'node:assert/strict'
+test('placeholder', () => { assert.ok(true) })"
+
+D="$TMP/case22"; mkrepo "$D"
+commit_add "$D" "ship a real test" src/catalog/thing.test.ts "$RICH_TEST"
+commit_gut "$D" "refactor(tests): fold three cases into one" src/catalog/thing.test.ts "$GUTTED_TEST"
+cat > "$D/manifest.txt" <<'MANIFEST'
+src/catalog/thing.test.ts
+# issue: STI-669
+# sign-off: storefront-lead
+# reason: three overlapping cases collapse into one equivalent case
+# baseline: 1
+MANIFEST
+git -C "$D" add -A >/dev/null && git -C "$D" commit -qm "test: declare the reduction"
+check "declared '# baseline:' override honours an intentional reduction" pass "$D" --base HEAD~2
+
+# The override must still be a real gate, not a rubber stamp: it is compared
+# against the tree, so a baseline that understates the surviving count passes,
+# and one that overstates it fails.
+D="$TMP/case23"; mkrepo "$D"
+commit_add "$D" "ship a real test" src/catalog/thing.test.ts "$RICH_TEST"
+commit_gut "$D" "refactor(tests): fold three cases into one" src/catalog/thing.test.ts "$GUTTED_TEST"
+cat > "$D/manifest.txt" <<'MANIFEST'
+src/catalog/thing.test.ts
+# issue: STI-669
+# sign-off: storefront-lead
+# reason: three overlapping cases collapse into one equivalent case
+# baseline: 40
+MANIFEST
+git -C "$D" add -A >/dev/null && git -C "$D" commit -qm "test: declare an overstated reduction"
+check "baseline above the surviving assertion count still fails" fail "$D" --base HEAD~2
+expect_out "claims at least 40 assertions"
+
+# --- 22. An INCOMPLETE '# baseline:' entry is not an override. -------------
+# An override anyone can write, for any number, with no review trail, is just
+# a deletion of the check. Each of these must stay a failure rather than
+# quietly becoming a free pass.
+for bad_case in "no-signoff:# issue: STI-669
+# reason: because
+# baseline: 1" \
+              "no-issue:# sign-off: storefront-lead
+# reason: because
+# baseline: 1" \
+              "no-reason:# issue: STI-669
+# sign-off: storefront-lead
+# baseline: 1" \
+              "not-a-number:# issue: STI-669
+# sign-off: storefront-lead
+# reason: because
+# baseline: lots"; do
+  label="${bad_case%%:*}"
+  body="${bad_case#*:}"
+  D="$TMP/case24-$label"; mkrepo "$D"
+  commit_add "$D" "ship a real test" src/catalog/thing.test.ts "$RICH_TEST"
+  commit_gut "$D" "refactor(tests): fold three cases into one" src/catalog/thing.test.ts "$GUTTED_TEST"
+  printf 'src/catalog/thing.test.ts\n%s\n' "$body" > "$D/manifest.txt"
+  git -C "$D" add -A >/dev/null && git -C "$D" commit -qm "test: declare the reduction"
+  check "incomplete '# baseline:' override ($label) still fails" fail "$D" --base HEAD~2
+done
+
+# The override rows assert only the exit code, so assert the reason is named
+# too: a bare failure would leave an author unable to tell which half of the
+# signature to fix.
+D="$TMP/case24-echo"; mkrepo "$D"
+commit_add "$D" "ship a real test" src/catalog/thing.test.ts "$RICH_TEST"
+commit_gut "$D" "refactor(tests): fold three cases into one" src/catalog/thing.test.ts "$GUTTED_TEST"
+printf 'src/catalog/thing.test.ts\n# issue: STI-669\n# reason: because\n# baseline: 1\n' > "$D/manifest.txt"
+git -C "$D" add -A >/dev/null && git -C "$D" commit -qm "test: declare the reduction"
+check "incomplete '# baseline:' override (no-signoff) still fails" fail "$D" --base HEAD~2
+expect_out "'# sign-off:"
+expect_out "'# baseline:' override needs"
+
 echo ""
 echo "deletion-scope-gate self-test: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1
