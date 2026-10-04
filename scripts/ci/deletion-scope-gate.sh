@@ -137,6 +137,14 @@ BASE_SHA="$(git merge-base "$BASE" "$HEAD_REF" 2>/dev/null || git rev-parse "$BA
 # gate's own headline test PASSED a gate that had stopped working.
 DELETED="$(git diff --diff-filter=D --name-only --no-renames "$BASE_SHA" "$HEAD_REF" || true)"
 
+# Every test file this diff touches at all — added, modified, deleted or
+# renamed. Gutting is invisible to --diff-filter=D (the path still exists), so
+# the gutting check needs its own, wider view of the diff.
+GUTTED_TESTS="$(git diff --name-only --no-renames "$BASE_SHA" "$HEAD_REF" -- \
+  '*.test.ts' '*.test.tsx' '*.test.js' '*.test.mjs' \
+  '*.spec.ts' '*.spec.tsx' '*.spec.js' '*.spec.mjs' \
+  ':(glob)**/__tests__/**' 2>/dev/null || true)"
+
 in_scope() {
   local path="$1" prefix
   for prefix in "${SCOPE_PREFIXES[@]}"; do
@@ -144,6 +152,133 @@ in_scope() {
       "$prefix"*) return 0 ;;
     esac
   done
+  return 1
+}
+
+is_test_path() {
+  case "$1" in
+    *.test.ts|*.test.tsx|*.test.js|*.test.mjs|*.spec.ts|*.spec.tsx|*.spec.js|*.spec.mjs) return 0 ;;
+    */__tests__/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# --- The gutting check (STI-669 AC3, second half). ---------------------------
+#
+# AC3 says "deleting OR GUTTING a test". The first half is the D-entry path
+# above. This is the other half, and it was missing: a PR that opens a test
+# file and leaves one trivial assertion in it reports NO deletion, so every
+# deletion check reports "no deletions" and the gate passes green.
+#
+# That is not hypothetical. Measured on this branch's base commit
+# (fe27fcb, STI-669 #218), replacing
+# src/catalog/account-order-history.test.ts's body with a single
+# `assert.ok(true)` placeholder:
+#
+#   src/catalog/account-order-history.test.ts | 146 +-----------------
+#   4 insertions(+), 143 deletions(-)
+#   pnpm catalog:test  -> tests 220, pass 220, fail 0   (was tests 227)
+#   ./scripts/ci/deletion-scope-gate.sh -> exit 0       (passed)
+#
+# So 14 real assertions became 1, the suite stayed green, and the gate stayed
+# green. The one honest signal is that the assertion count collapsed, so that
+# is what is compared.
+#
+# Counted per test file, over its whole body, the occurrences of the assertion
+# and test-case forms the suites actually use. Matching on the *call* is what
+# makes this resistant to reformatting: renaming a variable or rewording a
+# title does not change the number of assertions, but removing them does.
+#
+# A reduction is reported as a failure. Legitimate shrinkage is not silent:
+# declare it in the manifest under the test path with a '# baseline:'
+# override, which is an explicit, reviewable, issue-linked record.
+assertions_at() { # assertions_at <ref>:<path>  -> count, or -1 if unreadable
+  local spec="$1" blob
+  blob="$(git show "$spec" 2>/dev/null)" || { echo -1; return; }
+  printf '%s' "$blob" | grep -c -E \
+    '(^|[^A-Za-z0-9_$])(assert|expect|should|verify)\s*[.(]|assert\.|t\.(throws|rejects|doesNotThrow)|assertions?\s*=|expect\(' \
+    || true
+}
+
+# Emit a line per gutted test file. Returns 0 when at least one was gutted
+# (i.e. "a gutting was found"), so callers read
+# `if gutting_failures; then FAILED=1; fi`. The polarity matches `grep`.
+# The first draft of this check returned 1 for "nothing found", which inverted
+# the verdict and silently failed every legitimate declared deletion — caught
+# by the suite's own "declared + signed-off deletion passes" case, not by
+# inspection.
+# Names the test file imports or requires, relative to its own directory,
+# restricted to the guarded surface. Used only to decide whether an assertion
+# drop is a gutting or the honest consequence of the subject being removed.
+test_local_imports() { # test_local_imports <ref>:<test-path>
+  local spec="$1" blob
+  blob="$(git show "$spec" 2>/dev/null)" || return 0
+  printf '%s' "$blob" | grep -oE "(from|require\()[[:space:]]*['\"][^'\"]+['\"]" \
+    | grep -oE "['\"][^'\"]+['\"]" | tr -d "'\"" \
+    | grep -vE '^(\.|/)' || true
+}
+
+# Every guarded-surface path the diff deletes. When a test's own subject is
+# removed in the same diff, losing its assertions is the correct outcome and
+# not a gutting — that is what a real removal looks like.
+diff_deletes_in_scope() { # diff_deletes_in_scope
+  printf '%s' "$DELETED" | while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    in_scope "$p" && printf '%s\n' "$p"
+  done
+}
+
+gutting_failures() {
+  local path base_count head_count spec deleted_in_scope="" subject_gone=0
+  local found=0
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    is_test_path "$path" || continue
+    # Same guarded surface as the deletion checks. A test elsewhere in the
+    # repo is not this gate's business, and silently failing one would make
+    # the gate cry wolf on commits that changed nothing it protects.
+    in_scope "$path" || continue
+    base_count="$(assertions_at "$BASE_SHA:$path")"
+    head_count="$(assertions_at "$HEAD_REF:$path")"
+    # An unreadable side is not evidence of a gutting; the deletion path above
+    # is what catches added/removed files.
+    [ "$base_count" -ge 0 ] 2>/dev/null || continue
+    [ "$head_count" -ge 0 ] 2>/dev/null || continue
+    [ "$head_count" -lt "$base_count" ] || continue
+
+    # Did this diff delete the module the test exercised? If so the assertions
+    # had nothing left to assert on. Skipped when the removal is already
+    # declared, because that path has its own review trail.
+    if [ -z "$deleted_in_scope" ]; then
+      deleted_in_scope="$(diff_deletes_in_scope)"
+    fi
+    subject_gone=0
+    if [ -n "$deleted_in_scope" ]; then
+      spec="${BASE_SHA%:*}/$(dirname "$path")"
+      while IFS= read -r imported; do
+        [ -n "$imported" ] || continue
+        if printf '%s\n' "$deleted_in_scope" | grep -qxF "$spec/$imported"; then
+          subject_gone=1
+          break
+        fi
+      done <<< "$(test_local_imports "$BASE_SHA:$path")"
+    fi
+    if [ "$subject_gone" -eq 1 ]; then
+      continue
+    fi
+
+    echo "ERROR: $path: test GUTTED — assertions fell $base_count -> $head_count vs $BASE_SHA" >&2
+    echo "       Gutting a test emits no deletion, so the checks above see nothing." >&2
+    echo "       Restore the assertions, or declare the reduction in" >&2
+    echo "       $MANIFEST under this path with an explicit '# baseline:' override." >&2
+    found=1
+  done <<< "$GUTTED_TESTS"
+  # An explicit `if` on the variable, not a bare `[ ]`: under `set -e` a final
+  # `[ "$found" -eq 1 ]` returning 1 aborts the whole script, which showed up
+  # as the gate failing a legitimate, correctly declared deletion.
+  if [ "$found" -eq 1 ]; then
+    return 0
+  fi
   return 1
 }
 
@@ -159,8 +294,13 @@ if [ -z "$SCOPED" ]; then
   if [ "$NAME_ONLY" -eq 1 ]; then
     exit 0
   fi
-  echo "Deletion-scope gate: passed (no deletions under ${SCOPE_PREFIXES[*]} vs $BASE_SHA)"
-  exit 0
+  # No deletions is NOT automatically a pass: a test can also be emptied in
+  # place, which produces no D entry at all. Run the gutting check either way.
+  if ! gutting_failures; then
+    echo "Deletion-scope gate: passed (no deletions or gutted tests under ${SCOPE_PREFIXES[*]} vs $BASE_SHA)"
+    exit 0
+  fi
+  exit 1
 fi
 
 if [ "$NAME_ONLY" -eq 1 ]; then
@@ -227,15 +367,6 @@ else
   echo "NOTE: no manifest at $MANIFEST — every scoped deletion is undeclared."
 fi
 
-is_test_path() {
-  case "$1" in
-    *.test.ts|*.test.tsx|*.test.js|*.test.mjs|*.spec.ts|*.spec.tsx|*.spec.js|*.spec.mjs) return 0 ;;
-    # Any file under a __tests__/ directory is a test regardless of suffix.
-    */__tests__/*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
 UNDECLARED=""
 BAD_SIGNATURE=()
 BAD_TEST_REPLACEMENT=()
@@ -289,6 +420,10 @@ if [ "${#BAD_TEST_REPLACEMENT[@]}" -gt 0 ]; then
   FAILED=1
   for line in "${BAD_TEST_REPLACEMENT[@]}"; do echo "ERROR: $line"; done
 fi
+# AC3, second half: a test can lose its assertions without being deleted.
+if gutting_failures; then
+  FAILED=1
+fi
 
 if [ "$FAILED" -eq 1 ]; then
   cat <<'MSG'
@@ -316,6 +451,12 @@ scripts/ci/deletion-scope-manifest.txt:
 A deleted test additionally needs a '# replacement:' line naming a test that
 survives at HEAD. Deleting a test with no replacement is always a failure and
 is never a silent default.
+
+Gutting a test is the same failure wearing a different hat: the path still
+exists, so no deletion check sees anything, but the coverage is gone. The gate
+compares each touched test's assertion count against the base and fails when it
+drops. To land an intentional reduction, declare the path in the manifest with
+an explicit '# baseline:' override and a reason.
 MSG
   exit 1
 fi
