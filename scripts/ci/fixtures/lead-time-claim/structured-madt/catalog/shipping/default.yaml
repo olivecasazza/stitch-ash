@@ -1,0 +1,9 @@
+id: stitch-ash.shipping.default
+policyName: STITCH AND ASH pilot shipping
+originCountryCode: US
+currencyCode: USD
+processingTime:
+  madeToOrderMinDays: 14
+  madeToOrderMaxDays: 35
+tracking:
+  required: true

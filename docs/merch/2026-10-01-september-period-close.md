@@ -194,6 +194,35 @@ guessed, or inferred from a public surface.
 
 ---
 
+## Correction 2 — the quoted string moved; the "×3" evidence was never a render count
+
+Logged 2026-10-04 (STI-638), after the fact. **Correction 1 above is not affected
+by this** — the lead-time claim was still unsourced and still falsified, and it
+still is. Two claims in this document's evidence appendix are stale and must not
+be cited.
+
+1. **The quoted strings are historical, not current.** This document quotes
+   `<p>Made to order. Allow 2–3 weeks for production.</p>` at
+   `catalog/products/sku-001.yaml:16`. #204 (`79ad80e`, 2026-10-03) reworded and
+   moved it to `catalog/products/sku-001.yaml:41` as `Ships in 2–3 weeks.`
+   The reword is **not a fix** — same unquoted 2–3 weeks, still live, still
+   blocking on [STI-638](/STI/issues/STI-638).
+2. **"Occurrences `2–3 weeks`: 3" was correct as a substring count but was
+   labelled a render count.** Re-measured 2026-10-04 against
+   `buildId dd64f5c114`: still **3 occurrences in source, of which only 1 is
+   visible** — the description `<li>`. The other two are a meta/SSR string and
+   the serialized Nuxt payload. So the exposure claim that mattered ("this
+   promise is shown to the customer") is **1 visible render**, not 3. The
+   appendix rows stand as a record of what was measured on 2026-10-01 and are
+   annotated rather than rewritten, because altering a closed-period record to
+   match later knowledge is its own falsification.
+
+Separately, and still true: `catalog/shipping/default.yaml:6-7` states
+`madeToOrderMinDays: 14` / `madeToOrderMaxDays: 35` = **2–5 weeks**,
+contradicting the PDP's 2–3 weeks. Neither is quoted.
+
+---
+
 ## Related
 
 - `docs/merch/2026-09-28-monthly-kpi-report.md` — the mid-period report, with Correction 1 now logged against it

@@ -176,6 +176,48 @@ jobs:
       - name: Run internal-copy gate
         run: ./scripts/ci/no-internal-copy-in-storefront.sh
 
+  # STI-638: `catalog/products/sku-001.yaml:16` publishes "Made to order. Allow
+  # 2–3 weeks for production." on a $185 SKU, and no supplier has ever quoted
+  # that number. The verification command recorded for it in
+  # docs/merch/2026-09-27-store-copy-pass.md:131 is
+  #
+  #     git grep -n -P "2.3 weeks" origin/main -- catalog/ src/ app/
+  #
+  # which returns exit 1 ("not found") under the POSIX locale these runners
+  # use, because the authored dash is U+2013 EN DASH, not a period. The check
+  # reports the defect as already-fixed on a string that is present. Measured
+  # on this repo at 04a35dc6 with LANG unset / LC_CTYPE=POSIX: the documented
+  # pattern exits 1, the same pattern with a literal en dash exits 0, and
+  # LC_ALL=C.UTF-8 makes the documented pattern match again.
+  #
+  # So the audit command is only correct on a machine whose locale happens to be
+  # UTF-8, which is the STI-226 shape (a green result that measured nothing)
+  # reproduced inside the tool meant to catch it. This gate makes no unicode
+  # assumption about the separator and must FAIL on the current tree, because
+  # the number is still live.
+  #
+  # It fails loudly on today's catalog on purpose. Clearing it honestly means
+  # either setting ALLOWED_VERIFIED_LEAD_TIME to a supplier-quoted range or
+  # removing the timeframe from customer-facing copy — not loosening the
+  # pattern. Offline, no Node, no secrets, sub-second.
+  lead-time-claim-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # The self-test first: it is what proves the gate still bites. It pins
+      # the current real catalog bytes (en dash on line 16), the negative
+      # control, locale independence under both POSIX and C.UTF-8, and the
+      # single-number form "Allow 3 weeks" that a two-number-only pattern misses.
+      - name: Self-test the lead-time claim gate
+        run: ./scripts/ci/lead-time-claim-gate.test.sh
+
+      - name: Run lead-time claim gate
+        run: ./scripts/ci/lead-time-claim-gate.sh
+
   # STI-415: the built stylesheet shipped five non-zero border-radius literals
   # (.25rem, 3.40282e+38px, inherit, .3125rem, .375rem) even though every
   # rounded-* call site in app/ was already rounded-none. They come from

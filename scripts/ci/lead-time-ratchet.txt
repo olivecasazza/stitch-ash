@@ -1,0 +1,118 @@
+# scripts/ci/lead-time-ratchet.txt
+#
+# Known unquoted production lead times that deploy.yml tolerates while
+# scripts/ci/lead-time-claim-gate.sh runs in --ratchet mode.
+#
+# Format: <repo-relative-path>:<line-number>, one per line. Exact match on both
+# halves. Blank lines and #-comments are ignored.
+#
+# WHY THIS FILE EXISTS
+#
+# The hoodie PDP has published a 2-3 week production lead time since before
+# this repo's history begins, and no supplier ever quoted it. That is a real
+# defect and it is tracked (STI-638). It is tolerated in the DEPLOY path only,
+# because a step that fails on this pre-existing line would freeze every deploy
+# on main until a human answered an operator question about a supplier's
+# schedule. Freezing publishing is worse than the defect.
+#
+# The line is 41, not 16. It WAS 16 when this gate was first written, and it
+# moved when unrelated storefront work reshaped the catalog (#204, #207). A
+# ratchet pinned to a stale line is worse than no ratchet: --ratchet fails on
+# the moved claim, --strict-ratchet fails on the stale entry, and the two
+# together freeze every deploy while the real defect sits untouched. Re-pin
+# after ANY edit above this line, and let --strict-ratchet tell you when you
+# forgot.
+#
+# This is a ratchet, not an allowlist: the tolerated set must only shrink.
+# deploy.yml also runs the gate with --strict-ratchet, which fails if any entry
+# here no longer matches anything, so an entry cannot outlive its fix.
+#
+# WHY THERE ARE FIVE ENTRIES
+#
+# Entry 1 is the prose entry the file was written for. Entries 2-3 were added
+# on 2026-10-03, when the gate was re-run against real main and turned out to
+# be BLIND to the same claim written as machine-readable fields:
+#
+#     processingTime:
+#       madeToOrderMinDays: 14
+#       madeToOrderMaxDays: 35
+#
+# The unit is in the key, so a pattern that requires a unit WORD after the
+# number could not see it. That was a live false green: the gate reported a
+# clean catalog while a $185 SKU carried three declared lead times.
+#
+# Entry 4 was added on 2026-10-04, for the same reason one directory over:
+#
+#     app/data/products.ts:81   "Ships in 2-3 weeks.",
+#
+# app/data/products.ts is the PDP's PRE-LAUNCH FALLBACK copy. It is authored by
+# hand, not generated from catalog/ (nothing writes it; #204/#207 edited it
+# directly), and app/utils/pdp-product.ts renders it whenever the Storefront
+# API has no matching product — the normal case for this store today. The gate
+# scanned only catalog/ and docs/merch, so this occurrence was invisible to it
+# while living in the file that actually renders on the fallback path.
+#
+# It is worse than a missed duplicate, for a reason worth stating plainly: every
+# audit, doc and ratchet entry until today talked about the catalog copy. An
+# audit that grepped catalog/ and reported "the known line 41" was TRUE and
+# still missed the second copy. A defect nobody can account for is how this
+# number survived six weeks of "resolved" claims in the first place.
+#
+# These two are worse than the prose entry, not merely more of it, because they
+# CONTRADICT it. The PDP promises 2-3 weeks. The shipping policy declares 14-35
+# days, i.e. 2-5 weeks. A customer can be told either number by this same store
+# and both are unquoted. Tolerating all of them without saying so would leave
+# the contradiction standing behind a green build.
+#
+# Entry 5 was added on 2026-10-04, and it is the same defect one level up:
+#
+#     DESIGN.md:604   Shipping & Returns - Made to order. / Ships in 2-3 weeks. /
+#
+# DESIGN.md transcribes the rendered PDP expander block verbatim. Until this
+# entry existed the gate never looked at that file, and it was the only one of
+# these copies that is not itself customer-facing: nothing renders it, so it
+# never shows up in a live fetch, and every verification so far has been a
+# fetch. Measured on the real tree before the pin, a FRESH unquoted claim
+# appended to DESIGN.md left --ratchet --strict-ratchet exiting 0 — a false
+# green in the deploy path, not only in pr-checks.
+#
+# It is the most likely of the five to be re-created, which is why it needs the
+# pin as much as the others. DESIGN.md is the file the next agent trusts to
+# re-author the copy: it states the unquoted number as the exact current
+# string, marked as nothing, so copying the spec faithfully reproduces the
+# defect and reading the spec as the record of what customers see shows a clean
+# bill of health. That is the mechanism by which this number survived six weeks
+# of "resolved" claims — not one bad actor, but a document that looks like an
+# authority and is one revision behind the defect.
+#
+# TO CLEAR AN ENTRY
+#
+# Do not delete the line here to make a build pass. That is the STI-226 shape.
+# Clear it by fixing the defect:
+#
+#   1. A supplier quoted a range -> edit catalog/products/sku-001.yaml AND
+#      catalog/shipping/default.yaml AND app/data/products.ts AND DESIGN.md
+#      (all five), set ALLOWED_VERIFIED_LEAD_TIME in
+#      scripts/ci/lead-time-claim-gate.sh to the quoted "<lo>-<hi> weeks", cite
+#      the quote in the commit body, state in the copy whether the figure is
+#      "order placed -> ready to ship" or "ready to ship -> delivered", then
+#      delete the entries below.
+#
+#   2. No quote exists -> remove the timeframe from the copy and keep the
+#      made-to-order process description, then delete the entries below.
+#
+# All five ranges must land on ONE number in one pass, in every copy. Fixing
+# only the PDP YAML and leaving 14-35 days in the shipping policy, or leaving
+# the app/ fallback copy or the DESIGN.md transcript behind, does not clear the
+# defect — it just moves it somewhere no customer reads, and in the DESIGN.md
+# case somewhere the next agent will copy the stale number straight back out of.
+#
+# If the copy above any pinned line grows or shrinks a line, that entry's line
+# number goes stale and --strict-ratchet will fail, which is the intended prompt
+# to re-pin it. Verify the live render before claiming the fix shipped.
+
+catalog/products/sku-001.yaml:41
+catalog/shipping/default.yaml:6
+catalog/shipping/default.yaml:7
+app/data/products.ts:81
+DESIGN.md:604

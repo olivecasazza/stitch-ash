@@ -1,0 +1,21 @@
+id: stitch-ash.sku-001
+title: Embroidered Hoodie
+handle: sku-001
+productType: Hoodies
+vendor: STITCH AND ASH
+status: ACTIVE
+bodyHtml: |
+  <p>Heavy cotton. Baggy silhouette. Built for people who care about how things are made.</p>
+  <ul>
+    <li>Cold wash, inside out.</li>
+    <li>Tumble dry low or hang.</li>
+    <li>Do not dry-clean.</li>
+  </ul>
+  <h3>Shipping &amp; Returns</h3>
+  <ul>
+    <li>Made to order.</li>
+    <li>Tracked shipping.</li>
+    <li>Returns within 14 days, unworn.</li>
+    <li>Exchanges accepted within 30 days.</li>
+    <li>Refunds issued within 5-7 business days of receipt.</li>
+  </ul>
