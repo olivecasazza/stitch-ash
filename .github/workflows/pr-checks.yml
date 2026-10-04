@@ -176,6 +176,41 @@ jobs:
       - name: Run internal-copy gate
         run: ./scripts/ci/no-internal-copy-in-storefront.sh
 
+  # STI-652: PR #207 (f29e7d8, "facts in the expander, wordmark+cart header, no
+  # footer, cart on the token ramp") deleted app/pages/account.vue,
+  # app/utils/customer-account.ts and src/catalog/account-order-history.test.ts
+  # — 385 lines — and /account 404s on the live site. The STI-652 merge is
+  # still an ancestor of main, so the log shows the work landing and never
+  # shows it leaving.
+  #
+  # Every gate in this file asserts a property OF the repository, so all of them
+  # were green on a repo that had a feature deleted out from under it: a gate
+  # that only reads surviving state cannot see a removal. This is the only gate
+  # that reads the DIFF.
+  #
+  # It is declaration-based, not a blanket ban on deletions — #213 removed the
+  # Configurator tree and #151 a Rust-only workflow on purpose, and a gate that
+  # failed every deletion would be disabled within a week. It makes a deletion
+  # legible to the reviewer, who is the only one who can tell an intended
+  # removal from an accident. See docs/STI-652-account-regression-and-diff-scope-gate.md.
+  diff-scope-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # The gate diffs against the merge base, so it needs real history
+          # rather than the default shallow fetch.
+          fetch-depth: 0
+
+      - name: Self-test the diff scope gate
+        run: ./scripts/ci/diff-scope-gate.test.sh
+
+      - name: Run diff scope gate
+        run: ./scripts/ci/diff-scope-gate.sh
+
   # STI-415: the built stylesheet shipped five non-zero border-radius literals
   # (.25rem, 3.40282e+38px, inherit, .3125rem, .375rem) even though every
   # rounded-* call site in app/ was already rounded-none. They come from
