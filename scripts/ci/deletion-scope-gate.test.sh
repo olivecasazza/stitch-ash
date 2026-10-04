@@ -230,9 +230,51 @@ check "rename away from the guarded surface fails as a deletion" fail "$D" --bas
 # --- 14. THE HEADLINE: f29e7d8's real diff must fail. --------------------
 if git -C "$HERE/../.." cat-file -e f29e7d8^{commit} 2>/dev/null; then
   ROOT="$HERE/../.."
+
+  # STAGE_DEL is the temp directory holding the pinned f29e7d8 commit. This
+  # MUST be a temporary repo, not the real one.
+  #
+  # The bug this fixes: the first version of this test passed `--base
+  # f29e7d8~1` and let the gate diff against the real HEAD. That passed while
+  # the three files were still absent from main — and then broke the moment
+  # PR #216 restored them, because f29e7d8~1..HEAD no longer deleted anything.
+  # A test whose result depends on what unrelated later commits did is not a
+  # test. Both ends of the diff are pinned here instead: the gate is pointed at
+  # a scratch repo whose HEAD is exactly f29e7d8, so the deletions are still
+  # there no matter what main does next.
+  STAGE_DEL="$TMP/f29e7d8"
+  mkdir -p "$STAGE_DEL"
+  # Build the pre-f29e7d8 tree as `before`, then commit f29e7d8's tree on top.
+  #
+  # Two details are load-bearing. `tar -x` never REMOVES a file that is absent
+  # from the later archive, so unpacking f29e7d8 over f29e7d8~1 would silently
+  # keep the three files and produce a diff with no deletions at all. The
+  # deletions therefore have to be staged explicitly with `git rm`, driven by
+  # the actual --diff-filter=D list from the real commit rather than a
+  # hardcoded list that would drift.
+  git -C "$ROOT" archive f29e7d8~1 | tar -x -C "$STAGE_DEL"
+  git -C "$STAGE_DEL" init -q -b main
+  git -C "$STAGE_DEL" config user.email t@example.com
+  git -C "$STAGE_DEL" config user.name Test
+  git -C "$STAGE_DEL" add -A >/dev/null
+  git -C "$STAGE_DEL" commit -qm "f29e7d8~1" >/dev/null
+
+  git -C "$ROOT" archive f29e7d8 | tar -x -C "$STAGE_DEL"
+  # The real deletion list, so the fixture cannot drift from the real commit.
+  mapfile -t REAL_DELETIONS < <(
+    git -C "$ROOT" diff --diff-filter=D --name-only --no-renames f29e7d8~1 f29e7d8
+  )
+  if [ "${#REAL_DELETIONS[@]}" -gt 0 ]; then
+    git -C "$STAGE_DEL" rm -q -r --ignore-unmatch -- "${REAL_DELETIONS[@]}" >/dev/null
+  fi
+  git -C "$STAGE_DEL" add -A >/dev/null
+  git -C "$STAGE_DEL" commit -qm "f29e7d8" >/dev/null
+
+  cp "$ROOT/scripts/ci/deletion-scope-manifest.txt" "$STAGE_DEL/manifest.txt"
+
   set +e
-  OUT="$("$GATE" --manifest "$ROOT/scripts/ci/deletion-scope-manifest.txt" \
-        --base f29e7d8~1 --name-only 2>&1)"
+  OUT="$("$GATE" --repo "$STAGE_DEL" --manifest "$STAGE_DEL/manifest.txt" \
+        --base HEAD~1 --name-only 2>&1)"
   RC=$?
   set -e
   # --name-only on that base lists the deletions in the real commit.
@@ -249,8 +291,8 @@ if git -C "$HERE/../.." cat-file -e f29e7d8^{commit} 2>/dev/null; then
 
   # And the verdict on that same diff must be non-zero.
   set +e
-  OUT2="$("$GATE" --manifest "$ROOT/scripts/ci/deletion-scope-manifest.txt" \
-         --base f29e7d8~1 2>&1)"; RC2=$?
+  OUT2="$("$GATE" --repo "$STAGE_DEL" --manifest "$STAGE_DEL/manifest.txt" \
+         --base HEAD~1 2>&1)"; RC2=$?
   set -e
   if [ "$RC2" -ne 0 ]; then
     echo "  ok   gate FAILS on f29e7d8's diff (exit $RC2)"
@@ -264,6 +306,45 @@ if git -C "$HERE/../.." cat-file -e f29e7d8^{commit} 2>/dev/null; then
   expect_out "app/pages/account.vue"
   expect_out "app/utils/customer-account.ts"
   expect_out "src/catalog/account-order-history.test.ts"
+
+  # 14b. HERMETICITY: the f29e7d8 assertion must not depend on the repo's real
+  # HEAD. Run it a second time from a scratch repo whose HEAD is an unrelated
+  # later commit, and require the identical result. This is the property that
+  # broke on PR #216: the first version passed `--base f29e7d8~1` and diffed
+  # against the live HEAD, so restoring the three files on main silently turned
+  # the headline assertion false — a gate test whose result depends on whatever
+  # else main has done is not a test.
+  #
+  # Note what this does NOT do: it does not stage a "restore on top of f29e7d8"
+  # commit. That cannot work — a restore ADDS the files, so a diff against such
+  # a HEAD legitimately shows no deletions, and asserting it did would be
+  # asserting a bug. The property under test is that the diff's two endpoints are
+  # pinned, which is what re-running from an unrelated HEAD demonstrates.
+  # Pin the base NOW, before HEAD moves: HEAD~1 is the f29e7d8 deletion commit.
+  BASE_PINNED="$(git -C "$STAGE_DEL" rev-parse HEAD~1)"
+
+  # Add a second, unrelated commit ON TOP of the pinned one, then re-assert.
+  # The deletions live in the pinned commit, so an extra later commit that only
+  # ADDS a file must not change the verdict.
+  echo "// unrelated later change" > "$STAGE_DEL/unrelated.txt"
+  git -C "$STAGE_DEL" add -A >/dev/null
+  git -C "$STAGE_DEL" commit -qm "an unrelated later commit" >/dev/null
+  set +e
+  OUT3="$("$GATE" --repo "$STAGE_DEL" --manifest "$STAGE_DEL/manifest.txt" \
+         --base "$BASE_PINNED" --name-only 2>&1)"; RC3=$?
+  set -e
+  # The base must still resolve to the pinned pre-f29e7d8 commit and produce the
+  # same three deletions regardless of what HEAD has moved on to.
+  if printf '%s' "$OUT3" | grep -qx "app/pages/account.vue" \
+     && printf '%s' "$OUT3" | grep -qx "app/utils/customer-account.ts" \
+     && printf '%s' "$OUT3" | grep -qx "src/catalog/account-order-history.test.ts"; then
+    echo "  ok   f29e7d8 assertion is hermetic (unchanged by a later HEAD)"
+    PASS=$((PASS + 1))
+  else
+    echo "  FAIL f29e7d8 assertion depends on HEAD — it broke on PR #216"
+    printf '%s\n' "$OUT3" | sed 's/^/         | /'
+    FAIL=$((FAIL + 1))
+  fi
 else
   echo "  skip f29e7d8 not present in this clone (shallow or partial history)"
 fi
