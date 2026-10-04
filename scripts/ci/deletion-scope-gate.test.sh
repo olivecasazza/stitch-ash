@@ -288,6 +288,94 @@ else
   PASS=$((PASS + 1))
 fi
 
+# --- 16. AC3, second half: GUTTING a test fails. ------------------------
+# Deleting a test is caught by the --diff-filter=D path. Emptying one while
+# leaving the file is not: the path still exists, so no deletion is reported
+# and the gate used to pass. Measured against this repo's own history at
+# fe27fcb, replacing src/catalog/account-order-history.test.ts's body with a
+# single `assert.ok(true)`:
+#
+#   src/catalog/account-order-history.test.ts | 146 +---------------
+#   4 insertions(+), 143 deletions(-)
+#   pnpm catalog:test -> tests 220, pass 220, fail 0  (was 227)
+#   deletion-scope-gate.sh -> exit 0                 (passed, wrongly)
+#
+# These cases keep that from coming back silently.
+commit_gut() { # commit_gut <dir> <message> <path> <keep-body>
+  local dir="$1" msg="$2" path="$3" body="$4"
+  printf '%s\n' "$body" > "$dir/$path"
+  git -C "$dir" add -A >/dev/null
+  git -C "$dir" commit -qm "$msg"
+}
+
+RICH_TEST="import { test } from 'node:test'
+import assert from 'node:assert/strict'
+test('a', () => { assert.equal(1, 1) })
+test('b', () => { assert.equal(2, 2) })
+test('c', () => { assert.equal(3, 3) })"
+
+D="$TMP/case16"; mkrepo "$D"; : > "$D/manifest.txt"
+commit_add "$D" "ship a real test" src/catalog/thing.test.ts "$RICH_TEST"
+commit_gut "$D" "refactor(tests): tidy the setup" src/catalog/thing.test.ts \
+  "import { test } from 'node:test'
+import assert from 'node:assert/strict'
+test('placeholder', () => { assert.ok(true) })"
+check "gutted test (path survives, assertions gone) fails" fail "$D" --base HEAD~1
+expect_out "GUTTED"
+
+# The gutting check must not be reachable only via the deletion path: this is
+# the same case with an empty manifest and no deletions anywhere at all.
+D="$TMP/case17"; mkrepo "$D"; : > "$D/manifest.txt"
+commit_add "$D" "ship two real tests" src/catalog/thing.test.ts "$RICH_TEST"
+commit_gut "$D" "chore: drop assertions" src/catalog/thing.test.ts \
+  "import { test } from 'node:test'
+import assert from 'node:assert/strict'
+test('placeholder', () => { assert.ok(true) })"
+check "gutted test with zero deletions anywhere still fails" fail "$D" --base HEAD~1
+expect_out "assertions fell 3 -> 1"
+
+# --- 17. Strengthening a test PASSES. ------------------------------------
+# The check must be "assertions went down", not "the file changed", or every
+# honest coverage improvement would be blocked.
+D="$TMP/case18"; mkrepo "$D"; : > "$D/manifest.txt"
+commit_add "$D" "ship a test" src/catalog/thing.test.ts "$RICH_TEST"
+commit_gut "$D" "test: cover another case" src/catalog/thing.test.ts "$RICH_TEST
+test('d', () => { assert.equal(4, 4) })"
+check "test with MORE assertions passes" pass "$D" --base HEAD~1
+
+# --- 18. A pure refactor inside a test PASSES. ---------------------------
+# Reformatting, renaming locals and rewording titles change no assertion count,
+# so they must not trip the gate. This is the false-positive guard.
+D="$TMP/case19"; mkrepo "$D"; : > "$D/manifest.txt"
+commit_add "$D" "ship a test" src/catalog/thing.test.ts "$RICH_TEST"
+commit_gut "$D" "refactor(test): reword titles and rename locals" src/catalog/thing.test.ts \
+  "import { test } from 'node:test'
+import assert from 'node:assert/strict'
+test('first case', () => { assert.equal(1, 1) })
+test('second case', () => { assert.equal(2, 2) })
+test('third case', () => { assert.equal(3, 3) })"
+check "test refactor that keeps every assertion passes" pass "$D" --base HEAD~1
+
+# --- 19. A NEW test file is not a gutting. ------------------------------
+# Adding coverage must never fail the gate.
+D="$TMP/case20"; mkrepo "$D"; : > "$D/manifest.txt"
+commit_add "$D" "ship a test" src/catalog/thing.test.ts "$RICH_TEST"
+commit_add "$D" "test: add another suite" src/catalog/extra.test.ts \
+  "import { test } from 'node:test'
+import assert from 'node:assert/strict'
+test('new', () => { assert.equal(9, 9) })"
+check "newly added test file passes" pass "$D" --base HEAD~1
+
+# --- 20. A test OUTSIDE the guarded surface is not this gate's business.
+# src/catalog is guarded; a test elsewhere is not silently failed here.
+D="$TMP/case21"; mkrepo "$D"; : > "$D/manifest.txt"
+commit_add "$D" "ship a test outside the guarded surface" docs/notes.test.ts "$RICH_TEST"
+commit_gut "$D" "chore: trim it" docs/notes.test.ts \
+  "import { test } from 'node:test'
+import assert from 'node:assert/strict'
+test('placeholder', () => { assert.ok(true) })"
+check "gutted test outside the guarded surface passes this gate" pass "$D" --base HEAD~1
+
 echo ""
 echo "deletion-scope-gate self-test: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1
