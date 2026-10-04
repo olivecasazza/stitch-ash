@@ -128,9 +128,34 @@ confirming the *surviving value*. `2–3 weeks` is a production commitment on a
 **$185** flagship, and it currently has no provenance:
 
 ```
-$ git grep -n -P "2.3 weeks" origin/main -- catalog/ src/ app/
-origin/main:catalog/products/sku-001.yaml:16     <-- the only customer-facing source
+$ git grep -n -F "2–3 weeks" origin/main -- catalog/ app/
+origin/main:catalog/products/sku-001.yaml:41    <-- the only customer-facing source
+origin/main:app/data/products.ts:81             <-- the PDP fallback restates it
 ```
+
+> **CORRECTED 2026-10-04 (STI-609 audit): the command above used to be
+> `git grep -n -P "2.3 weeks"`, and it returned NOTHING.** Do not re-run that
+> form — it is a false green, and it is the reason this defect survived an
+> audit. Under a non-UTF-8 locale (this container runs `LC_CTYPE=POSIX`; `LANG`
+> is unset) `grep -P`'s `.` is **byte-wise**, and the en dash in `2–3 weeks` is
+> three bytes (`E2 80 93`). `.` cannot span three bytes, so the pattern matches
+> nothing while the string is plainly present:
+>
+> ```
+> $ git grep -c -P "2.3 weeks" origin/main -- catalog/products/sku-001.yaml   # POSIX
+> (no output — 0 matches)
+> $ LC_ALL=C.UTF-8 git grep -c -P "2.3 weeks" origin/main -- catalog/products/sku-001.yaml
+> origin/main:catalog/products/sku-001.yaml:1
+> ```
+>
+> **Use `-F` with the literal character.** `-F` is locale-independent and is
+> verified to match under both locales. Two further traps in this repo's copy:
+> the range dash is U+2013, so an ASCII-only grep for `2-3 weeks` also matches
+> nothing; and the storefront's customer-facing copy lives in `catalog/` and
+> `app/`, not `src/` (`src/` is the `catalog:test` suite) — so a pathspec naming
+> only `src/` silently narrows a search you think is repo-wide, and git grep
+> reports no error for a pathspec that matches nothing. Guarded by
+> `scripts/ci/audit-locale-gate.sh`.
 
 The live PDP shows it **three times** from that one source: `<meta
 name="description">` (via `useSeoMeta` at `app/pages/product/[handle].vue:155`),
