@@ -265,6 +265,38 @@ jobs:
       - name: Run storefront mock gate
         run: ./scripts/ci/storefront-mock-gate.sh
 
+  # STI-681: the $185 hoodie published "Returns within 14 days, unworn." while
+  # the lanyard and the sticker published "Final sale." — two mutually exclusive
+  # returns policies live on one store at once, measured on
+  # preview.stitch-ash.com 2026-10-04. Nothing in the repo declared which was
+  # true, and no lead-time style scan can catch it: both strings are old, and
+  # each is individually well-formed. Only CROSS-SKU AGREEMENT catches this.
+  #
+  # This job is expected to FAIL until the operator's policy decision lands and
+  # all three SKUs are restated from one declared policy object (STI-681). That
+  # is deliberate: a permanent unmissable red for a live customer-facing
+  # contradiction is the STI-226 shape made visible. Do not silence it by
+  # weakening the gate or by re-typing a policy into one YAML body.
+  #
+  # Static and offline: it reads catalog/products/*.yaml and the static fallback
+  # in app/data/products.ts. No Node, no store, no Storefront token, no secret.
+  # The self-test runs first so this job cannot go green on a gate that has
+  # stopped working — including on the false-green cases (uniform final sale,
+  # uniform returnable, uniform exchange-only) that must PASS.
+  returns-claim-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run returns-claim-gate self-test
+        run: ./scripts/ci/returns-claim-gate.test.sh
+
+      - name: Run returns-claim gate
+        run: ./scripts/ci/returns-claim-gate.sh
+
   # STI-628: the storefront's public access token is served to every anonymous
   # visitor inside `config.public`. That is correct — a Storefront *public* token
   # is a browser credential by design, and using the published value against the
