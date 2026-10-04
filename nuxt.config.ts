@@ -3,6 +3,7 @@ import type { Nitro } from 'nitropack';
 import { readBuildCommit } from './scripts/read-build-commit.mjs';
 import {
     ASSET_MANIFEST_ID,
+    appManifestClockStats,
     assetManifestPlugin,
     manifestRewriteStats,
     neutraliseAppManifestClock,
@@ -84,12 +85,15 @@ export default defineNuxtConfig({
         // `nitro:build:public-assets` is the one hook guaranteed to run after
         // that copy and before rollup resolves the asset manifest, so this
         // rewrites the bytes the etag is computed from.
+        //
+        // Nothing here consults `serveStatic`. It LOOKS like the right guard — the
+        // copy would be pointless without it — and it was: the `cloudflare_pages`
+        // preset leaves it off, so the first version of this hook returned early
+        // on every build, rewrote nothing, and passed every unit test, because
+        // the tests call the function and never the wiring. The clock it was
+        // written to remove kept shipping. The assertion in the `compiled` hook
+        // below is the replacement for that guard.
         'nitro:build:public-assets': (nitro: Nitro) => {
-            // `serveStatic` is `boolean | 'node' | 'deno' | 'inline'` and is
-            // always set, so this is a real check on the resolved config, not on
-            // an optional field: when Nitro is told not to serve static assets it
-            // never writes `dist/`, and the directory read below would throw.
-            if (!nitro.options.serveStatic) return;
             const publicDir = nitro.options.output.publicDir;
             neutraliseAppManifestClock(publicDir, join(publicDir, '_nuxt', 'builds'));
         },
@@ -108,7 +112,7 @@ export default defineNuxtConfig({
         // exactly the point where the question "did the rewrite run?" has an
         // answer.
         'nitro:init': (nitro: Nitro) => {
-            nitro.hooks.hook('compiled', () => {
+nitro.hooks.hook('compiled', () => {
                 if (nitro.options.dev) return;
                 const { transforms, entries } = manifestRewriteStats();
                 if (transforms === 0) {
@@ -119,9 +123,20 @@ export default defineNuxtConfig({
                         + 'bundle that carries the build clock again.',
                     );
                 }
+                const appManifest = appManifestClockStats();
+                if (appManifest.targets === 0) {
+                    throw new Error(
+                        'STI-625: the app manifest under dist/_nuxt/builds was never '
+                        + 'neutralised, so the etag of _nuxt/builds/*.json is still a '
+                        + 'hash of the build clock. Either the nuxt '
+                        + '`nitro:build:public-assets` hook stopped firing or it '
+                        + 'returned early. Failing rather than shipping that.',
+                    );
+                }
                 console.error(
                     `[deterministic-asset-manifest] build-verified: ${transforms} manifest `
-                    + `transform(s), ${entries} asset entries, zero wall-clock mtime in bundle`,
+                    + `transform(s), ${entries} asset entries, ${appManifest.targets} `
+                    + 'app-manifest file(s) de-clocked, zero wall-clock mtime in bundle',
                 );
             });
         },
