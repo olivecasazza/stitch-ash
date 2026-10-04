@@ -293,6 +293,51 @@ jobs:
       - name: Run public runtime config gate
         run: ./scripts/ci/public-runtime-config-gate.sh
 
+  # STI-669: PR #207 (f29e7d8, "fix(storefront): facts in the expander, wordmark
+  # +cart header, no footer, cart on the token ramp") carried three deletions
+  # that had nothing to do with its stated scope through to main with CI green
+  # the whole way:
+  #
+  #   app/pages/account.vue                     165 -----
+  #   app/utils/customer-account.ts              75 -----
+  #   src/catalog/account-order-history.test.ts 145 -----
+  #
+  # That silently removed two shipped, verified-live features (STI-633 and
+  # STI-652 were both closed on live-verified claims that this commit falsified).
+  # Nobody wrote bad code; no check asked what the diff removed.
+  #
+  # This gate is that check. It keys off the real deleted paths from
+  # `git diff --diff-filter=D --name-only` against the merge base and never
+  # parses the PR title or body, so a description that does not match the diff
+  # cannot authorise anything. A deletion under app/pages/, app/utils/,
+  # app/composables/ or src/catalog/ must be declared in
+  # scripts/ci/deletion-scope-manifest.txt with an issue id and a named
+  # sign-off; a deleted test must additionally name a replacement test that
+  # survives at HEAD. The committed manifest declares nothing, so the default is
+  # closed rather than open.
+  #
+  # fetch-depth: 0 is required, not cosmetic: the gate diffs against the merge
+  # base with origin/main, and actions/checkout's default shallow clone of depth
+  # 1 has no merge base, which would make the gate refuse to run.
+  deletion-scope-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A gate that cannot detect the violation is not a gate. The self-test
+      # asserts the failure modes AND runs the gate against the real f29e7d8
+      # diff, so this job cannot go green on a gate that has stopped working.
+      - name: Self-test the deletion scope gate
+        run: ./scripts/ci/deletion-scope-gate.test.sh
+
+      - name: Run deletion scope gate
+        run: ./scripts/ci/deletion-scope-gate.sh
+
   # STI-542: the build was not reproducible, so "CI is green" did not mean "the
   # artifact is the one that was reviewed". Two builds of 9c55c363 published
   # different font files: the brand face was resolved through @nuxt/fonts with
