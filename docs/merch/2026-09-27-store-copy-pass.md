@@ -169,11 +169,11 @@ origin/main:catalog/products/sku-001.yaml:16     <-- the only customer-facing so
 >    customer-facing. **Same unquoted 2–3 weeks — the reword is not a fix.**
 > 2. **"Rendered three times" was a raw substring count reported as visible
 >    renders.** Re-measured 2026-10-04 against `buildId dd64f5c114`:
->    `2–3 weeks` appears **2×** in the page source, of which **1 is visible**
->    (the description `<li>`) and 1 sits inside the serialized Nuxt payload.
->    The `<meta description>` fan-out described below no longer holds — the
->    `useSeoMeta` path is not producing a third copy. Do not cite "three times"
->    as an exposure figure; it was never measured as renders.
+>    `2–3 weeks` appears **3×** in the page source, but only **1 is visible**
+>    (the description `<li>`); the other two are one meta/SSR string and one
+>    copy inside the serialized Nuxt payload. So the old "three times" *substring
+>    count* was right while its description as three visible renders was not.
+>    Cite **1 visible**, and do not read a raw count as a render count.
 >
 > Also note `catalog/shipping/default.yaml:6-7` declares the same promise
 > machine-readably as `madeToOrderMinDays: 14` / `madeToOrderMaxDays: 35` =
@@ -188,7 +188,8 @@ copy. Any "show it once" fix is a template change owned by storefront-lead, and
 only makes sense once a real figure exists.
 
 > *(Paragraph retained for history. Its "three times" claim is retracted by
-> Correction 2 above — measured 2026-10-04 it was **1 visible + 1 payload**,
+> Correction 2 above — measured 2026-10-04 the count was still 3 in source, but
+> only **1 visible + 2 non-visible** (meta/SSR string + Nuxt payload).
 > and the `<meta>` third copy no longer reproduces. The template-level
 > de-duplication concern still stands for whatever string ships next.)*
 

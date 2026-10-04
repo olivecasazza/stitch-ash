@@ -207,12 +207,12 @@ be cited.
    moved it to `catalog/products/sku-001.yaml:41` as `Ships in 2–3 weeks.`
    The reword is **not a fix** — same unquoted 2–3 weeks, still live, still
    blocking on [STI-638](/STI/issues/STI-638).
-2. **"Occurrences `2–3 weeks`: 3" and "`2–3 weeks` ×3 (description)" in the
-   appendix were a raw substring count on the page source, mis-labelled as a
-   render count.** Re-measured 2026-10-04 against `buildId dd64f5c114`:
-   **2 occurrences in source, of which 1 is visible** (the description `<li>`)
-   and 1 is inside the serialized Nuxt payload. The `<meta description>` copy
-   asserted in Correction 1 does not reproduce on the current build. The
+2. **"Occurrences `2–3 weeks`: 3" was correct as a substring count but was
+   labelled a render count.** Re-measured 2026-10-04 against
+   `buildId dd64f5c114`: still **3 occurrences in source, of which only 1 is
+   visible** — the description `<li>`. The other two are a meta/SSR string and
+   the serialized Nuxt payload. So the exposure claim that mattered ("this
+   promise is shown to the customer") is **1 visible render**, not 3. The
    appendix rows stand as a record of what was measured on 2026-10-01 and are
    annotated rather than rewritten, because altering a closed-period record to
    match later knowledge is its own falsification.
