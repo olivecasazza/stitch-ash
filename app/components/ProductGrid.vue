@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { PRODUCTS } from '~/data/products'
 import { specSections, specSummary } from '~/utils/product-specs'
+import { withoutPlaceholderSizes } from '~/utils/size-labels'
 
 /**
  * STI-241: the full-capsule listing, shared by every URL that means
@@ -88,14 +89,15 @@ const SPEC_LABELS = ['Material', 'Size', 'Embroidery']
 type ProductListItem = NonNullable<NonNullable<typeof connection.value>['nodes']>[number]
 
 /* Sizes come from the size option, because that is what the range in a row's
- * size column states. A product with a single "Default Title" option yields
- * one label and the row reads "One size". */
+ * size column states. The placeholder filter lives in `~/utils/size-labels`
+ * so every surface that derives a sizes string shares it: Shopify's single
+ * `Title` option carries the literal "Default Title", which is a placeholder
+ * and would otherwise be printed in the size column. */
 function sizeLabels(p: ProductListItem): string[] {
   const option = p.options?.find(o => /size|title/i.test(o.name))
-  const values = option?.optionValues?.map(v => v.name).filter(Boolean)
-  if (values?.length) return values
-  const label = option?.name === 'Default Title' ? 'One size' : option?.name
-  return label ? [label] : []
+  const values = option?.optionValues?.map(v => v.name) ?? []
+  if (values.length) return withoutPlaceholderSizes(values)
+  return option?.name ? withoutPlaceholderSizes([option.name]) : []
 }
 
 /* Live `descriptionHtml` is the source; when Shopify has none, fall back to the
@@ -120,7 +122,7 @@ const products = computed(() => (connection.value?.nodes ?? []).map(p => ({
   <main class="wrap">
     <section aria-labelledby="index-h" class="index">
       <h2 id="index-h" class="index__title">{{ title }}</h2>
-      <div v-if="products.length" class="index__rows">
+      <div v-if="products.length" class="index-rows">
         <ProductCard
           v-for="p in products"
           :key="p.id"
@@ -145,8 +147,9 @@ const products = computed(() => (connection.value?.nodes ?? []).map(p => ({
 
 <style scoped>
 /* The index, not a card grid: one column, flush left, hairline-ruled. The
-   shared `.products` grid is a multi-column tile layout and is wrong here —
-   a datasheet is one column of rows. */
+   shared `.index-rows` container in global.css carries the row treatment both
+   this listing and the homepage capsule use — a datasheet is one column of
+   rows, so there is exactly one of that treatment. */
 .index {
   padding-block: var(--space-2xl);
 }
@@ -157,7 +160,4 @@ const products = computed(() => (connection.value?.nodes ?? []).map(p => ({
   font-weight: 500;
 }
 
-.index__rows {
-  border-block-end: var(--rule);
-}
 </style>

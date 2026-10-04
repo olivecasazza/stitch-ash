@@ -84,7 +84,7 @@ useSeoMeta({
          heading, and no label line sits above it. -->
     <section class="wrap products-section" aria-labelledby="prod-h">
       <h2 id="prod-h" class="sr-only">The first capsule</h2>
-      <div v-if="products.length" class="products">
+      <div v-if="products.length" class="index-rows">
         <ProductCard
           v-for="p in products"
           :key="p.id"
