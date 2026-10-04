@@ -47,9 +47,17 @@ export async function mintAdminToken(domain: string, clientId: string, clientSec
 export async function buildAdminClient(): Promise<AdminClient> {
   const domain = process.env.SHOPIFY_ADMIN_STORE_DOMAIN ?? process.env.SHOPIFY_STOREFRONT_DOMAIN ?? "stitch-and-ash.myshopify.com";
 
-  const staticToken = process.env.SHOPIFY_ADMIN_TOKEN;
+  // `SHOPIFY_ADMIN_ACCESS_TOKEN` is the documented name and the one the CI
+  // gates, `scripts/shopify-env.ts` and `docs/shopify-bot-bootstrap.md` all
+  // use. `SHOPIFY_ADMIN_TOKEN` is the legacy alias that the nixlab tofu
+  // variable declares, so it stays honoured; it is simply never the only
+  // name we look at.
+  const accessToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
+  const legacyToken = process.env.SHOPIFY_ADMIN_TOKEN;
   const clientId = process.env.SHOPIFY_CLIENT_ID;
   const clientSecret = process.env.SHOPIFY_CLIENT_SECRET;
+
+  const staticToken = accessToken ?? legacyToken;
 
   if (staticToken && !staticToken.startsWith("atkn_")) {
     return { domain, token: staticToken, source: "static" };
@@ -60,9 +68,15 @@ export async function buildAdminClient(): Promise<AdminClient> {
     return { domain, token, source: "client_credentials" };
   }
 
+  const unusable = staticToken?.startsWith("atkn_") ?? false;
+
   throw new Error(
-    `SHOPIFY_ADMIN_TOKEN missing/invalid and SHOPIFY_CLIENT_ID/SHOPIFY_CLIENT_SECRET not set. ` +
-      `Saw: SHOPIFY_ADMIN_TOKEN=${mask(staticToken)}, SHOPIFY_CLIENT_ID=${mask(clientId)}, ` +
+    `No usable Shopify Admin credential. Set SHOPIFY_ADMIN_ACCESS_TOKEN (a store custom app token; ` +
+      `an atkn_ Shopify CLI automation token is not one), or set SHOPIFY_CLIENT_ID + ` +
+      `SHOPIFY_CLIENT_SECRET to mint a short-lived token. ` +
+      `Saw: SHOPIFY_ADMIN_ACCESS_TOKEN=${mask(accessToken)}, ` +
+      `SHOPIFY_ADMIN_TOKEN=${mask(legacyToken)}${unusable ? " (legacy name; rejected as an automation token)" : ""}, ` +
+      `SHOPIFY_CLIENT_ID=${mask(clientId)}, ` +
       `SHOPIFY_CLIENT_SECRET=${mask(clientSecret)}.`,
   );
 }
