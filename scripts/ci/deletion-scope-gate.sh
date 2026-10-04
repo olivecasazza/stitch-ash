@@ -31,11 +31,14 @@
 # default — so the silent path is closed.
 #
 # Usage:
-#   deletion-scope-gate.sh [--base <ref>] [--manifest <path>] [--repo <dir>]
-#                          [--name-only]
+#   deletion-scope-gate.sh [--base <ref>] [--head <ref>] [--manifest <path>]
+#                          [--repo <dir>] [--name-only]
 #
 #   --base <ref>     diff against this ref (default: auto-detected merge base
 #                    with origin/main, falling back to the CI-provided base sha)
+#   --head <ref>     the tip to diff TO (default: HEAD). This exists so the
+#                    self-test can replay a historical commit such as f29e7d8
+#                    without checking it out — see the note at BASE_SHA below.
 #   --manifest <p>   manifest to read (default: scripts/ci/deletion-scope-manifest.txt)
 #   --repo <dir>     repository to inspect (default: the repo this script lives
 #                    in). The self-test uses it to run the gate against
@@ -49,6 +52,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="${HERE}/../.."
 BASE=""
+HEAD_REF="HEAD"
 MANIFEST=""
 REPO_ROOT=""
 NAME_ONLY=0
@@ -56,10 +60,11 @@ NAME_ONLY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --base) BASE="${2:?--base needs a ref}"; shift 2 ;;
+    --head) HEAD_REF="${2:?--head needs a ref}"; shift 2 ;;
     --manifest) MANIFEST="${2:?--manifest needs a path}"; shift 2 ;;
     --repo) REPO="${2:?--repo needs a directory}"; shift 2 ;;
     --name-only) NAME_ONLY=1; shift ;;
-    -h|--help) sed -n '2,52p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,56p' "$0"; exit 0 ;;
     *) echo "ERROR: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -108,14 +113,29 @@ if [ -z "$BASE" ] || ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/nul
   exit 1
 fi
 
-BASE_SHA="$(git merge-base "$BASE" HEAD 2>/dev/null || git rev-parse "$BASE")"
+# The head must resolve too, for the same reason: an unresolvable tip means the
+# diff would silently compare against something other than what was asked for.
+if ! git rev-parse --verify --quiet "$HEAD_REF^{commit}" >/dev/null 2>&1; then
+  echo "ERROR: deletion-scope-gate: cannot resolve head ref '$HEAD_REF'."
+  echo "Refusing to pass: a gate that cannot see the diff is not a passing gate."
+  exit 1
+fi
+
+BASE_SHA="$(git merge-base "$BASE" "$HEAD_REF" 2>/dev/null || git rev-parse "$BASE")"
 
 # --- The actual deleted paths. This is the only input that matters (AC2). ---
 # --no-renames: a git rename out of the guarded surface is a removal of a
 # shipped page as much as an unlink is. Without this, `git mv app/pages/x.vue
 # app/pages/../x.vue` would report as R and sail through the gate. With it,
 # the rename reads as D(old) + A(new), and the old path must be declared.
-DELETED="$(git diff --diff-filter=D --name-only --no-renames "$BASE_SHA" HEAD || true)"
+#
+# $HEAD_REF, not a hardcoded HEAD. The self-test replays f29e7d8 — the commit
+# that motivated this gate — with --head, because checking out a 385-line
+# deletion just to prove the gate catches it would dirty the working tree. When
+# this was hardcoded to HEAD the replay diffed f29e7d8's base against whatever
+# branch happened to be checked out instead, reported zero deletions, and the
+# gate's own headline test PASSED a gate that had stopped working.
+DELETED="$(git diff --diff-filter=D --name-only --no-renames "$BASE_SHA" "$HEAD_REF" || true)"
 
 in_scope() {
   local path="$1" prefix
@@ -249,8 +269,8 @@ while IFS= read -r path; do
   if is_test_path "$path"; then
     if [ -z "$replacement" ]; then
       BAD_TEST_REPLACEMENT+=("$path: test deleted with no '# replacement:' assertion")
-    elif ! git cat-file -e "HEAD:$replacement" 2>/dev/null; then
-      BAD_TEST_REPLACEMENT+=("$path: '# replacement: $replacement' does not exist at HEAD")
+    elif ! git cat-file -e "$HEAD_REF:$replacement" 2>/dev/null; then
+      BAD_TEST_REPLACEMENT+=("$path: '# replacement: $replacement' does not exist at $HEAD_REF")
     fi
   fi
 done <<< "$SCOPED"

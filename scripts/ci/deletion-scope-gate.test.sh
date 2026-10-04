@@ -12,7 +12,15 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GATE="$HERE/deletion-scope-gate.sh"
+# GATE_UNDER_TEST is the convention every sibling suite in this directory already
+# uses (catalog-status-ownership-gate, deploy-freshness-gate,
+# deploy-dispatch-dedup) so a gate can be swapped for a stub to prove the suite
+# still bites. This suite originally hardcoded the path, which meant the
+# negative control could not be run: pointing it at a do-nothing stub still
+# reported "25 passed, 0 failed" — the suite was unable to observe a gate that
+# had stopped existing. A gate suite that cannot fail for a broken gate is
+# decorative, so this is the repo convention restored, not a new feature.
+GATE="${GATE_UNDER_TEST:-$HERE/deletion-scope-gate.sh}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -232,7 +240,7 @@ if git -C "$HERE/../.." cat-file -e f29e7d8^{commit} 2>/dev/null; then
   ROOT="$HERE/../.."
   set +e
   OUT="$("$GATE" --manifest "$ROOT/scripts/ci/deletion-scope-manifest.txt" \
-        --base f29e7d8~1 --name-only 2>&1)"
+        --base f29e7d8~1 --head f29e7d8 --name-only 2>&1)"
   RC=$?
   set -e
   # --name-only on that base lists the deletions in the real commit.
@@ -250,7 +258,7 @@ if git -C "$HERE/../.." cat-file -e f29e7d8^{commit} 2>/dev/null; then
   # And the verdict on that same diff must be non-zero.
   set +e
   OUT2="$("$GATE" --manifest "$ROOT/scripts/ci/deletion-scope-manifest.txt" \
-         --base f29e7d8~1 2>&1)"; RC2=$?
+         --base f29e7d8~1 --head f29e7d8 2>&1)"; RC2=$?
   set -e
   if [ "$RC2" -ne 0 ]; then
     echo "  ok   gate FAILS on f29e7d8's diff (exit $RC2)"
