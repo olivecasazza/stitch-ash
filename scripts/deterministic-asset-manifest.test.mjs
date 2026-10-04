@@ -23,6 +23,7 @@
  */
 
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -313,11 +314,43 @@ test('the build mtime is a function of the commit, not of the clock', () => {
     // read the wall clock would reintroduce the defect it stands in for.
     const resolved = resolveBuildMtime(process.cwd())
     assert.equal(resolved.resolved, true)
-    assert.match(resolved.value, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/)
+    // Canonical UTC `Z` form. Milliseconds are allowed because that is the shape
+    // Nitro's own manifest mtimes have — this value replaces one of them.
+    assert.match(resolved.value, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/)
 
     // Two calls, one value — including across a deliberate delay, which is what
     // the clock would fail.
     assert.equal(resolveBuildMtime(process.cwd()).value, resolved.value)
+})
+
+test('the build mtime is the commit epoch in UTC, not a timezone-dependent rendering', () => {
+    // This is the shape GitHub's runner caught: `git show --format=%cI` rendered
+    // the same commit as `...Z` on a UTC box and `...-07:00` on the runner, which
+    // would have made two builds of one commit differ across runner images while
+    // every local build agreed. The value must come from `%ct` and be formatted
+    // by us, so it is the same string on every git version and every host.
+    const seconds = execFileSync('git', ['show', '-s', '--format=%ct', 'HEAD'], {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+    }).trim()
+    assert.equal(
+        resolveBuildMtime(process.cwd()).value,
+        new Date(Number(seconds) * 1000).toISOString(),
+        'the mtime must be exactly the commit epoch rendered in UTC',
+    )
+
+    // And the same answer under a hostile local timezone.
+    const expected = new Date(Number(seconds) * 1000).toISOString()
+    const original = process.env.TZ
+    try {
+        for (const tz of ['America/Los_Angeles', 'Asia/Kolkata']) {
+            process.env.TZ = tz
+            assert.equal(resolveBuildMtime(process.cwd()).value, expected)
+        }
+    } finally {
+        if (original === undefined) delete process.env.TZ
+        else process.env.TZ = original
+    }
 })
 
 test('a checkout with no git falls back to a FIXED instant, and says so', () => {

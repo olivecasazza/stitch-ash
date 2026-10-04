@@ -121,7 +121,7 @@ const UNRESOLVED_COMMIT_DATE = '2020-01-01T00:00:00.000Z'
  * Resolved ONCE per build, so every entry in a manifest agrees — a manifest where
  * entries disagree about the build's date would be a third thing to drift.
  *
- * @param {string} rootDir repo root, for `git show -s --format=%cI HEAD`
+ * @param {string} rootDir repo root, for `git show -s --format=%ct HEAD`
  * @returns {{ value: string, resolved: boolean }} ISO-8601 instant, and whether
  *   it came from the commit or from the fallback
  */

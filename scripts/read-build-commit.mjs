@@ -19,8 +19,8 @@ import { execFileSync } from "node:child_process";
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 
-/** An ISO-8601 instant, which is the only shape git's %cI emits. */
-const ISO_INSTANT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:[+-]\d{2}:\d{2}|Z)$/;
+/** Seconds since the epoch, which is the only shape git's %ct emits. */
+const EPOCH_SECONDS_RE = /^\d{1,15}$/;
 
 /**
  * @param {string} rootDir repo root to run git in
@@ -67,17 +67,30 @@ export const readBuildCommit = (rootDir) => {
  * Returns null when git cannot answer — a tarball build, or a checkout with no
  * git. The caller then falls back to a fixed literal, and documents that it did.
  *
+ * `%ct` (epoch seconds) rather than `%cI` (ISO string), and the reason is not
+ * cosmetic. `%cI` renders the instant in the *build machine's* timezone: on the
+ * GitHub runner (git 2.55.0, TZ -07:00) the same commit that reads
+ * `2026-10-04T13:43:00Z` on a UTC box came back as `2026-10-04T07:06:58-07:00`.
+ * That is the same defect this whole module exists to remove — a value that is a
+ * function of the machine instead of the commit — reintroduced one layer down,
+ * and it would have made two builds of one commit differ across runner images
+ * while every local build agreed. `%ct` is a bare integer with no timezone in it
+ * at all, so it is the same number on every git version and every host.
+ *
  * @param {string} rootDir repo root to run git in
- * @returns {string|null}
+ * @returns {string|null} a canonical UTC ISO-8601 instant (`...Z`)
  */
 export const readBuildCommitDate = (rootDir) => {
     try {
-        const iso = execFileSync("git", ["show", "-s", "--format=%cI", "HEAD"], {
+        const seconds = execFileSync("git", ["show", "-s", "--format=%ct", "HEAD"], {
             cwd: rootDir,
             encoding: "utf8",
             stdio: ["ignore", "pipe", "ignore"],
         }).trim();
-        return ISO_INSTANT_RE.test(iso) ? iso : null;
+        if (!EPOCH_SECONDS_RE.test(seconds)) return null;
+        // toISOString() is always UTC with a `Z`, by definition — never the host's
+        // offset — so the string is a function of the commit alone.
+        return new Date(Number(seconds) * 1000).toISOString();
     } catch {
         return null;
     }
