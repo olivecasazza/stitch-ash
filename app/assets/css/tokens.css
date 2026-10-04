@@ -31,7 +31,7 @@
 
   --bone:         #E8E8E8; /* colors.bone */
   --white:        #FFFFFF; /* colors.white */
-  --focus:        #FFFFFF; /* colors.focus — 2px solid square focus ring, 2px offset, no colour tint. */
+  --focus:        #FFFFFF; /* colors.focus — 2px solid square focus ring, 4px offset, no colour tint. */
 
   /* ─── Typography — one face does all the work ──────────────────────────── */
   --font-mono:    "JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
