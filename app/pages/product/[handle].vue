@@ -180,11 +180,15 @@ useSeoMeta({
   <main class="pdp wrap">
 
 
-    <div class="pdp__layout">
+    <!-- One grid, one column set. `.pdp__layout--split` is applied only when
+         the product actually has imagery; without it the grid stays a single
+         column and the gallery wrapper is never rendered, so no empty black
+         half is reserved for photography that does not exist. The markup is
+         otherwise identical in both states — nothing is duplicated. -->
+    <div class="pdp__layout" :class="{ 'pdp__layout--split': productImages.length > 0 }">
       <!-- LEFT: Image gallery -->
-      <div class="pdp__gallery">
+      <div v-if="productImages.length" class="pdp__gallery">
         <ProductGallery
-          v-if="productImages.length"
           ref="carousel"
           :product="({ images: { edges: productImages.map((img: any) => ({ node: img })) } }) as any"
           :selected-variant="selectedVariant"
@@ -205,8 +209,12 @@ useSeoMeta({
         <!-- Size configuration swatches -->
         <div class="pdp__size-wrap">
           <SizeSelector v-if="hasRealSizes" :sizes="sizeValues" v-model="selectedSize" />
-          <p v-else class="pdp__one-size">
-            <span class="pdp__one-size-label">Size</span> One size
+          <!-- A single-variant product has no swatches to pick, so the size is
+               a fact, not a control: it reads on the same label/value voice as
+               an expander summary instead of as a leftover inline pair. -->
+          <p v-else class="pdp__spec">
+            <span class="pdp__spec-label">Size</span>
+            <span class="pdp__spec-value">One size</span>
           </p>
         </div>
 
@@ -260,17 +268,45 @@ useSeoMeta({
     text-align: center;
   }
 
+  /* Column model. Base state is the product's real state: no imagery, one
+     measured column. The split is a modifier, so the two-column layout is only
+     ever added when Shopify actually returns images. */
   .pdp__layout {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: clamp(2rem, 4vw, 3.5rem);
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: start;
+    column-gap: clamp(2rem, 4vw, 3.5rem);
+    row-gap: var(--space-3xl);
   }
 
   @media (min-width: 768px) {
-    .pdp__layout {
-      grid-template-columns: 1fr 1fr;
+    .pdp__layout--split {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       align-items: start;
     }
+  }
+
+  /* No imagery: the product takes the whole content width as a single
+     measured column — capped at the reading measure and centred in the wrap so
+     the leftover space splits evenly instead of pooling on one side. The
+     column is flush left at every width: this is a spec sheet, and centring
+     body copy is not a treatment DESIGN.md allows. The centred mobile column
+     stays available to the split state, where a photo sits beside it. */
+  .pdp__layout:not(.pdp__layout--split) .pdp__info {
+    width: 100%;
+    max-width: var(--measure);
+    margin-inline: auto;
+    align-items: stretch;
+    text-align: left;
+  }
+
+  .pdp__layout:not(.pdp__layout--split) .pdp__badges {
+    justify-content: flex-start;
+  }
+
+  .pdp__layout:not(.pdp__layout--split) .pdp__name {
+    margin-inline: 0;
+    text-align: left;
   }
 
   /* Gallery — center placeholder within its grid cell on mobile */
@@ -290,8 +326,13 @@ useSeoMeta({
      `.pdp__plate-*` rules were this page's private copy of the product image
      no longer ship different art from the product card beside it. */
 
-  /* Info panel — center title and supporting text on mobile,
-     switch to left-align on desktop so the price/description read naturally. */
+  /* Info panel — the spine. Every row (badge, name, price, size, CTA,
+     expander) is a flex item with the same `align-self: stretch`, so they all
+     share one left edge and one right edge, and the only vertical rhythm is
+     this single gap: --space-xl (24px) everywhere. The CTA previously sat
+     against a 32px step because the expander heading carried its own leading;
+     the heading is out of flow and the accordion contributes nothing, so one
+     gap value governs the whole column. */
   .pdp__info {
     display: flex;
     flex-direction: column;
@@ -366,17 +407,33 @@ useSeoMeta({
     font-feature-settings: "tnum" 1;
   }
 
-  .pdp__one-size {
+
+  /* Single-variant size fact. Same voice as `.accordion__summary`: the label is
+     the `label` step (500 / 11px / 1.3 / 0.12em / uppercase / bone / tnum),
+     the value is body copy on the baseline beside it. Previously the label and
+     "One size" ran together as one centred inline string at 12px, which read
+     as a leftover control rather than a spec line. */
+  .pdp__spec {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-md);
     margin: 0;
-    font-size: var(--text-sm);
-    color: var(--bone);
   }
 
-  .pdp__one-size-label {
-    letter-spacing: 0.1em;
+  .pdp__spec-label {
+    font-size: var(--text-xs);
+    line-height: 1.3;
+    font-weight: 500;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--grey-400);
-    margin-inline-end: 0.5ch;
+    color: var(--bone);
+    font-feature-settings: "tnum" 1;
+  }
+
+  .pdp__spec-value {
+    font-size: var(--text-base);
+    color: var(--grey-200);
   }
 
   /* components.button-primary / components.button-disabled — white fill, ink

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { PRODUCTS } from '~/data/products'
+import { specSections, specSummary } from '~/utils/product-specs'
+
 /**
  * STI-241: the full-capsule listing, shared by every URL that means
  * "show me everything we sell".
@@ -14,20 +17,23 @@
  * /collections/all and /shop still returning 404 after /products shipped.
  *
  * The data source is the Storefront API, the same query `app/pages/products.vue`
- * used before this component was extracted — `PRODUCTS` from `~/data/products`
- * is deliberately NOT used here. That static array is the pre-launch editorial
- * fallback (STI-579 moved this listing off it for exactly that reason), and
- * re-introducing it here would make these three new routes a second source of
- * truth for which products exist.
+ * used before this component was extracted. `PRODUCTS` from `~/data/products`
+ * is not a second source of truth for which products exist (STI-579 moved
+ * this listing off it for exactly that reason) — it is consulted only for the
+ * fact sections of a handle Shopify has no `descriptionHtml` for, so a
+ * pre-launch row still states facts instead of only a name.
  *
  * `sortKey: 'TITLE'` is the ordering the static array already had and is one
  * of the nine values the ROOT `ProductSortKeys` enum accepts. `COLLECTION_DEFAULT`
  * is a `ProductCollectionSortKeys` value and the ROOT schema rejects it.
+ *
+ * There is no photography, so the listing is an index: hairline-ruled rows of
+ * name, price, size range and spec values. No card grid, no label line above
+ * the heading — the route's `title` is the visible flush-left <h2>.
  */
 const props = defineProps<{
-  /** Eyebrow line above the grid. */
-  eyebrow: string
-  /** <title> for this route, e.g. "Shop" or "All products". */
+  /** <title> for this route, e.g. "Shop" or "All products". Also the visible
+   *  flush-left <h2> above the index — the listing names itself. */
   title: string
 }>()
 
@@ -35,6 +41,10 @@ const { shopify: { shopName } } = useAppConfig()
 const { locale } = useI18n()
 
 const key = computed(() => `all-products-${locale.value}`)
+
+/* `nodes` is selected alongside the shared connection fragment rather than by
+ * editing it — `graphql/fragments/product.ts` is used by four other
+ * listings, and this query needs one field they do not. */
 
 const { data: connection, status } = await useStorefrontData(key, `#graphql
   query FetchAllProducts(
@@ -46,6 +56,10 @@ const { data: connection, status } = await useStorefrontData(key, `#graphql
   )
   @inContext(language: $language, country: $country) {
     products(first: $first, sortKey: $sortKey, reverse: $reverse) {
+      nodes {
+        ...ProductFields
+        descriptionHtml
+      }
       ...ProductConnectionFields
     }
   }
@@ -67,16 +81,46 @@ useSeoMeta({
   description: 'The full Stitch and Ash capsule — embroidered black on black. Hoodies, lanyards, and stitched patches.',
 })
 
-const products = computed(() => flattenConnection(connection.value))
+/* The sections a row quotes, in column order: what it is made of, how big it
+ * is, what is stitched on it. `specSummary` skips any a product lacks. */
+const SPEC_LABELS = ['Material', 'Size', 'Embroidery']
+
+type ProductListItem = NonNullable<NonNullable<typeof connection.value>['nodes']>[number]
+
+/* Sizes come from the size option, because that is what the range in a row's
+ * size column states. A product with a single "Default Title" option yields
+ * one label and the row reads "One size". */
+function sizeLabels(p: ProductListItem): string[] {
+  const option = p.options?.find(o => /size|title/i.test(o.name))
+  const values = option?.optionValues?.map(v => v.name).filter(Boolean)
+  if (values?.length) return values
+  const label = option?.name === 'Default Title' ? 'One size' : option?.name
+  return label ? [label] : []
+}
+
+/* Live `descriptionHtml` is the source; when Shopify has none, fall back to the
+ * static mirror's sections for the same handle. Both are the same facts, so a
+ * pre-launch row reads identically to a live one. */
+function rowSpecs(handle: string, html: string | null | undefined): string[] {
+  const live = specSections(html)
+  const sections = live.length
+    ? live
+    : (PRODUCTS.find(p => p.handle === handle)?.details ?? [])
+  return specSummary(sections, SPEC_LABELS)
+}
+
+const products = computed(() => (connection.value?.nodes ?? []).map(p => ({
+  ...p,
+  sizeLabels: sizeLabels(p),
+  specs: rowSpecs(p.handle, p.descriptionHtml),
+})))
 </script>
 
 <template>
   <main class="wrap">
-    <section aria-labelledby="shop-h">
-      <p class="eyebrow" id="shop-h" style="margin-block-start: clamp(2rem, 4vw, 3rem)">
-        {{ eyebrow }}
-      </p>
-      <div v-if="products.length" class="products">
+    <section aria-labelledby="index-h" class="index">
+      <h2 id="index-h" class="index__title">{{ title }}</h2>
+      <div v-if="products.length" class="index__rows">
         <ProductCard
           v-for="p in products"
           :key="p.id"
@@ -85,15 +129,35 @@ const products = computed(() => flattenConnection(connection.value))
           :price="p.priceRange?.minVariantPrice?.amount ?? ''"
           :image-src="p.featuredImage?.url"
           :image-alt="p.featuredImage?.altText ?? p.title"
-          :handle="p.handle"
+          :sizes="p.sizeLabels"
+          :specs="p.specs"
         />
       </div>
       <p v-else-if="status === 'pending'" class="note" role="status" aria-live="polite">
-        Loading the capsule…
+        Loading.
       </p>
       <p v-else class="note">
-        Nothing in the capsule right now. Check back shortly.
+        Nothing listed yet.
       </p>
     </section>
   </main>
 </template>
+
+<style scoped>
+/* The index, not a card grid: one column, flush left, hairline-ruled. The
+   shared `.products` grid is a multi-column tile layout and is wrong here —
+   a datasheet is one column of rows. */
+.index {
+  padding-block: var(--space-2xl);
+}
+
+.index__title {
+  margin: 0 0 var(--space-xl);
+  font-size: var(--text-2xl);
+  font-weight: 500;
+}
+
+.index__rows {
+  border-block-end: var(--rule);
+}
+</style>

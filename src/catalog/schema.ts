@@ -205,6 +205,27 @@ export const ShippingPolicySchema = z.object({
 
 export type ShippingPolicy = z.infer<typeof ShippingPolicySchema>;
 
+/**
+ * STI-681: the returns policy, declared once and rendered onto every product.
+ * DECLARATION-ONLY, like `ShippingPolicySchema` — no Admin API call reads or
+ * writes it; it exists so the copy can be restated from a single source
+ * instead of being authored per SKU.
+ */
+export const ReturnsPolicySchema = z.object({
+  id: z.string(),
+  policyName: z.string(),
+  /**
+   * Which direction the policy takes. The gate
+   * (scripts/ci/returns-claim-gate.sh) recognises exactly two, and every
+   * product must agree on one.
+   */
+  direction: z.enum(["final_sale", "returnable"]),
+  /** The exact customer-facing copy, rendered verbatim on every product. */
+  lines: z.array(z.string().min(1)).min(1),
+});
+
+export type ReturnsPolicy = z.infer<typeof ReturnsPolicySchema>;
+
 export interface ProductDiff {
   product: CatalogProduct;
   remote: ShopifyProduct | null;

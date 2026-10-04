@@ -4,6 +4,7 @@ import test from "node:test";
 import { PRODUCTS } from "../../app/data/products.ts";
 import { specSections } from "../../app/utils/product-specs.ts";
 import { loadCatalogDirectory } from "./load.ts";
+import { loadReturnsPolicies } from "./returns.ts";
 
 /**
  * DESIGN.md "Product copy": product copy is a spec sheet, not prose, and the
@@ -90,6 +91,43 @@ for (const product of PRODUCTS) {
     }
   });
 }
+
+test("every SKU's returns lines are the declared policy, identically", async () => {
+  // STI-681. Before this, sku-001 said "Returns within 14 days, unworn."
+  // while sku-002 and sku-003 said "Final sale." — one store, two opposite
+  // promises, authored in 79ad80e (#204). The invariant is not "the copy is
+  // legal" (every individual string was); it is that no SKU's returns lines
+  // may be authored independently of the others at all.
+  const [policy, ...extra] = await loadReturnsPolicies("catalog/returns");
+  assert.equal(extra.length, 0, "declare exactly one returns policy");
+  const declared = policy.lines;
+
+  // The policy direction is the store's decision, not this test's. What the
+  // test pins is that every product renders that decision word for word.
+  for (const product of catalog) {
+    const section = specSections(product.bodyHtml).find(s => s.label === "Shipping & Returns");
+    assert.ok(section, `${product.handle}: no Shipping & Returns section`);
+    const returns = section.lines.filter(l => l.includes("returns") || l.includes("return"));
+    assert.deepEqual(
+      returns,
+      declared,
+      `${product.handle}: returns lines must equal catalog/returns/default.yaml`,
+    );
+  }
+
+  // The static fallback renders when Shopify has no description, so it is the
+  // same invariant on the other code path.
+  for (const product of PRODUCTS) {
+    const section = product.details.find(s => s.label === "Shipping & Returns");
+    assert.ok(section, `${product.handle}: no Shipping & Returns section`);
+    const returns = section.lines.filter(l => l.includes("return"));
+    assert.deepEqual(returns, declared, `${product.handle}: fallback returns lines`);
+  }
+
+  // The policy line itself must stay within the copy rules, or declaring it
+  // once would launder an illegal line into every SKU.
+  assertLines("catalog/returns/default.yaml", declared);
+});
 
 test("the gate rejects the copy it was written against", () => {
   const old = "The kind of construction detail that only matters when everything else fails — these won't.";

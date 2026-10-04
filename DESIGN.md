@@ -129,34 +129,6 @@ components:
   price:
     textColor:        "{colors.grey-200}"
     typography:       "{typography.numeric}"
-  # ── The section eyebrow (STI-659) ───────────────────────────────────────────
-  # The small uppercase line that sits above a section title ("Collections",
-  # "Get in touch"). It rendered in four places from
-  # `app/assets/css/global.css` with NO declaration here while wearing
-  # `--text-xs` — an undeclared rule on a declared step, not a variant. It is
-  # now declared, on `label`, which is a ruling with two consequences the
-  # mirror must honour:
-  #
-  # 1. The shipped `letter-spacing: 0.18em` is DROPPED for `label`'s 0.12em.
-  #    Two near-identical uppercase micro-steps at the same 11px size is the
-  #    same drift this declaration closes; the 0.06em gap is ~0.66px at this
-  #    size and the step reads apart on colour, the hairline and the size
-  #    drop to `text-2xl`, not on tracking. A distinct 0.18em step would have
-  #    meant a ninth `--text-*` step at an 11px size already claimed.
-  # 2. `label` carries `fontFeature: "'tnum' 1"`, so the rule rejoins the
-  #    label-step family instead of standing outside it. In JetBrains Mono
-  #    every glyph is fixed-width, so `tnum` is belt-and-braces here — the
-  #    point is that the declaration is now uniform, not that digits move.
-  #
-  # Uppercase is part of `label` itself (see "Labels" under Typography), not
-  # a component override, and is not repeated as a sub-token. The hairline is
-  # `border-block-end`, which the schema has no sub-token for, so it is stated
-  # in prose under "Section eyebrows" — same treatment as the badge boundary.
-  eyebrow:
-    textColor:        "{colors.grey-400}"
-    typography:       "{typography.label}"
-    rounded:          "{rounded.none}"
-    padding:          "0 0 4px"
   accordion-body:
     # The panel is transparent. It used to be `charcoal`, which put the body
     # copy on a 12px inset slab while the summary sat at x=0 — the column
@@ -562,13 +534,47 @@ the entries and the override both go.
 - Labels sit above inputs in `label` typography.
 - Validation messages use grey-400 weight plus underline; never red text.
 
-### Product card
-- Square charcoal plate, hairline border, 4:5 image aspect.
-- No hover lift. Hover swaps the primary image for the macro detail via
-  a 120ms opacity transition.
-- Name and price on a single row below the image, 12px gap, `numeric`
-  typography for the price.
-- No "quick add" — direct to PDP for size selection.
+### Product row
+The card is a hairline-ruled **index row**, not a plate. A grid of these reads
+as the catalogue's table of contents, which is what the site is: a spec sheet.
+
+- **Flush left, no fill, no border box.** No charcoal plate, no box outline,
+  no shadow. The 1px `rule` hairline is `border-block-start` — the row is
+  separated from the one above it, so a grid of rows reads as one ruled list
+  without any cell owning its own frame.
+- **The whole row is one link.** `min-height: 44px` clears the tap-target
+  minimum, and `:focus-visible` is the standard 2px `focus` ring at a 4px
+  offset — the same ring as every other control on the site.
+- **Facts, in columns.** Name, price (`numeric` typography, weight 500,
+  tabular figures), the size range, and up to three spec values share one
+  baseline-aligned row on wide viewports, so the grid reads across as a
+  datasheet instead of reflowing per cell. Under 768px the same facts and
+  the same order stack into one block; nothing is dropped.
+- **The thumbnail is optional.** A small 4:5 image at the leading edge,
+  only when the product has one. When it does not, no space is reserved and
+  no placeholder box is drawn — an absent image must not leave a hole in the
+  row.
+- **No hover lift, no quick add.** Hover is a colour nudge to `white` and,
+  when a second image exists, a 120ms opacity swap to the macro detail.
+  Quick add does not exist; the row goes to the PDP for size selection.
+
+### Product page
+The PDP has two states and the base state is the product's real state, not a
+fallback.
+
+- **No imagery → one measured column.** `grid-template-columns:
+  minmax(0, 1fr)`, justified to the start, so the page is a single column at
+  the prose measure rather than a stretched or empty second track.
+- **Imagery → two columns.** The second track is a modifier applied only when
+  Shopify actually returns images, at ≥ 768px. A product with no photography
+  never pays for a media column it cannot fill.
+- **One shared left edge.** Badge, `h1`, price, size selector, CTA and the
+  details expander all sit on the same left edge of the same column. There is
+  no inset, no plate, and no second alignment to read across.
+- **One vertical step.** The spine is `--space-xl` (24px) throughout: the
+  heading is out of flow and the accordion contributes no leading of its own,
+  so a single row-gap governs the whole column and the CTA cannot drift onto a
+  32px step.
 
 ### Product copy
 Product copy is a spec sheet, not prose. It states what the thing is; it
@@ -602,25 +608,42 @@ Construction — Double-stitched seams.
 Embroidery — Black thread on black. / Design on chest. / Mark on left sleeve.
 Care — Cold wash, inside out. / Tumble dry low or hang. / Do not dry-clean.
 Shipping & Returns — Made to order. / Ships in 2–3 weeks. / Tracked
-shipping. / [RETURNS LINE — SEE BELOW]
+shipping. / [returns lines — see below]
 ```
 
-**The returns line is deliberately not written here.** STI-681: the store
-published "Returns within 14 days, unworn." on sku-001 and "Final sale." on
-sku-002 and sku-003 simultaneously, and this spec is how the contradiction
-became durable. Commit 79ad80e ("product descriptions are spec lines, not
-brand prose", #204) introduced both strings; before it, no SKU mentioned
-returns at all. The 14-day promise was not carried over from a quote, a
-supplier, or an operator decision — that commit *authored* a quantified,
-legally-operative commercial commitment while removing unverified prose.
+**The returns lines are not written here.** STI-681: the store published
+"Returns within 14 days, unworn." on sku-001 and "Final sale." on sku-002 and
+sku-003 simultaneously, and this spec is how the contradiction became durable.
+Commit 79ad80e ("product descriptions are spec lines, not brand prose", #204)
+introduced both strings; before it, no SKU mentioned returns at all. The 14-day
+promise was not carried over from a quote, a supplier, or an operator decision
+— that commit *authored* a quantified, legally-operative commercial commitment
+while removing unverified prose.
 
 Because this document transcribes the PDP as the exact current copy, any agent
-re-authoring from it reproduced the invented promise faithfully. Do not treat
-a returns or refund line as copy that already exists here. It must be restated
-from **one declared policy object** covering every SKU, so it cannot drift
-between products, and only once the operator has chosen the policy
-(STI-681, blocked on that decision). Until then
-`scripts/ci/returns-claim-gate.sh` fails the build when the SKUs disagree.
+re-authoring from it reproduced the invented promise faithfully. That is why
+the returns copy is no longer transcribed here.
+
+**Single source: `catalog/returns/default.yaml`.** That file holds the policy
+and the exact customer-facing lines; `src/catalog/returns.ts` validates and
+loads it, `catalog:validate` reads it, and every SKU's Shipping & Returns
+section must render those lines verbatim.
+
+The operator's decision (STI-681): **faulty-only**. No change-of-mind returns
+window; a faulty or wrong item is replaced. So the policy is one line, not a
+14-day promise — the line it declares is stated once and applied to all three
+SKUs.
+
+The policy is DECLARATION-ONLY, like `catalog/shipping/default.yaml`: nothing
+in it is written to Shopify by `catalog:apply`. Do not restate the line in this
+document, in a SKU, or in `app/data/products.ts` as freehand copy — restate it
+from the policy file, or the drift returns.
+
+Enforcement, both layers: `src/catalog/product-copy.test.ts` fails CI unless
+every SKU's returns lines equal the policy file's `lines` (and the static
+fallback in `app/data/products.ts` equals the catalog `bodyHtml`), and
+`scripts/ci/returns-claim-gate.sh` fails when the classified directions
+diverge.
 
 ### Navigation
 - Sticky, transparent over hero, ink-black on scroll.
@@ -666,46 +689,6 @@ closes the catalogue hole; (b) restore the full quartet including `Account`
 nav entry. This decision is the only thing gating [STI-633](/STI/issues/STI-633);
 the code already matches option (c), so (c) is the status quo and shipping it
 is a decision, not an omission.
-
-### Section eyebrows
-The eyebrow is the small tracked line that introduces a section — `Shop —
-the full capsule`, `Collections`, `Brand`, `Get in touch`. It is the quietest
-type on the site and it is declared as `components.eyebrow` →
-`typography.label` (STI-659).
-
-- **It is `label`, at `label`'s tracking.** 500 weight / 11px / 0.12em /
-  tabular / uppercase. An earlier revision of the rule carried its own
-  `letter-spacing: 0.18em`; that is dropped. At 11px the difference is about
-  0.66px, and it bought a second uppercase micro-step at a size `label`
-  already owns — the same undeclared-drift problem the declaration exists to
-  close. The eyebrow separates from its section title on colour
-  (`grey-400` against `bone`) and on the size drop to `text-2xl`, not on
-  tracking.
-- **It is grey, not bone.** `grey-400` (#9A9A9A) at 11px is a secondary
-  voice; `bone` is reserved for copy the reader is expected to read.
-- **The hairline is `border-block-end`, not a box.** 1px
-  `var(--border-rule)` — the standard `rule` hairline, same as the accordion's
-  dividers. `borderColor` is not a declared component sub-token, so like the
-  badge boundary it is stated here rather than forced into a key the linter
-  would flag. No full border, no plate, no fill.
-- **`padding-block-end` is `spacing.xs` (4px)** — the hairline sits one grid
-  step below the text. `display: inline-block` so the rule tracks the text
-  width instead of the column width, and `text-wrap: balance` so a
-  two-line eyebrow does not set a rag. This is a grid-pure padding, so it is
-  declared as `padding: "0 0 4px"`.
-- **UA margins are neutralised.** The eyebrow is sometimes an `<h2>`
-  (homepage, `ProductGrid`) and sometimes a `<p>` (contact, the brand line).
-  `margin-block-end: 0` keeps the computed box identical in both cases, so
-  the rule does not move the outline of the section it sits in.
-- It is never a button and never navigable. No hover, no focus ring, no
-  underline — nothing to click means nothing to signal.
-- **One declaration site.** `.eyebrow` lives in
-  `app/assets/css/global.css` and is consumed as a class from four pages and
-  `ProductGrid.vue`. `ProductGrid` takes the string as an `eyebrow` prop and
-  renders it with the class; no page may restate the tracking, colour or
-  hairline locally, and no component may grow a second `.eyebrow`-shaped
-  micro-label with its own values — a new use of this step is a new
-  consumer of `components.eyebrow`, not a new rule.
 
 ### Badges
 - Transparent fill, hairline `primary` border, tracked-uppercase `label`
@@ -820,6 +803,12 @@ type on the site and it is declared as `components.eyebrow` →
   now load-bearing history rather than live guidance.
 - Don't reintroduce the deleted `radius-tight: 2px` token. Every
   `rounded:` key in this seed is `"0"`; future keys must also be `"0"`.
+- Don't bring back the section eyebrow or kicker, or the deleted
+  `components.eyebrow` token that carried it. The step is retired, not
+  deprecated: a section's heading carries its own weight, and a tracked
+  uppercase line above it only re-states the heading in quieter type. The
+  11px micro-label is `label`'s size, and duplicating it per section is how
+  the undeclared-drift this token closed came back.
 - Don't adopt prose styling (`prose` / `Prose`) without `rounded.prose`
   mirrored into `tokens.css` first. `@tailwindcss/typography`'s `.375rem`
   pre and `.3125rem` kbd corners are the vendor's default, not a design

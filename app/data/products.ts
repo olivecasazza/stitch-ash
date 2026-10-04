@@ -80,7 +80,7 @@ const PRODUCTS_DATA: StaticProduct[] = [
           "Made to order.",
           "Ships in 2–3 weeks.",
           "Tracked shipping.",
-          "Returns within 14 days, unworn.",
+          "No returns. Faulty or wrong items replaced.",
         ],
       },
     ],
@@ -111,7 +111,7 @@ const PRODUCTS_DATA: StaticProduct[] = [
       { label: "Care", lines: ["Spot clean only."] },
       {
         label: "Shipping & Returns",
-        lines: ["Made to order.", "Tracked shipping.", "Final sale."],
+        lines: ["Made to order.", "Tracked shipping.", "No returns. Faulty or wrong items replaced."],
       },
     ],
     sizes: [{ label: "One size", value: "one-size" }],
@@ -133,7 +133,7 @@ const PRODUCTS_DATA: StaticProduct[] = [
       },
       {
         label: "Shipping & Returns",
-        lines: ["Made to order.", "Tracked shipping.", "Final sale."],
+        lines: ["Made to order.", "Tracked shipping.", "No returns. Faulty or wrong items replaced."],
       },
     ],
     sizes: [{ label: "One size", value: "one-size" }],
