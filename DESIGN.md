@@ -608,25 +608,42 @@ Construction — Double-stitched seams.
 Embroidery — Black thread on black. / Design on chest. / Mark on left sleeve.
 Care — Cold wash, inside out. / Tumble dry low or hang. / Do not dry-clean.
 Shipping & Returns — Made to order. / Ships in 2–3 weeks. / Tracked
-shipping. / [RETURNS LINE — SEE BELOW]
+shipping. / [returns lines — see below]
 ```
 
-**The returns line is deliberately not written here.** STI-681: the store
-published "Returns within 14 days, unworn." on sku-001 and "Final sale." on
-sku-002 and sku-003 simultaneously, and this spec is how the contradiction
-became durable. Commit 79ad80e ("product descriptions are spec lines, not
-brand prose", #204) introduced both strings; before it, no SKU mentioned
-returns at all. The 14-day promise was not carried over from a quote, a
-supplier, or an operator decision — that commit *authored* a quantified,
-legally-operative commercial commitment while removing unverified prose.
+**The returns lines are not written here.** STI-681: the store published
+"Returns within 14 days, unworn." on sku-001 and "Final sale." on sku-002 and
+sku-003 simultaneously, and this spec is how the contradiction became durable.
+Commit 79ad80e ("product descriptions are spec lines, not brand prose", #204)
+introduced both strings; before it, no SKU mentioned returns at all. The 14-day
+promise was not carried over from a quote, a supplier, or an operator decision
+— that commit *authored* a quantified, legally-operative commercial commitment
+while removing unverified prose.
 
 Because this document transcribes the PDP as the exact current copy, any agent
-re-authoring from it reproduced the invented promise faithfully. Do not treat
-a returns or refund line as copy that already exists here. It must be restated
-from **one declared policy object** covering every SKU, so it cannot drift
-between products, and only once the operator has chosen the policy
-(STI-681, blocked on that decision). Until then
-`scripts/ci/returns-claim-gate.sh` fails the build when the SKUs disagree.
+re-authoring from it reproduced the invented promise faithfully. That is why
+the returns copy is no longer transcribed here.
+
+**Single source: `catalog/returns/default.yaml`.** That file holds the policy
+and the exact customer-facing lines; `src/catalog/returns.ts` validates and
+loads it, `catalog:validate` reads it, and every SKU's Shipping & Returns
+section must render those lines verbatim.
+
+The operator's decision (STI-681): **faulty-only**. No change-of-mind returns
+window; a faulty or wrong item is replaced. So the policy is one line, not a
+14-day promise — the line it declares is stated once and applied to all three
+SKUs.
+
+The policy is DECLARATION-ONLY, like `catalog/shipping/default.yaml`: nothing
+in it is written to Shopify by `catalog:apply`. Do not restate the line in this
+document, in a SKU, or in `app/data/products.ts` as freehand copy — restate it
+from the policy file, or the drift returns.
+
+Enforcement, both layers: `src/catalog/product-copy.test.ts` fails CI unless
+every SKU's returns lines equal the policy file's `lines` (and the static
+fallback in `app/data/products.ts` equals the catalog `bodyHtml`), and
+`scripts/ci/returns-claim-gate.sh` fails when the classified directions
+diverge.
 
 ### Navigation
 - Sticky, transparent over hero, ink-black on scroll.
