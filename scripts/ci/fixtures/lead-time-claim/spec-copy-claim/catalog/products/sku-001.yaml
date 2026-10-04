@@ -1,0 +1,13 @@
+id: stitch-ash.sku-001
+handle: sku-001
+title: Embroidered Hoodie
+descriptionHtml: >-
+  <h3>Shipping &amp; Returns</h3>
+  <ul>
+    <li>Made to order.</li>
+    <li>Tracked shipping.</li>
+    <li>Returns within 14 days, unworn.</li>
+  </ul>
+options:
+  - name: Size
+    values: ["S", "M", "L", "XL", "XXL"]

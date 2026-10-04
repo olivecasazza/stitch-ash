@@ -439,6 +439,93 @@ out="$WORK/o14crossfile"
 rc="$(run_gate_r "app-fallback-claim" "catalog/products/sku-001.yaml:9" "" "$out" --ratchet)"
 check "a catalog pin does not tolerate the app/ copy" "1" "$rc"
 
+# ── 15. The design spec's verbatim copy transcript is in scope ─────────────
+#
+# DESIGN.md:604 reproduces the rendered PDP expander block line for line. It was
+# outside the scan roots too, and measured on the real tree it was the one copy
+# that produced a false green in the DEPLOY path: a fresh unquoted claim
+# appended to DESIGN.md left --ratchet --strict-ratchet exiting 0.
+#
+# Like the app/ fixtures above, the catalog copy in these fixtures is
+# deliberately CLEAN, so these tests fail if the spec scan root is ever removed.
+# Asserting only "the gate is red on a red fixture" would keep passing after
+# someone deleted the spec pass and moved the claim into the catalog fixture;
+# asserting the catalog is clean AND the spec is caught is what pins the scope.
+
+out="$WORK/o15claim"
+rc="$(run_gate "spec-copy-claim" "" "$out")"
+check "unquoted claim in the design spec fails the gate" "1" "$rc"
+check "...and names DESIGN.md at the transcript line" "1" \
+  "$(grep -c 'ERROR: unverified production lead time in customer-facing catalog file: DESIGN.md:29' "$out")"
+
+# The return window in the same transcript must NOT be what fails it, for the
+# same reason as the app/ pass: a gate red on a correct line gets deleted.
+check "...but the return window beside it is excused" "1" \
+  "$(grep -c 'not a lead time (return/cancellation window.*DESIGN.md' "$out")"
+
+out="$WORK/o15clean"
+rc="$(run_gate "spec-copy-clean" "" "$out")"
+check "clean design-spec transcript passes" "0" "$rc"
+
+# The negative control, and the assertion that the spec pass does not simply
+# red every file that mentions shipping. Without it a too-broad scan root would
+# still pass the previous check on a fixture that has no claim at all.
+check "clean spec fixture reports no catalog CLAIM" "0" \
+  "$(grep -c 'ERROR.*catalog/products/sku-001.yaml' "$out")"
+
+# The spec copy is scanned in BOTH locales. A transcript is read by humans and
+# by agents on whatever machine they happen to be on, which is the same
+# locale trap that made the documented git grep a false green.
+out="$WORK/o15posix"
+rc="$(run_gate_r "spec-copy-claim" "" "LC_ALL=POSIX" "$out")"
+check "spec claim fails under POSIX locale" "1" "$rc"
+out="$WORK/o15utf8"
+rc="$(run_gate_r "spec-copy-claim" "" "LC_ALL=C.UTF-8" "$out")"
+check "spec claim fails under C.UTF-8 locale" "1" "$rc"
+
+# ── 16. The spec copy participates in the ratchet ──────────────────────────
+#
+# Without a pin, adding this scan root would have failed every deploy on main,
+# because the DESIGN.md occurrence is live right now. That is the freeze the
+# ratchet exists to prevent, and it is why this root could not ship without an
+# entry in lead-time-ratchet.txt in the same commit.
+
+out="$WORK/o16ratchet"
+rc="$(run_gate_r "spec-copy-claim" "DESIGN.md:29" "" "$out" --ratchet)"
+check "ratchet tolerates the pinned spec line" "0" "$rc"
+
+# No pin -> deploy mode must fail rather than silently pass. The tolerated set
+# is explicit, never inferred.
+out="$WORK/o16nopin"
+rc="$(run_gate_r "spec-copy-claim" "" "" "$out" --ratchet)"
+check "ratchet with no spec pin still fails" "1" "$rc"
+
+# A stale pin must fail under --strict-ratchet, so an entry cannot outlive its
+# own fix.
+out="$WORK/o16stale"
+rc="$(run_gate_r "spec-copy-clean" "DESIGN.md:29" "" "$out" --ratchet --strict-ratchet)"
+check "stale spec ratchet entry fails --strict-ratchet" "1" "$rc"
+check "...and names the stale entry" "1" \
+  "$(grep -c 'ratchet entry no longer occurs: DESIGN.md' "$out")"
+
+# A catalog pin must not tolerate the spec copy, and a spec pin must not
+# tolerate the catalog copy. The ratchet is by exact file:line, so fixing one
+# copy and leaving the other is still a failure — which is what forces the five
+# ranges to land in one pass.
+out="$WORK/o16crossfile"
+rc="$(run_gate_r "spec-copy-claim" "catalog/products/sku-001.yaml:9" "" "$out" --ratchet)"
+check "a catalog pin does not tolerate the spec copy" "1" "$rc"
+
+out="$WORK/o16reverse"
+rc="$(run_gate_r "spec-copy-claim" "app/data/products.ts:44" "" "$out" --ratchet)"
+check "an app/ pin does not tolerate the spec copy" "1" "$rc"
+
+# The pin must tolerate its own line on the DEPLOY path, under both locales,
+# because that is the exact combination deploy.yml runs.
+out="$WORK/o16utf8ok"
+rc="$(run_gate_r "spec-copy-claim" "DESIGN.md:29" "LC_ALL=C.UTF-8" "$out" --ratchet --strict-ratchet)"
+check "spec pin holds under --strict-ratchet in C.UTF-8" "0" "$rc"
+
 echo
 echo "lead-time-claim-gate.test.sh: $pass_count passed, $fail_count failed"
 [ "$fail_count" -eq 0 ] || exit 1

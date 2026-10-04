@@ -27,7 +27,7 @@
 # deploy.yml also runs the gate with --strict-ratchet, which fails if any entry
 # here no longer matches anything, so an entry cannot outlive its fix.
 #
-# WHY THERE ARE FOUR ENTRIES
+# WHY THERE ARE FIVE ENTRIES
 #
 # Entry 1 is the prose entry the file was written for. Entries 2-3 were added
 # on 2026-10-03, when the gate was re-run against real main and turned out to
@@ -64,25 +64,48 @@
 # and both are unquoted. Tolerating all of them without saying so would leave
 # the contradiction standing behind a green build.
 #
+# Entry 5 was added on 2026-10-04, and it is the same defect one level up:
+#
+#     DESIGN.md:604   Shipping & Returns - Made to order. / Ships in 2-3 weeks. /
+#
+# DESIGN.md transcribes the rendered PDP expander block verbatim. Until this
+# entry existed the gate never looked at that file, and it was the only one of
+# these copies that is not itself customer-facing: nothing renders it, so it
+# never shows up in a live fetch, and every verification so far has been a
+# fetch. Measured on the real tree before the pin, a FRESH unquoted claim
+# appended to DESIGN.md left --ratchet --strict-ratchet exiting 0 — a false
+# green in the deploy path, not only in pr-checks.
+#
+# It is the most likely of the five to be re-created, which is why it needs the
+# pin as much as the others. DESIGN.md is the file the next agent trusts to
+# re-author the copy: it states the unquoted number as the exact current
+# string, marked as nothing, so copying the spec faithfully reproduces the
+# defect and reading the spec as the record of what customers see shows a clean
+# bill of health. That is the mechanism by which this number survived six weeks
+# of "resolved" claims — not one bad actor, but a document that looks like an
+# authority and is one revision behind the defect.
+#
 # TO CLEAR AN ENTRY
 #
 # Do not delete the line here to make a build pass. That is the STI-226 shape.
 # Clear it by fixing the defect:
 #
 #   1. A supplier quoted a range -> edit catalog/products/sku-001.yaml AND
-#      catalog/shipping/default.yaml AND app/data/products.ts (all four), set
-#      ALLOWED_VERIFIED_LEAD_TIME in scripts/ci/lead-time-claim-gate.sh to the
-#      quoted "<lo>-<hi> weeks", cite the quote in the commit body, state in
-#      the copy whether the figure is "order placed -> ready to ship" or
-#      "ready to ship -> delivered", then delete the entries below.
+#      catalog/shipping/default.yaml AND app/data/products.ts AND DESIGN.md
+#      (all five), set ALLOWED_VERIFIED_LEAD_TIME in
+#      scripts/ci/lead-time-claim-gate.sh to the quoted "<lo>-<hi> weeks", cite
+#      the quote in the commit body, state in the copy whether the figure is
+#      "order placed -> ready to ship" or "ready to ship -> delivered", then
+#      delete the entries below.
 #
 #   2. No quote exists -> remove the timeframe from the copy and keep the
 #      made-to-order process description, then delete the entries below.
 #
-# All four ranges must land on ONE number in one pass, in every copy. Fixing
+# All five ranges must land on ONE number in one pass, in every copy. Fixing
 # only the PDP YAML and leaving 14-35 days in the shipping policy, or leaving
-# the app/ fallback copy behind, does not clear the defect — it just moves it
-# somewhere no customer reads.
+# the app/ fallback copy or the DESIGN.md transcript behind, does not clear the
+# defect — it just moves it somewhere no customer reads, and in the DESIGN.md
+# case somewhere the next agent will copy the stale number straight back out of.
 #
 # If the copy above any pinned line grows or shrinks a line, that entry's line
 # number goes stale and --strict-ratchet will fail, which is the intended prompt
@@ -92,3 +115,4 @@ catalog/products/sku-001.yaml:41
 catalog/shipping/default.yaml:6
 catalog/shipping/default.yaml:7
 app/data/products.ts:81
+DESIGN.md:604

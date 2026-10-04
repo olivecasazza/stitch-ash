@@ -155,6 +155,36 @@ DOCS_DIR="docs/merch"
 # ever added, and let the fixture tests prove the scope is what you think.
 APP_COPY_FILES=("app/data/products.ts")
 
+# The design spec's verbatim transcript of the rendered PDP copy. DESIGN.md:604
+# reproduces the Shipping & Returns block line for line:
+#
+#     Shipping & Returns - Made to order. / Ships in 2-3 weeks. / Tracked
+#     shipping. / Returns within 14 days, unworn.
+#
+# It was outside this gate's scan roots too, and measured on the real merged
+# tree it is a live false green in the DEPLOY path, not just in pr-checks: a
+# fresh unquoted claim appended to DESIGN.md left `--ratchet --strict-ratchet`
+# exiting 0, because the scan never looks at the file.
+#
+# This one matters more than a missed duplicate. DESIGN.md is the document the
+# next agent trusts to re-author the copy. It states the unquoted number as the
+# exact current string, with no note that it is unquoted — so an agent that
+# copies the spec faithfully reproduces the defect, and an agent that reads the
+# spec as the record of what customers see has been shown a clean bill of
+# health. That is precisely how the number survived six weeks of "resolved"
+# claims: every audit that grepped catalog/ or docs/merch confirmed the copy it
+# expected and never read the one place the whole block is written down.
+#
+# The file is scanned as prose with the same patterns, ratchet accounting and
+# return-window exemption as the other copy surfaces. A return window is still
+# not a lead time here: line 605's "Returns within 14 days, unworn." is the
+# same correct line it is in the catalog, and is excused rather than tolerated.
+#
+# Only the one spec file is scanned, not all of docs/ — see the APP_COPY_FILES
+# note above for why breadth is what gets this gate deleted. Add a path here if
+# a second document starts transcribing rendered copy verbatim.
+SPEC_COPY_FILES=("DESIGN.md")
+
 FOUND=0
 RATCHETED_HITS=()
 report() {
@@ -243,6 +273,33 @@ handle_structured_hit() {
   echo "    $hit"
   echo "    The unit is in the key, so the prose lead-time pattern cannot see this line."
   echo "    It is still a customer-visible fulfilment commitment with no supplier quote."
+}
+
+# Scan a list of authored-copy files with the prose pattern only.
+# $1 = name of an array variable holding the paths, $2 = human label for the
+#      progress line.
+#
+# Every surface that states the promise in prose goes through here, so "the app
+# fallback copy is scanned" and "the design spec is scanned" are the same claim
+# about the same code. The structured key pass is catalog-only by construction:
+# madeToOrderMinDays is a shipping-policy key, and neither copy surface can
+# contain one.
+scan_copy_files() {
+  local -n _files="$1"
+  local label="$2" file normalised matches hit line_no
+
+  for file in "${_files[@]}"; do
+    [ -f "$file" ] || continue
+    normalised="$(normalise < "$file")"
+    # shellcheck disable=SC2086  # LEAD_TIME_RE is intentionally unquoted.
+    if matches="$(printf '%s' "$normalised" | grep -En "$LEAD_TIME_RE")"; then
+      while IFS= read -r hit; do
+        line_no="${hit%%:*}"
+        handle_hit "$file" "$line_no" "$hit"
+      done <<< "$matches"
+    fi
+  done
+  echo "lead-time-claim-gate: scanned ${#_files[@]} $label ..."
 }
 
 # Normalise to ASCII so the separator class below matches regardless of the
@@ -403,18 +460,22 @@ done < <(find "$CATALOG_DIR" -type f \( -name '*.yaml' -o -name '*.yml' \) | sor
 # this pass from being red for a correct line and getting the whole scan
 # deleted.
 if [ "${#APP_COPY_FILES[@]}" -gt 0 ]; then
-  for file in "${APP_COPY_FILES[@]}"; do
-    [ -f "$file" ] || continue
-    normalised="$(normalise < "$file")"
-    # shellcheck disable=SC2086  # LEAD_TIME_RE is intentionally unquoted.
-    if matches="$(printf '%s' "$normalised" | grep -En "$LEAD_TIME_RE")"; then
-      while IFS= read -r hit; do
-        line_no="${hit%%:*}"
-        handle_hit "$file" "$line_no" "$hit"
-      done <<< "$matches"
-    fi
-  done
-  echo "lead-time-claim-gate: scanned ${#APP_COPY_FILES[@]} PDP fallback cop(y|ies) under app/ ..."
+  scan_copy_files APP_COPY_FILES "PDP fallback cop(y|ies) under app/"
+fi
+
+# ── The design spec's verbatim copy transcript ────────────────────────────
+#
+# Same pass as the app/ fallback copy above, over SPEC_COPY_FILES. The two
+# lists are scanned by the same helper rather than by two copies of this block,
+# because a duplicated scan block is how the two lists drift apart again — the
+# next person adds a file to one array and never notices the other loop is not
+# reading it.
+#
+# The structured key pattern is deliberately not applied to either list: these
+# are prose transcriptions of rendered copy, not the machine-readable shipping
+# policy, and a madeToOrderMinDays key cannot appear in them by construction.
+if [ "${#SPEC_COPY_FILES[@]}" -gt 0 ]; then
+  scan_copy_files SPEC_COPY_FILES "verbatim cop(y|ies) in the design spec"
 fi
 
 # Docs must not re-assert the number as verified. A doc may DISCUSS it, name
