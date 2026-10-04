@@ -50,38 +50,40 @@ useSeoMeta({
 
 <template>
   <main>
-    <!-- HERO -->
+    <!-- HERO — the sheet's title block. Flush left, page-sized wordmark. -->
     <section class="hero wrap">
-      <h1>
+      <h1 class="hero__mark">
         <svg
-          class="mark mark--hero"
+          class="mark"
           viewBox="0 0 700 100"
-          preserveAspectRatio="xMidYMid meet"
-          style="width: 100%; max-width: 43.75rem;"
+          preserveAspectRatio="xMinYMid meet"
           role="img"
           aria-label="STITCH AND ASH"
         >
           <text
-            x="350"
+            x="0"
             y="72"
-            text-anchor="middle"
+            text-anchor="start"
             font-family="'JetBrains Mono', monospace"
-            font-size="76"
+            font-size="73"
             letter-spacing="4"
             font-weight="500"
           >STITCH &amp; ASH</text>
         </svg>
       </h1>
-      <p class="tag">
-        Minimal, embroidered, and black on black. Heavyweight cotton fleece, double-stitched.
-      </p>
+      <ul class="hero__facts">
+        <li>Black on black.</li>
+        <li>Embroidered.</li>
+        <li>Heavyweight cotton fleece.</li>
+        <li>Double-stitched.</li>
+        <li>Made to order.</li>
+      </ul>
     </section>
 
-    <!-- PRODUCTS -->
-    <section class="wrap" aria-labelledby="prod-h">
-      <h2 class="eyebrow" id="prod-h" style="margin-block-start: clamp(3rem, 6vw, 5rem); margin-block-end: 0">
-        The first capsule — embroidered black on black
-      </h2>
+    <!-- PRODUCTS — the index itself. Heading is sr-only: the grid is the
+         heading, and no label line sits above it. -->
+    <section class="wrap products-section" aria-labelledby="prod-h">
+      <h2 id="prod-h" class="sr-only">The first capsule</h2>
       <div v-if="products.length" class="products">
         <ProductCard
           v-for="p in products"
@@ -94,20 +96,102 @@ useSeoMeta({
         />
       </div>
       <p v-else-if="status === 'pending'" class="note" role="status" aria-live="polite">
-        Loading the capsule…
+        Loading the capsule.
       </p>
       <p v-else class="note">
-        The capsule is being restocked. Check back shortly.
+        Capsule restocking. Check back shortly.
       </p>
     </section>
 
-    <!-- BRAND STATEMENT -->
+    <!-- BRAND STATEMENT — approved copy, set flush left in the measure.
+         The hairline and the space above it do the separating; no band. -->
     <section id="statement" class="statement">
-      <div class="wrap measure stack">
-        <p class="eyebrow">Brand</p>
+      <div class="wrap measure">
         <p>Black cotton, black thread, one pair of hands. Embroidery is the point.</p>
       </div>
     </section>
-
   </main>
 </template>
+
+<style scoped>
+/* ─── Title block ──────────────────────────────────────────────────────── */
+
+/* `.hero` is centred globally; the sheet's opening is flush left. */
+.hero {
+  padding-block: var(--space-4xl) var(--section-lg);
+  border-block-end: var(--rule);
+  text-align: start;
+}
+
+.hero__mark {
+  margin: 0;
+  font-weight: 500;
+}
+
+/* The SVG viewBox is `0 0 700 100`, so the shopper sees
+   `font-size x (renderedWidth / 700)`. `font-size` here is a presentation
+   attribute in user units, never a CSS declaration, so it cannot resolve
+   through tokens.css: 73 user units at a 24rem (384px) box renders at
+   73 x (384 / 700) ~= 40px, the `text-3xl` page-heading step. Declared
+   width is capped so the size cannot drift under the type floor. */
+.hero__mark svg {
+  display: block;
+  width: 24rem;
+  max-width: 100%;
+  height: auto;
+}
+
+/* The old tagline was a ragged three-line sentence. It is now five fact
+   lines, one per row, flush left, no ragged wrap and nothing invented. */
+.hero__facts {
+  margin: var(--space-xl) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-xs);
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  color: var(--grey-200);
+}
+
+/* ─── The index ────────────────────────────────────────────────────────── */
+
+.products-section {
+  padding-block: var(--section-lg) var(--section-md);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.note {
+  font-size: var(--text-base);
+  color: var(--grey-400);
+}
+
+/* ─── Statement ────────────────────────────────────────────────────────── */
+
+/* Hairline on top, space below the grid; the filled band and the `.eyebrow`
+   label are gone, so nothing here is decoration. */
+.statement {
+  border-block-start: var(--rule);
+  padding-block: var(--section-lg) var(--section-xl);
+  text-align: start;
+}
+
+.statement p {
+  margin: 0;
+  font-size: var(--text-2xl);
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: var(--bone);
+}
+</style>

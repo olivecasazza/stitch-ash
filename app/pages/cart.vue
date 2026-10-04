@@ -44,9 +44,6 @@ const hasLines = computed(() => lines.value.length > 0)
 
 <template>
     <main class="cart wrap">
-        <p class="eyebrow">
-            {{ $t('cart.eyebrow') }}
-        </p>
         <h1 class="cart__title">
             {{ $t('cart.title') }}
         </h1>
@@ -165,8 +162,8 @@ const hasLines = computed(() => lines.value.length > 0)
 </template>
 
 <style scoped>
-/* Page shell. Same padding rhythm as app/pages/contact.vue: the eyebrow, then
-   the h1 on the display step, then content. */
+/* Page shell. Same padding rhythm as app/pages/contact.vue: the h1 on the
+   display step, then content. */
 .cart {
   padding-block-start: var(--space-2xl);
   padding-block-end: var(--space-5xl);
@@ -178,7 +175,7 @@ const hasLines = computed(() => lines.value.length > 0)
   font-weight: 500;
   letter-spacing: -0.02em;
   line-height: 1.05;
-  margin: var(--space-lg) 0 0;
+  margin: 0;
   color: var(--bone);
 }
 

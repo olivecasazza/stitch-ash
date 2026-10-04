@@ -6,7 +6,7 @@
 useSeoMeta({
   title: 'Contact — STITCH AND ASH',
   description:
-    'Get in touch with STITCH AND ASH. Questions about sizing, embroidery, or your order — we read every message.',
+    'Contact STITCH AND ASH. Sizing, embroidery, order questions. Every message read by hand.',
 })
 
 const name = ref('')
@@ -71,11 +71,10 @@ async function onSubmit() {
 
 <template>
   <main class="contact wrap">
-    <p class="eyebrow">Get in touch</p>
     <h1 class="contact__title">Contact</h1>
 
     <p class="contact__lede section-title">
-      Questions about sizing, embroidery, or your order — we read every message.
+      Sizing, embroidery, order questions. Every message read by hand.
     </p>
 
     <section class="contact__panel stack-lg" aria-labelledby="contact-form-h">
@@ -137,19 +136,19 @@ async function onSubmit() {
       </form>
 
       <p v-else class="contact__success" role="status">
-        Thanks — your message is on its way. We'll reply from a stitch-and-ash address
-        within a few days.
+        Message on its way. Reply from a stitch-and-ash address within a few
+        days.
       </p>
     </section>
 
     <section class="contact__panel" aria-labelledby="contact-direct-h">
       <h2 id="contact-direct-h" class="contact__sub">Direct</h2>
       <p class="contact__line">
-        For order questions, you can also reach us at
+        Order questions, sizing, embroidery:
         <a href="mailto:hello@stitch-and-ash.com" class="contact__link">hello@stitch-and-ash.com</a>.
       </p>
       <p class="contact__line text-muted">
-        We respond within a few business days. We read every message by hand.
+        Reply within a few business days. Every message read by hand.
       </p>
     </section>
   </main>
@@ -166,8 +165,7 @@ async function onSubmit() {
 .contact__title {
   font-family: var(--font-display);
   font-size: var(--text-3xl);
-  letter-spacing: 0.04em;
-  margin-block-start: var(--space-lg);
+  margin-block-start: 0;
   margin-block-end: var(--space-xl);
 }
 

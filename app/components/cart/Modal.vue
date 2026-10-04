@@ -32,6 +32,11 @@ watch(() => recentlyRemoved.value.map(removed => removed.lineId), (ids) => {
         undoTimers.delete(lineId)
     }
 
+    // The live region holds "<title> removed." until something replaces it, so
+    // a screen reader walking the panel later reads a removal that has already
+    // been undone or expired. Clear it once no row is pending.
+    if (!ids.length) announcement.value = ''
+
     for (const removed of recentlyRemoved.value) {
         if (undoTimers.has(removed.lineId)) continue
 

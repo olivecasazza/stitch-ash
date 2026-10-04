@@ -8,12 +8,11 @@
         "subtotal": "Subtotal",
 "checkout": "Checkout",
         "open": "Open Cart",
-        "eyebrow": "Cart",
         "items": "Items",
         "itemCount": "no items | one item | {count} items",
         "note": "Shipping and taxes are calculated at checkout.",
         "emptyTitle": "Your cart is empty.",
-        "emptyNote": "Nothing selected yet. Browse the capsule and add a piece.",
+        "emptyNote": "Nothing selected. Add from the capsule.",
         "emptyAction": "Shop the capsule",
         "toast": {
             "add": "Item added to cart.",
