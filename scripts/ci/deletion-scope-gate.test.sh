@@ -366,15 +366,60 @@ import assert from 'node:assert/strict'
 test('new', () => { assert.equal(9, 9) })"
 check "newly added test file passes" pass "$D" --base HEAD~1
 
-# --- 20. A test OUTSIDE the guarded surface is not this gate's business.
-# src/catalog is guarded; a test elsewhere is not silently failed here.
+# --- 20. Gutting is checked repo-wide, NOT just the guarded prefixes. -------
+#
+# This row used to read the opposite -- "gutted test outside the guarded
+# surface passes this gate". It was the specification of the bug, not of the
+# contract. The gate's header comment promised to fail a PR that
+# "removes/gutts a test", while gutting_failures() filtered on `in_scope` --
+# so a test outside app/pages, app/utils, app/composables and src/catalog
+# could be emptied without the gate noticing. qa-verifier raised that as F1 on
+# STI-672 and measured scripts/deterministic-asset-manifest.test.mjs going
+# 46 -> 0 assertions with an exit code of 0.
+#
+# Losing the assertions is the loss. Deleting a test out there is still not
+# this gate's business, which is why only the gutting half widened.
 D="$TMP/case21"; mkrepo "$D"; : > "$D/manifest.txt"
 commit_add "$D" "ship a test outside the guarded surface" docs/notes.test.ts "$RICH_TEST"
 commit_gut "$D" "chore: trim it" docs/notes.test.ts \
   "import { test } from 'node:test'
 import assert from 'node:assert/strict'
 test('placeholder', () => { assert.ok(true) })"
-check "gutted test outside the guarded surface passes this gate" pass "$D" --base HEAD~1
+check "gutted test outside the guarded surface FAILS (F1)" fail "$D" --base HEAD~1
+expect_out "docs/notes.test.ts"
+expect_out "GUTTED"
+
+# ...but DELETING a test outside the guarded surface still passes undeclared.
+# Widening the gutting half must not quietly widen the deletion half.
+D="$TMP/case21b"; mkrepo "$D"; : > "$D/manifest.txt"
+commit_add "$D" "ship a test outside the guarded surface" docs/notes.test.ts "$RICH_TEST"
+commit_del "$D" "chore: drop it" docs/notes.test.ts
+check "deleted test outside the guarded surface still passes undeclared" pass "$D" --base HEAD~1
+
+# An out-of-scope test that GAINS assertions is still not a failure.
+D="$TMP/case21c"; mkrepo "$D"; : > "$D/manifest.txt"
+commit_add "$D" "ship a test outside the guarded surface" docs/notes.test.ts "$RICH_TEST"
+commit_add "$D" "test: more" docs/notes.test.ts \
+  "$RICH_TEST
+import assert from 'node:assert/strict'
+test('extra', () => { assert.equal(1, 1); assert.equal(2, 2) })"
+check "out-of-scope test with more assertions passes" pass "$D" --base HEAD~1
+
+# A declared '# baseline:' override works outside the guarded surface too,
+# otherwise a legitimate reduction under scripts/ has no honest route to land.
+D="$TMP/case21d"; mkrepo "$D"
+printf '%s\n' \
+  'docs/notes.test.ts' \
+  '# issue: STI-669' \
+  '# sign-off: storefront-lead' \
+  '# reason: intentional reduction outside the guarded surface' \
+  '# baseline: 1' > "$D/manifest.txt"
+commit_add "$D" "ship a test outside the guarded surface" docs/notes.test.ts "$RICH_TEST"
+commit_gut "$D" "chore: trim it" docs/notes.test.ts \
+  "import { test } from 'node:test'
+import assert from 'node:assert/strict'
+test('placeholder', () => { assert.ok(true) })"
+check "out-of-scope reduction with a declared baseline passes" pass "$D" --base HEAD~1
 
 # --- 21. The '# baseline:' override HONOURS an intentional reduction. -----
 # The gate's own failure message instructs an author to declare a deliberate
