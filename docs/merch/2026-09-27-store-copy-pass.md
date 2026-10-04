@@ -157,12 +157,40 @@ origin/main:catalog/products/sku-001.yaml:16     <-- the only customer-facing so
 > `scripts/ci/lead-time-claim-gate.sh`, which normalises the catalog to ASCII and
 > matches a class of separators, and carries no locale assumption.
 
-The live PDP shows it **three times** from that one source: `<meta
+> **Correction 2 (STI-638, 2026-10-04) — the claim moved AND the "three times"
+> figure below is wrong.** Two separate errors, both mine:
+>
+> 1. **The line number and the wording above are stale.** #204 (`79ad80e`,
+>    2026-10-03) replaced the prose `bodyHtml` with a spec-line `<ul>`, moving
+>    the claim from line 16 to `catalog/products/sku-001.yaml:41` and rewording
+>    it from `Made to order. Allow 2–3 weeks for production.` to
+>    `Ships in 2–3 weeks.` (also now in the PDP fallback,
+>    `app/data/products.ts:81`). Editing line 16 now touches nothing
+>    customer-facing. **Same unquoted 2–3 weeks — the reword is not a fix.**
+> 2. **"Rendered three times" was a raw substring count reported as visible
+>    renders.** Re-measured 2026-10-04 against `buildId dd64f5c114`:
+>    `2–3 weeks` appears **2×** in the page source, of which **1 is visible**
+>    (the description `<li>`) and 1 sits inside the serialized Nuxt payload.
+>    The `<meta description>` fan-out described below no longer holds — the
+>    `useSeoMeta` path is not producing a third copy. Do not cite "three times"
+>    as an exposure figure; it was never measured as renders.
+>
+> Also note `catalog/shipping/default.yaml:6-7` declares the same promise
+> machine-readably as `madeToOrderMinDays: 14` / `madeToOrderMaxDays: 35` =
+> **2–5 weeks**, contradicting the PDP's 2–3. Prose grep cannot see those
+> lines; only `scripts/ci/lead-time-claim-gate.sh` catches them.
+
+The live PDP showed it three times from that one source: `<meta
 name="description">` (via `useSeoMeta` at `app/pages/product/[handle].vue:155`),
 the visible description paragraph, and the Nuxt payload blob. It is authored
 **once** and fanned out three ways — so this cannot be de-duplicated by editing
 copy. Any "show it once" fix is a template change owned by storefront-lead, and
 only makes sense once a real figure exists.
+
+> *(Paragraph retained for history. Its "three times" claim is retracted by
+> Correction 2 above — measured 2026-10-04 it was **1 visible + 1 payload**,
+> and the `<meta>` third copy no longer reproduces. The template-level
+> de-duplication concern still stands for whatever string ships next.)*
 
 **Owner split:** the *number* needs a supplier quote → operator (tracked on
 [STI-609](/STI/issues/STI-609), with landed cost on STI-418). The *doc* claims
