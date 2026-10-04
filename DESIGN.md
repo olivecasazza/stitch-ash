@@ -602,8 +602,25 @@ Construction — Double-stitched seams.
 Embroidery — Black thread on black. / Design on chest. / Mark on left sleeve.
 Care — Cold wash, inside out. / Tumble dry low or hang. / Do not dry-clean.
 Shipping & Returns — Made to order. / Ships in 2–3 weeks. / Tracked
-shipping. / Returns within 14 days, unworn.
+shipping. / [RETURNS LINE — SEE BELOW]
 ```
+
+**The returns line is deliberately not written here.** STI-681: the store
+published "Returns within 14 days, unworn." on sku-001 and "Final sale." on
+sku-002 and sku-003 simultaneously, and this spec is how the contradiction
+became durable. Commit 79ad80e ("product descriptions are spec lines, not
+brand prose", #204) introduced both strings; before it, no SKU mentioned
+returns at all. The 14-day promise was not carried over from a quote, a
+supplier, or an operator decision — that commit *authored* a quantified,
+legally-operative commercial commitment while removing unverified prose.
+
+Because this document transcribes the PDP as the exact current copy, any agent
+re-authoring from it reproduced the invented promise faithfully. Do not treat
+a returns or refund line as copy that already exists here. It must be restated
+from **one declared policy object** covering every SKU, so it cannot drift
+between products, and only once the operator has chosen the policy
+(STI-681, blocked on that decision). Until then
+`scripts/ci/returns-claim-gate.sh` fails the build when the SKUs disagree.
 
 ### Navigation
 - Sticky, transparent over hero, ink-black on scroll.
