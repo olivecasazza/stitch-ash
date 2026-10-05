@@ -63,6 +63,16 @@ Occurrences "2–3 weeks":  3
 Occurrences "3–5 weeks":  0
 ```
 
+> **Superseded in part, 2026-10-05.** The `Shipping & Returns` body quoted above
+> no longer exists. Every PDP now renders `No returns. Faulty or wrong items
+> replaced.` on all three SKUs, and the `Returns accepted within 14 days…` /
+> `Final sale.` split is gone. That returns string was never sourced from
+> anyone — commit `79ad80e` (#204) authored it while stripping unverified prose
+> out of the PDP, and before that commit no SKU mentioned returns at all. The
+> block above is left verbatim as a dated record; the lead-time finding it
+> supports is unaffected and still stands. Provenance and the open operator
+> question: [STI-681](/STI/issues/STI-681).
+
 The lead time was **not** removed from the catalog. It was moved out of the
 `Shipping & Returns` accordion — where it contradicted itself — and into the
 product description, where it now appears **three times**, sourced from
