@@ -9,5 +9,5 @@
 </script>
 
 <template>
-  <ProductGrid eyebrow="All — the full capsule" title="All products" />
+  <ProductGrid title="All products" />
 </template>

@@ -41,3 +41,30 @@ export function specSections(html: string | null | undefined): ProductSpecSectio
     }))
     .filter(section => section.label && section.lines.length > 0)
 }
+
+/**
+ * The first line of each named section, in the order `labels` gives them.
+ *
+ * An index row has room for a handful of facts, not a whole fact sheet, so it
+ * asks for the sections it wants by name and takes each one's headline value:
+ * `specSummary(sections, ["Material", "Size", "Embroidery"])` → the first line
+ * of Material, then Size, then Embroidery. Labels the product does not have
+ * are skipped rather than rendered empty, so a row never grows a blank cell
+ * because a handle uses different section names than the catalogue.
+ *
+ * Sections are matched case-insensitively and trimmed: the live Shopify copy
+ * and the static catalogue are written by hand separately and disagree on
+ * capitalisation more often than on substance.
+ */
+export function specSummary(
+  sections: ProductSpecSection[],
+  labels: string[],
+): string[] {
+  return labels
+    .map(label => {
+      const wanted = label.trim().toLowerCase()
+      const section = sections.find(s => s.label.trim().toLowerCase() === wanted)
+      return section?.lines[0] ?? ''
+    })
+    .filter(Boolean)
+}

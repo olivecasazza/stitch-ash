@@ -265,6 +265,69 @@ jobs:
       - name: Run storefront mock gate
         run: ./scripts/ci/storefront-mock-gate.sh
 
+  # STI-681: the $185 hoodie published "Returns within 14 days, unworn." while
+  # the lanyard and the sticker published "Final sale." — two mutually exclusive
+  # returns policies live on one store at once, measured on
+  # preview.stitch-ash.com 2026-10-04. Nothing in the repo declared which was
+  # true, and no lead-time style scan can catch it: both strings are old, and
+  # each is individually well-formed. Only CROSS-SKU AGREEMENT catches this.
+  #
+  # This job is expected to FAIL until the operator's policy decision lands and
+  # all three SKUs are restated from one declared policy object (STI-681). That
+  # is deliberate: a permanent unmissable red for a live customer-facing
+  # contradiction is the STI-226 shape made visible. Do not silence it by
+  # weakening the gate or by re-typing a policy into one YAML body.
+  #
+  # Static and offline: it reads catalog/products/*.yaml and the static fallback
+  # in app/data/products.ts. No Node, no store, no Storefront token, no secret.
+  # The self-test runs first so this job cannot go green on a gate that has
+  # stopped working — including on the false-green cases (uniform final sale,
+  # uniform returnable, uniform exchange-only) that must PASS.
+  returns-claim-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run returns-claim-gate self-test
+        run: ./scripts/ci/returns-claim-gate.test.sh
+
+      - name: Run returns-claim gate
+        run: ./scripts/ci/returns-claim-gate.sh
+
+  # STI-609: the hoodie "2-3 weeks" lead-time defect survived an audit pass
+  # because the audit's own search command could not see the string it was
+  # auditing. Under the runner locale (LC_CTYPE=ANSI_X3.4-1968) grep's `.` is
+  # byte-wise, so `grep -P "2.3 weeks"` matches nothing while the en dash is
+  # plainly present. A search that returns nothing was reported as "the catalog
+  # no longer restates a lead time", and that false green is still cited in the
+  # September KPI report as a resolved item.
+  #
+  # This gate lints the committed docs/merch transcripts so the mechanical
+  # commands they instruct a reader to run cannot silently return zero. It also
+  # checks the inverse false green: a doc crediting a scripts/ci/... guard that
+  # does not exist. The STI-609 correction note claimed one before it was
+  # written.
+  #
+  # Static, offline, no Node, no secrets. The self-test runs first so this job
+  # cannot go green on a gate that has stopped working, and it pins LC_ALL=C —
+  # the locale that caused the defect — so it cannot pass only under UTF-8.
+  audit-locale-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run audit-locale-gate self-test
+        run: ./scripts/ci/audit-locale-gate.test.sh
+
+      - name: Run audit-locale gate
+        run: ./scripts/ci/audit-locale-gate.sh
+
   # STI-628: the storefront's public access token is served to every anonymous
   # visitor inside `config.public`. That is correct — a Storefront *public* token
   # is a browser credential by design, and using the published value against the
@@ -310,11 +373,19 @@ jobs:
   # `git diff --diff-filter=D --name-only` against the merge base and never
   # parses the PR title or body, so a description that does not match the diff
   # cannot authorise anything. A deletion under app/pages/, app/utils/,
-  # app/composables/ or src/catalog/ must be declared in
+  # app/composables/, app/components/ or src/catalog/ must be declared in
   # scripts/ci/deletion-scope-manifest.txt with an issue id and a named
   # sign-off; a deleted test must additionally name a replacement test that
   # survives at HEAD. The committed manifest declares nothing, so the default is
   # closed rather than open.
+  #
+  # app/components/ joined that list in STI-682. It is guarded on deleted
+  # PATHS only, and that is the whole of the guarantee: a diff that strips
+  # markup out of a component which still exists emits no deletion, so this job
+  # does not see it and is not claimed to. The script's COVERAGE BOUNDARY note
+  # says so in the same place an author reads how to declare a deletion, and
+  # the self-test asserts that note is still there — so the boundary cannot be
+  # quietly dropped by someone who only meant to tidy a comment.
   #
   # fetch-depth: 0 is required, not cosmetic: the gate diffs against the merge
   # base with origin/main, and actions/checkout's default shallow clone of depth

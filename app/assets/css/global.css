@@ -50,30 +50,6 @@ body {
    Display type uses --font-display (mono, weight 500, tight letter-spacing);
    body uses --font-body (mono); --font-mono reserved as the explicit mono key. */
 
-/* components.eyebrow (STI-659) — textColor colors.grey-400, typography.label,
-   rounded.none, padding 0 0 4px. Eyebrow label — uppercase, tracked, grey.
-   Tracking moves 0.18em -> label's 0.12em and line-height / tnum are added so
-   this rule is the same shape as every other label-step rule (.badge,
-   .accordion__summary). The 0.18em was an undeclared second uppercase step at
-   a size label already owns; see DESIGN.md "Section eyebrows". */
-.eyebrow {
-  /* Used as a section heading (<h2>) on the homepage. Neutralise the UA
-     heading margins so the computed box is identical to when it was a <p> — the
-     outline fix must not move a pixel. */
-  margin-block-end: 0;
-  font-size: var(--text-xs);
-  line-height: 1.3;
-  letter-spacing: 0.12em;
-  font-feature-settings: "tnum" 1;
-  text-transform: uppercase;
-  color: var(--grey-400);
-  display: inline-block;
-  padding-block-end: var(--space-xs);
-  border-block-end: 1px solid var(--border-rule);
-  font-weight: 500;
-  text-wrap: balance;
-}
-
 /* Section headings */
 .section-title {
   font-size: var(--text-2xl);
@@ -84,7 +60,6 @@ body {
 }
 
 /* Body text variants */
-.text-secondary { color: var(--grey-400); }
 .text-muted     { color: var(--grey-400); }
 
 /* ── Header ─────────────────────────────────────────────────────────────── */
@@ -111,11 +86,6 @@ body {
   width: auto;
   vertical-align: middle;
 }
-.mark--hero {
-  height: clamp(3rem, 10vw, 6rem);
-  display: block;
-  margin-inline: auto;
-}
 
 /* ── Hero ────────────────────────────────────────────────────────────────── */
 .hero {
@@ -128,171 +98,18 @@ body {
   line-height: 0.92;
   font-weight: 400;
 }
-.hero .tag {
-  margin-top: var(--space-2xl);
-  max-width: 42ch;
-  margin-inline: auto;
-  font-size: var(--text-lg);
-  color: var(--grey-200);
-  line-height: 1.5;
-  text-wrap: balance;
-}
 
-/* ── Product grid ───────────────────────────────────────────────────────── */
-.products {
+/* ── Index rows ──────────────────────────────────────────────────────────── */
+/* The one row treatment, shared by every surface that lists products: the
+   homepage capsule, /products and the per-collection listing. One column,
+   flush left, hairline-ruled — the rows themselves carry the top rule, so the
+   container only closes the last one. The old `.products` tile grid is gone:
+   it squeezed full-width rows into ~210px columns and wrapped product names
+   one character per line. */
+.index-rows {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
-  gap: var(--gutter);
-  padding-block: var(--section-md);
-}
-
-/* ── Product card ───────────────────────────────────────────────────────── */
-.product-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  text-decoration: none;
-  color: inherit;
-  border: var(--rule-light);
-  background: var(--charcoal);
-  transition:
-    border-color var(--transition-base),
-    transform var(--transition-base);
-}
-
-.product-card:hover,
-.product-card:focus-visible {
-  border-color: var(--grey-400);
-  transform: translateY(-2px);
-}
-
-/* STI-588: the card is a focusable anchor, so `:hover, :focus-visible { outline:
-   none }` suppressed the focus ring for keyboard users specifically. The lift
-   and the border-colour swap are hover affordances and stay above; the focus
-   indicator is a real ring.
-
-   This is `components.focus-ring` — the same treatment `.btn-primary:focus-visible`
-   already carries and the one `colors.focus` declares: 2px stroke (line weight,
-   deliberately off-grid) at 4px offset (spacing, snaps to the base unit). No new
-   token is introduced and DESIGN.md/tokens.css are untouched: `focus (#FFFFFF)`
-   and `components.focus-ring` already exist and already say this, so the card
-   was failing to consume the canonical token rather than missing one.
-
-   The 1px `--bone` base rule further down this file is a separate divergence
-   and is not touched here — see its comment and STI-521. */
-.product-card:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 4px;
-}
-
-.product-card__image-wrap {
-  position: relative;
-  aspect-ratio: 4 / 5;
-  overflow: hidden;
-  background: var(--ink-black);
-  border-bottom: var(--rule-light);
-}
-
-.product-card__img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: opacity var(--transition-base);
-}
-
-.product-card__img--primary.has-hover { opacity: 1; }
-.product-card__img--hover { opacity: 0; }
-
-.product-card:hover .product-card__img--primary.has-hover,
-.product-card:focus-visible .product-card__img--primary.has-hover {
-  opacity: 0;
-}
-
-.product-card:hover .product-card__img--hover,
-.product-card:focus-visible .product-card__img--hover {
-  opacity: 1;
-}
-
-/* STI-541: the product image plate moved to app/components/ProductImagePlate.vue.
-   The `.product-card__image-fallback` / `__fallback-svg` / `__plate-*` rules
-   that used to live here were the card's private copy of that art. They are
-   deleted, not relocated: the plate is one component now, so a card cannot
-   drift from the PDP again. */
-
-.product-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: var(--space-xl) var(--space-xl) var(--space-2xl);
-}
-
-/* STI-648: DESIGN.md (Product card) — "Name and price on a single row below
-   the image, 12px gap". This is that row. The gap is `spacing.md`, which is
-   --space-md = 12px (grid-pure, 3 x 4px); the previous 4px body gap was the
-   vertical stack step and was the wrong axis to read the pair from.
-
-   `baseline` keeps the price on the name's first baseline, so the two read as
-   one typeset line rather than as a top box and a bottom box.
-
-   Wrapping policy (merch-lead, STI-648): a long product name WRAPS. The
-   identity cell and the name both carry `min-width: 0`, and nothing here sets
-   `text-overflow: ellipsis`, so no product name is ever silently truncated.
-   The price is the fixed element of the pair — `flex: 0 0 auto` plus
-   `white-space: nowrap` — which keeps "$185.00" from breaking across lines
-   while the name wraps around it. */
-.product-card__row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-md);
-}
-
-.product-card__ident {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.product-card__name {
-  margin: 0;
-  font-family: var(--font-display);
-  font-weight: 500;
-  font-size: var(--text-xl);
-  letter-spacing: -0.01em;
-  color: var(--bone);
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.product-card__ident > .badge {
-  flex: 0 0 auto;
-}
-
-.product-card__note {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--grey-400);
-  line-height: 1.4;
-}
-
-/* components.price — textColor colors.grey-200, typography.numeric
-   (JetBrains Mono 500, 0.8125rem/1.4, 'tnum'). The currency glyph and the
-   digits are one text run in one colour, so the whole price sits in a single
-   tabular box. This was --bone, which is components.card.textColor, and the
-   split "$" span added a second grey on top of it (STI-486 F1). */
-.product-card__price {
-  margin: 0;
-  font-size: var(--text-base);
-  line-height: 1.4;
-  color: var(--grey-200);
-  font-weight: 500;
-  font-feature-settings: "tnum" 1;
-  flex: 0 0 auto;
-  white-space: nowrap;
+  grid-template-columns: minmax(0, 1fr);
+  border-block-end: var(--rule);
 }
 
 /* ── Brand statement / editorial section ────────────────────────────────── */
@@ -386,47 +203,6 @@ body {
   outline-offset: 4px;
 }
 
-
-/* ── Product detail page ────────────────────────────────────────────────── */
-.product {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: clamp(var(--space-2xl), 5vw, var(--space-3xl));
-  padding-block: var(--section-md);
-}
-@media (min-width: 720px) {
-  .product { grid-template-columns: 5fr 4fr; align-items: start; }
-}
-.product .gallery {
-  aspect-ratio: 4 / 5;
-  background: var(--charcoal);
-  border: var(--rule-light);
-  display: grid;
-  place-items: center;
-  color: var(--grey-400);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-}
-.product h1 {
-  font-family: var(--font-display);
-  font-weight: 500;
-  font-size: var(--text-3xl);
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-.product .price-line {
-  margin-top: var(--space-sm);
-  font-size: var(--text-lg);
-  color: var(--bone);
-  font-weight: 500;
-}
-.product .detail {
-  font-size: var(--text-base);
-  color: var(--grey-400);
-  border-inline-start: 2px solid var(--grey-400);
-  padding-inline-start: var(--space-xl);
-}
-
 /* ── Badge ──────────────────────────────────────────────────────────────── */
 /* components.badge — textColor colors.grey-400, typography.label
    (JetBrains Mono 500 / 0.6875rem / 1.3 / 0.12em / 'tnum' 1), rounded.none,
@@ -456,12 +232,6 @@ body {
   background: var(--grey-950);
   color: var(--grey-400);
   border: 1px solid var(--border-rule);
-}
-
-/* ── View Transitions ───────────────────────────────────────────────────── */
-::view-transition-old(card-stitch),
-::view-transition-new(card-stitch) {
-  animation-duration: 240ms;
 }
 
 /* ── Reduced motion ─────────────────────────────────────────────────────── */

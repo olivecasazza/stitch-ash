@@ -1,36 +1,72 @@
 <script setup lang="ts">
-const { quantity, open } = useCart()
+const { quantity } = useCart()
+const localePath = useLocalePath()
 
 const cartLabel = computed(() => `Open cart, ${quantity.value ?? 0} items`)
+
+// STI-653: the cart control is a LINK to /cart, not a button that opens the
+// slideover. The slideover was the only cart surface, so the cart had no URL —
+// it could not be bookmarked, shared, opened in a second tab, or recovered
+// after a session drop, and the GM audit on STI-492 measured 404s for every
+// cart URL a buyer would guess.
+//
+// An anchor is also the only way this control keeps the affordances the
+// button had lost: middle-click, ctrl/cmd-click, "open in new tab" and a
+// real href to copy. `useLocalePath` rather than a literal `to`, because every
+// internal link in this repo goes through it and `prefix_except_default` needs
+// it to produce /de/cart.
+//
+// The slideover stays mounted for the in-flow case: `add`/`update`/`remove`
+// still `toast.add({ actions: [{ label: 'View cart', onClick: () => open = true }] })`
+// in app/composables/cart.ts, and that is a pointer to a panel, not a route.
+const cartTo = computed(() => localePath('/cart'))
 </script>
 
 <template>
-  <header class="site-header wrap--wide">
-    <NuxtLink to="/" aria-label="STITCH AND ASH home" class="logo-link">
-      <svg class="mark" viewBox="0 0 260 32" role="img" aria-label="STITCH AND ASH">
-        <text
-          x="0"
-          y="24"
-          font-family="'JetBrains Mono', monospace"
-          font-size="22"
-          letter-spacing="2"
-          font-weight="500"
-        >STITCH &amp; ASH</text>
-      </svg>
-    </NuxtLink>
+    <header class="site-header wrap--wide">
+        <NuxtLink
+            to="/"
+            aria-label="STITCH AND ASH home"
+            class="logo-link"
+        >
+            <svg
+                class="mark"
+                viewBox="0 0 260 32"
+                role="img"
+                aria-label="STITCH AND ASH"
+            >
+                <text
+                    x="0"
+                    y="24"
+                    font-family="'JetBrains Mono', monospace"
+                    font-size="22"
+                    letter-spacing="2"
+                    font-weight="500"
+                >STITCH &amp; ASH</text>
+            </svg>
+        </NuxtLink>
 
-    <button class="cart-pill" @click.prevent="open = true" :aria-label="cartLabel">
-      <span class="cart-pill__label">Cart</span>
-      <ClientOnly>
-        <span v-if="quantity" class="cart-pill__count">{{ quantity }}</span>
-        <span v-else class="cart-pill__count">0</span>
-      </ClientOnly>
-    </button>
+        <NuxtLink
+            :to="cartTo"
+            class="cart-pill"
+            :aria-label="cartLabel"
+        >
+            <span class="cart-pill__label">Cart</span>
+            <ClientOnly>
+                <span
+                    v-if="quantity"
+                    class="cart-pill__count"
+                >{{ quantity }}</span>
+                <span
+                    v-else
+                    class="cart-pill__count"
+                >0</span>
+            </ClientOnly>
+        </NuxtLink>
+    </header>
 
-  </header>
-
-  <!-- Global cart slideover -->
-  <CartModal />
+    <!-- Global cart slideover -->
+    <CartModal />
 </template>
 
 <style scoped>
@@ -83,7 +119,22 @@ const cartLabel = computed(() => `Open cart, ${quantity.value ?? 0} items`)
    the element's own height rather than an overflow onto a neighbour that no
    longer exists. The row has to fit a 320px viewport without horizontal
    overflow, so the control cannot claim width it does not need:
-   `flex: 0 0 auto` keeps the count from being compressed. */
+   `flex: 0 0 auto` keeps the count from being compressed.
+
+   STI-653: the control is now an `<a>`, because the cart has a URL. Three
+   things change and nothing else may:
+
+   1. `text-decoration: none` — a UA underline under the label and the count
+      would be a second, unruled state cue competing with the hairline below,
+      and DESIGN.md's tertiary-link rule is "no underline at rest, underline on
+      hover", which the hairline already expresses.
+   2. `cursor: pointer` stays, because an anchor over a real route should say
+      so.
+   3. `border: none` plus `border-bottom` cannot both be stated on an anchor
+      without the shorthand resetting the bottom edge, so `border-top/left/right`
+      are cleared explicitly and the bottom edge is declared after them. On a
+      `<button>` the UA `border` is `border-style` only and the shorthand was
+      harmless; here it would wipe the hairline the active-route rule needs. */
 .cart-pill {
   display: inline-flex;
   flex: 0 0 auto;
@@ -93,7 +144,9 @@ const cartLabel = computed(() => `Open cart, ${quantity.value ?? 0} items`)
   padding-inline: var(--space-xs);
   padding-block: 0;
   background: transparent;
-  border: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
   border-bottom: 1px solid transparent;
   border-radius: 0;
   color: var(--grey-400);
@@ -102,6 +155,7 @@ const cartLabel = computed(() => `Open cart, ${quantity.value ?? 0} items`)
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  text-decoration: none;
   transition:
     color var(--transition-base),
     border-color var(--transition-base);
@@ -114,7 +168,7 @@ const cartLabel = computed(() => `Open cart, ${quantity.value ?? 0} items`)
   border-bottom-color: var(--bone);
 }
 
-/* STI-608: the cart pill is a real button, so `:hover, :focus-visible { outline:
+/* STI-608: the cart pill is a real link, so `:hover, :focus-visible { outline:
    none }` suppressed the focus ring for keyboard users. That is a WCAG 2.4.7
    failure, and 1.4.11 fails too because the indicator has no perceivable
    boundary. The focus indicator is a declaration taking
@@ -125,6 +179,18 @@ const cartLabel = computed(() => `Open cart, ${quantity.value ?? 0} items`)
 .cart-pill:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 4px;
+}
+
+/* STI-653: the active route is marked with the hairline, per DESIGN.md
+   Navigation — "Active route marked with an underline, never a background
+   pill". The hover/focus rule above moves the same edge to `bone`, and an
+   active route on its own must not read as hovered, so this sits after it and
+   is scoped to the `.router-link-active` the router sets on the current
+   route. `aria-current="page"` is what NuxtLink renders alongside it, so the
+   state is in the a11y tree too and not only in a border colour. */
+.cart-pill.router-link-active {
+  color: var(--bone);
+  border-bottom-color: var(--bone);
 }
 
 /* components.cart-pill-count declares `typography.numeric` — 13px /

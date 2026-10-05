@@ -65,12 +65,13 @@ expect_out() { # expect_out <needle>
 # isolated commit rather than the real history.
 mkrepo() { # mkrepo <dir>
   local dir="$1"
-  mkdir -p "$dir/app/pages" "$dir/app/utils" "$dir/app/composables" "$dir/src/catalog" "$dir/docs"
+  mkdir -p "$dir/app/pages" "$dir/app/utils" "$dir/app/composables" "$dir/app/components" "$dir/src/catalog" "$dir/docs"
   # .gitkeep so the empty directories are not pruned by git's empty-dir handling
   # while still leaving no real source files to trip the gate.
   : > "$dir/app/pages/.gitkeep"
   : > "$dir/app/utils/.gitkeep"
   : > "$dir/app/composables/.gitkeep"
+  : > "$dir/app/components/.gitkeep"
   : > "$dir/src/catalog/.gitkeep"
   : > "$dir/docs/.gitkeep"
   git -C "$dir" init -q -b main
@@ -366,15 +367,60 @@ import assert from 'node:assert/strict'
 test('new', () => { assert.equal(9, 9) })"
 check "newly added test file passes" pass "$D" --base HEAD~1
 
-# --- 20. A test OUTSIDE the guarded surface is not this gate's business.
-# src/catalog is guarded; a test elsewhere is not silently failed here.
+# --- 20. Gutting is checked repo-wide, NOT just the guarded prefixes. -------
+#
+# This row used to read the opposite -- "gutted test outside the guarded
+# surface passes this gate". It was the specification of the bug, not of the
+# contract. The gate's header comment promised to fail a PR that
+# "removes/gutts a test", while gutting_failures() filtered on `in_scope` --
+# so a test outside app/pages, app/utils, app/composables and src/catalog
+# could be emptied without the gate noticing. qa-verifier raised that as F1 on
+# STI-672 and measured scripts/deterministic-asset-manifest.test.mjs going
+# 46 -> 0 assertions with an exit code of 0.
+#
+# Losing the assertions is the loss. Deleting a test out there is still not
+# this gate's business, which is why only the gutting half widened.
 D="$TMP/case21"; mkrepo "$D"; : > "$D/manifest.txt"
 commit_add "$D" "ship a test outside the guarded surface" docs/notes.test.ts "$RICH_TEST"
 commit_gut "$D" "chore: trim it" docs/notes.test.ts \
   "import { test } from 'node:test'
 import assert from 'node:assert/strict'
 test('placeholder', () => { assert.ok(true) })"
-check "gutted test outside the guarded surface passes this gate" pass "$D" --base HEAD~1
+check "gutted test outside the guarded surface FAILS (F1)" fail "$D" --base HEAD~1
+expect_out "docs/notes.test.ts"
+expect_out "GUTTED"
+
+# ...but DELETING a test outside the guarded surface still passes undeclared.
+# Widening the gutting half must not quietly widen the deletion half.
+D="$TMP/case21b"; mkrepo "$D"; : > "$D/manifest.txt"
+commit_add "$D" "ship a test outside the guarded surface" docs/notes.test.ts "$RICH_TEST"
+commit_del "$D" "chore: drop it" docs/notes.test.ts
+check "deleted test outside the guarded surface still passes undeclared" pass "$D" --base HEAD~1
+
+# An out-of-scope test that GAINS assertions is still not a failure.
+D="$TMP/case21c"; mkrepo "$D"; : > "$D/manifest.txt"
+commit_add "$D" "ship a test outside the guarded surface" docs/notes.test.ts "$RICH_TEST"
+commit_add "$D" "test: more" docs/notes.test.ts \
+  "$RICH_TEST
+import assert from 'node:assert/strict'
+test('extra', () => { assert.equal(1, 1); assert.equal(2, 2) })"
+check "out-of-scope test with more assertions passes" pass "$D" --base HEAD~1
+
+# A declared '# baseline:' override works outside the guarded surface too,
+# otherwise a legitimate reduction under scripts/ has no honest route to land.
+D="$TMP/case21d"; mkrepo "$D"
+printf '%s\n' \
+  'docs/notes.test.ts' \
+  '# issue: STI-669' \
+  '# sign-off: storefront-lead' \
+  '# reason: intentional reduction outside the guarded surface' \
+  '# baseline: 1' > "$D/manifest.txt"
+commit_add "$D" "ship a test outside the guarded surface" docs/notes.test.ts "$RICH_TEST"
+commit_gut "$D" "chore: trim it" docs/notes.test.ts \
+  "import { test } from 'node:test'
+import assert from 'node:assert/strict'
+test('placeholder', () => { assert.ok(true) })"
+check "out-of-scope reduction with a declared baseline passes" pass "$D" --base HEAD~1
 
 # --- 21. The '# baseline:' override HONOURS an intentional reduction. -----
 # The gate's own failure message instructs an author to declare a deliberate
@@ -454,6 +500,106 @@ git -C "$D" add -A >/dev/null && git -C "$D" commit -qm "test: declare the reduc
 check "incomplete '# baseline:' override (no-signoff) still fails" fail "$D" --base HEAD~2
 expect_out "'# sign-off:"
 expect_out "'# baseline:' override needs"
+
+# --- 23. STI-682: app/components/ is inside the guarded surface. ----------
+#
+# The gate was written for a 385-line diff that deleted three files. It stopped
+# one directory short of the chrome: `git rm app/components/Header.vue` — the
+# component that carries the nav — reported nothing and exited 0, so the
+# deletion-scope check that was supposed to make the STI-633 class of loss
+# impossible could not see a header being removed outright. app/components is
+# where customer-facing chrome lives (header nav, footer, cart, product card),
+# so it is guarded on the same terms as the rest of the surface.
+HEADER_FULL="<template>
+  <header>
+    <NuxtLink to=\"/\">Stitch and Ash</NuxtLink>
+    <NuxtLink to=\"/products\">Shop</NuxtLink>
+    <NuxtLink to=\"/#statement\">Story</NuxtLink>
+    <NuxtLink to=\"/account\">Account</NuxtLink>
+    <span class=\"cart-count\">02</span>
+  </header>
+</template>"
+
+D="$TMP/case25"; mkrepo "$D"; : > "$D/manifest.txt"
+commit_add "$D" "ship the header" app/components/Header.vue "$HEADER_FULL"
+commit_del "$D" "drop the header" app/components/Header.vue
+check "undeclared app/components deletion fails" fail "$D" --base HEAD~1
+expect_out "app/components/Header.vue"
+
+# A component renamed out of app/components/ is the same removal, so
+# --no-renames must keep reporting it as a deletion here too. Without this the
+# new prefix would only catch `git rm`, and `git mv` would walk straight
+# through it.
+D="$TMP/case26"; mkrepo "$D"; : > "$D/manifest.txt"
+commit_add "$D" "ship the header" app/components/Header.vue "$HEADER_FULL"
+git -C "$D" mv app/components/Header.vue app/components/SiteHeader.vue
+git -C "$D" commit -qm "rename the header out of the chrome dir"
+check "rename within app/components fails on the old path" fail "$D" --base HEAD~1
+expect_out "app/components/Header.vue"
+
+# And the declaration path must work here too, or the new prefix is a gate
+# nobody can ever satisfy.
+D="$TMP/case27"; mkrepo "$D"
+commit_add "$D" "ship the header" app/components/Header.vue "$HEADER_FULL"
+commit_add "$D" "ship its replacement" app/components/SiteHeader.vue "$HEADER_FULL"
+commit_del "$D" "rename the header" app/components/Header.vue
+cat > "$D/manifest.txt" <<'MF'
+app/components/Header.vue
+# issue: STI-123
+# sign-off: storefront-lead
+# reason: renamed to app/components/SiteHeader.vue
+MF
+check "declared + signed-off app/components deletion passes" pass "$D" --base HEAD~1
+
+# --- 24. STI-682: the boundary is asserted, not assumed. ------------------
+#
+# The honest case from the issue: a diff that strips ONE line out of a
+# component that still exists. `--diff-filter=D` emits nothing, so the gate
+# cannot see it, and no prefix list ever will — the file was never deleted.
+# This is the STI-633 nav loss in miniature: remove <NuxtLink to="/account">
+# from Header.vue and CI stays green.
+#
+# The temptation is to write a fixture that asserts the gate CATCHES it. That
+# fixture would fail today and pass only if the gate gained a different kind of
+# check, so it would either encode a check the gate does not perform or be
+# deleted the first time someone got tired of a red suite. Neither is a guard.
+#
+# So this case asserts the truth instead: the gate passes, and the pass is only
+# acceptable while the script NAMES the gap. Case 1 as originally posed cannot
+# be represented by a fixture the gate can see; what can be represented is the
+# boundary statement, and that is what is asserted here. Deleting the
+# COVERAGE BOUNDARY note without adding a check fails this suite.
+D="$TMP/case28"; mkrepo "$D"; : > "$D/manifest.txt"
+commit_add "$D" "ship the header" app/components/Header.vue "$HEADER_FULL"
+commit_gut "$D" "refactor(header): drop the account link" app/components/Header.vue \
+  "<template>
+  <header>
+    <NuxtLink to=\"/\">Stitch and Ash</NuxtLink>
+    <NuxtLink to=\"/products\">Shop</NuxtLink>
+    <NuxtLink to=\"/#statement\">Story</NuxtLink>
+    <span class=\"cart-count\">02</span>
+  </header>
+</template>"
+check "in-place removal from a surviving component is NOT a deletion (documented boundary)" pass "$D" --base HEAD~1
+
+if grep -q "COVERAGE BOUNDARY (STI-682)" "$GATE"; then
+  echo "  ok   gate still declares its app/components coverage boundary"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL gate lost its 'COVERAGE BOUNDARY (STI-682)' note without gaining a check"
+  echo "         Either keep the honest boundary, or add the in-place check this case"
+  echo "         stands in for, and replace this assertion with one that exercises it."
+  FAIL=$((FAIL + 1))
+fi
+
+# The same boundary has to be in the failure message, not only the header: an
+# author who trips the gate has to learn what the gate cannot see from the same
+# place they are told how to fix it.
+D="$TMP/case29"; mkrepo "$D"; : > "$D/manifest.txt"
+commit_add "$D" "ship the header" app/components/Header.vue "$HEADER_FULL"
+commit_del "$D" "drop the header" app/components/Header.vue
+check "boundary restated for the failing author" fail "$D" --base HEAD~1
+expect_out "KNOWN BOUNDARY (STI-682)"
 
 echo ""
 echo "deletion-scope-gate self-test: $PASS passed, $FAIL failed"

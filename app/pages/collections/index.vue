@@ -15,5 +15,5 @@
 </script>
 
 <template>
-  <ProductGrid eyebrow="Collections" title="Collections" />
+  <ProductGrid title="Collections" />
 </template>

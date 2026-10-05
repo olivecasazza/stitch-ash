@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { loadCatalogDirectory, loadCollectionDirectory } from "../src/catalog/load.ts";
 import { diffInventory } from "../src/catalog/inventory.ts";
 import { diffShipping, loadShippingPolicies } from "../src/catalog/shipping.ts";
+import { loadReturnsPolicies } from "../src/catalog/returns.ts";
 import {
   applyCollection,
   applyProduct,
@@ -46,6 +47,7 @@ const root = process.cwd();
 const catalogDir = path.join(root, "catalog", "products");
 const collectionDir = path.join(root, "catalog", "collections");
 const shippingDir = path.join(root, "catalog", "shipping");
+const returnsDir = path.join(root, "catalog", "returns");
 
 function printUsage(): never {
   console.error(`Usage: pnpm catalog <validate|plan|apply>`);
@@ -58,9 +60,11 @@ async function main() {
   const products = await loadCatalogDirectory(catalogDir);
   const collections = await loadCollectionDirectory(collectionDir);
   const shippingPolicies = await loadShippingPolicies(shippingDir);
+  const returnsPolicies = await loadReturnsPolicies(returnsDir);
   console.log(`catalog: loaded ${products.length} products`);
   console.log(`catalog: loaded ${collections.length} collections`);
   console.log(`catalog: loaded ${shippingPolicies.length} shipping policies`);
+  console.log(`catalog: loaded ${returnsPolicies.length} returns policies`);
 
   // STI-471: a collection may only name a product handle this catalog defines.
   // Catching it at validate time keeps `apply` from ever sending a membership

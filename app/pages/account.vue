@@ -34,20 +34,16 @@ import { CUSTOMER_ACCOUNT_URL } from '~/utils/customer-account'
 
 useSeoMeta({
   title: 'Account — STITCH AND ASH',
-  description:
-    'Your STITCH AND ASH order history, addresses, and tracking — all in one place.',
+  description: 'Order history, addresses, and tracking. One place.',
 })
 </script>
 
 <template>
   <main class="account wrap">
-    <p class="eyebrow">Account</p>
-    <h1 class="account__title">Your account</h1>
+    <h1 class="account__title">Account</h1>
 
     <p class="account__lede section-title">
-      Your orders, addresses, and tracking live in the STITCH AND ASH account you
-      use at checkout. It is the same account for every order, so there is
-      nothing to sign up for twice.
+      Orders, addresses, tracking. One checkout account. No second sign-up.
     </p>
 
     <p class="account__actions">
@@ -59,26 +55,22 @@ useSeoMeta({
     <section class="account__panel" aria-labelledby="account-orders-h">
       <h2 id="account-orders-h" class="account__sub">Orders</h2>
       <p class="account__line">
-        Every order you have placed is listed there with its current status and,
-        once it has shipped, its tracking numbers — from confirmed through to
-        delivered. We also email a confirmation when an order goes out, so you
-        can find an order from either side.
+        Every order, listed. Current status through delivered. Tracking
+        numbers once shipped. Confirmation email on dispatch.
       </p>
       <p class="account__line text-muted">
-        Opening your account takes you to the secure area where your orders are
-        held. This site keeps no second copy of them and asks for no separate
-        password here — one account, one sign-in.
+        Orders held in the secure area. No second copy on this site. One
+        account, one sign-in.
       </p>
     </section>
 
     <section class="account__panel" aria-labelledby="account-help-h">
       <h2 id="account-help-h" class="account__sub">Cannot get in, or need a hand?</h2>
       <p class="account__line">
-        If you have never ordered, or cannot remember which email address you
-        used, tell us and we will find the order for you. Sizing, embroidery,
-        made-to-order lead times, or a change to an order all reach the same two
-        people who make the garments.
-        <NuxtLink to="/contact" class="account__link">Send us a message</NuxtLink>.
+        Never ordered, or email forgotten. The order is found on request.
+        Sizing, embroidery, made-to-order lead times, order changes — the same
+        two people who make the garments.
+        <NuxtLink to="/contact" class="account__link">Send a message</NuxtLink>.
       </p>
       <p class="account__line">
         Or keep browsing <NuxtLink to="/products" class="account__link">the collection</NuxtLink>.
@@ -98,8 +90,7 @@ useSeoMeta({
 .account__title {
   font-family: var(--font-display);
   font-size: var(--text-3xl);
-  letter-spacing: 0.04em;
-  margin-block-start: var(--space-lg);
+  margin-block-start: 0;
   margin-block-end: var(--space-xl);
 }
 

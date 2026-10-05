@@ -1,0 +1,46 @@
+# STI-681: the returns policy, declared ONCE.
+#
+# Precedent is catalog/shipping/default.yaml, and the posture is the same:
+# DECLARATION-ONLY. Nothing here is written to Shopify by `catalog:apply`; there
+# is no Admin API returns-policy object, and this file does not claim to be one.
+# It is the source the product copy is restated from, so the policy can be
+# stated once and cannot drift between SKUs.
+#
+# Before this file, the store told one customer two opposite things at once:
+# "Returns within 14 days, unworn." on sku-001 and "Final sale." on sku-002 and
+# sku-003. That split was authored in 79ad80e (#204) and made durable by
+# DESIGN.md transcribing it. scripts/ci/returns-claim-gate.sh is the interim
+# protection; this file is the structural fix.
+#
+# The operator's decision (STI-681): FAULTY-ONLY. There is no change-of-mind
+# returns window. A faulty or wrong item is replaced.
+#
+# `lines` is the exact customer-facing copy. `src/catalog/returns.ts` validates
+# it, `catalog:validate` loads it, and `src/catalog/product-copy.test.ts` pins
+# every SKU's Shipping & Returns section to these strings, so a future edit to
+# one product cannot re-create the split.
+
+id: stitch-ash.returns.default
+policyName: STITCH AND ASH faulty-only returns
+
+# Which of the two coherent directions this policy takes. `final_sale` is the
+# direction every SKU's returns line must classify as under
+# scripts/ci/returns-claim-gate.sh: a customer may not send the item back on a
+# change of mind.
+direction: final_sale
+
+# Rendered verbatim on every product, in the Shipping & Returns section.
+#
+# One line, not two, because DESIGN.md caps a section at 4 lines and sku-001
+# already spends three on shipping facts ("Made to order.",
+# "Ships in 2-3 weeks.", "Tracked shipping."). Splitting the direction and the
+# faulty exception into two lines would force sku-001 to either drop a shipping
+# fact or exceed the limit. The two facts are one policy statement, so they are
+# one line.
+#
+# Classifier: this line hits the FINAL_SALE branch of
+# scripts/ci/returns-claim-gate.sh (`no[[:space:]]+(refund|return|exchange)`),
+# never AMBIGUOUS. The faulty exception is deliberately worded on "replaced",
+# which is outside the gate's claim vocabulary, so it adds no second direction.
+lines:
+  - "No returns. Faulty or wrong items replaced."
