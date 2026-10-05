@@ -32,6 +32,7 @@ import { test } from 'node:test'
 import {
     APP_MANIFEST_TIMESTAMP,
     ASSET_MANIFEST_ID,
+    appManifestClockStats,
     assetManifestPlugin,
     manifestRewriteStats,
     neutraliseAppManifestClock,
@@ -304,6 +305,36 @@ test('an app manifest Nuxt reshaped is a loud failure', () => {
         () => neutraliseAppManifestClock(dir, builds),
         /no numeric `timestamp`/,
     )
+})
+
+// The clock did NOT go away in the shipped fix: the hook this function hangs off
+// never reached it, because the guard in front of it read `serveStatic` and the
+// cloudflare_pages preset leaves that off. Every test above passed anyway — they
+// call the function, not the wiring. So the directory being absent is a loud
+// failure now, and the build asserts the function was called at all.
+test('an absent app manifest directory is a loud failure, not an empty result', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'st625-'))
+    assert.throws(
+        () => neutraliseAppManifestClock(dir, join(dir, '_nuxt', 'builds')),
+        /no app manifest under/,
+    )
+})
+
+test('the build can tell whether the app-manifest hook ran', () => {
+    // `compiled` asserts on this. Without it, "the hook returned early" and "the
+    // files were already de-clocked" are the same silence — which is how the
+    // cloudflare_pages guard shipped.
+    const before = appManifestClockStats().targets
+    const dir = mkdtempSync(join(tmpdir(), 'st625-'))
+    const builds = join(dir, '_nuxt', 'builds')
+    mkdirSync(join(builds, 'meta'), { recursive: true })
+    writeFileSync(join(builds, 'latest.json'), '{"id":"abc123","timestamp":1}')
+    writeFileSync(join(builds, 'meta', 'abc123.json'), '{"id":"abc123","timestamp":2}')
+
+    neutraliseAppManifestClock(dir, builds)
+    const after = appManifestClockStats()
+    assert.equal(after.targets - before, 2, 'both app-manifest files must be counted')
+    assert.ok(after.calls >= 1, 'the call itself must be counted, for the wired case')
 })
 
 // ------------------------------------------------------------- the mtime source

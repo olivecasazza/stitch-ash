@@ -94,7 +94,7 @@
  * matters the moment an asset IS routed through the worker.
  */
 
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { readBuildCommitDate } from './read-build-commit.mjs'
 
@@ -255,6 +255,20 @@ export const manifestRewriteStats = () => ({ ...STATS })
 
 const STATS = { transforms: 0, entries: 0 }
 
+const APP_MANIFEST_STATS = { calls: 0, targets: 0 }
+
+/**
+ * What `neutraliseAppManifestClock` has actually seen this build.
+ *
+ * This exists because the first version of the hook was wired to a guard that is
+ * false for the `cloudflare_pages` preset, so it returned early and rewrote
+ * nothing — while every unit test passed, because they call the function directly
+ * and never the wiring. The live site's `/_nuxt/builds/latest.json` still carried
+ * the deploy clock after that shipped. The `compiled` hook asserts on this, so
+ * "the hook did not run" is a failed build instead of a silent regression.
+ */
+export const appManifestClockStats = () => ({ ...APP_MANIFEST_STATS })
+
 /**
  * The rollup plugin that applies the rewrite before the minifier does.
  *
@@ -309,10 +323,26 @@ export const APP_MANIFEST_TIMESTAMP = 0
  */
 export const neutraliseAppManifestClock = (publicDir, buildsDir) => {
     // `latest.json` and every `meta/<buildId>.json`.
+    //
+    // A directory that is not there is a LOUD failure, not an empty result: this
+    // function is reached from a hook, so "nothing to do" and "the hook never
+    // reached the files" look identical from the outside, and the first version
+    // of this shipped that ambiguity to production.
+    const metaDir = join(buildsDir, 'meta')
+    if (!existsSync(join(buildsDir, 'latest.json')) || !existsSync(metaDir)) {
+        throw new Error(
+            `[deterministic-asset-manifest] no app manifest under ${buildsDir}. `
+            + 'The nuxt `nitro:build:public-assets` hook runs before Nitro writes '
+            + '_nuxt/builds/, or Nuxt moved them. Fail rather than ship a bundle '
+            + 'whose _nuxt/builds/*.json etag is a hash of the build clock.',
+        )
+    }
     const targets = [
         join(buildsDir, 'latest.json'),
-        ...readdirSync(join(buildsDir, 'meta')).map(name => join(buildsDir, 'meta', name)),
+        ...readdirSync(metaDir).map(name => join(metaDir, name)),
     ]
+    APP_MANIFEST_STATS.calls += 1
+    APP_MANIFEST_STATS.targets += targets.length
 
     const rewritten = []
     for (const file of targets) {
