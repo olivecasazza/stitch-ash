@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # scripts/ci/deletion-scope-gate.sh
 # STI-669: fails a PR that deletes storefront surface (app/pages, app/utils,
-# app/composables, src/catalog) or removes/gutts a test without declaring it.
+# app/composables, app/components, src/catalog) or removes/gutts a test without
+# declaring it. STI-682 extended that enumeration to app/components.
 #
 # Precise scope, because this file's own header was itself an overclaim
 # (F1, raised by qa-verifier on STI-669/QA STI-672):
@@ -38,6 +39,19 @@
 # silent coverage loss. An empty manifest declares nothing, which is the
 # default — so the silent path is closed.
 #
+# COVERAGE BOUNDARY (STI-682): app/components/ is PATH-DELETION-ONLY. This gate
+# sees a component only when the diff *deletes or renames away* the file. An
+# in-place edit that strips markup out of a component that still exists — e.g.
+# removing one `<NuxtLink>` from app/components/Header.vue — produces no D
+# entry, so no prefix list can catch it and this gate does not. That is the
+# exact shape of the STI-633 nav loss, and it is deliberately NOT claimed as
+# covered here. The check that would catch it is a rendered-HTML assertion that
+# the header exposes the routes DESIGN.md specifies; DESIGN.md:634-666 records
+# the nav itself as an open operator decision (STI-633), so that assertion
+# cannot be written against a contested spec. Until STI-633 resolves, the
+# boundary is the honest statement: whole-file removals under app/components/
+# are gated; content shrinkage inside a surviving component is not.
+#
 # Usage:
 #   deletion-scope-gate.sh [--base <ref>] [--head <ref>] [--manifest <path>]
 #                          [--repo <dir>] [--name-only]
@@ -72,7 +86,10 @@ while [ $# -gt 0 ]; do
     --manifest) MANIFEST="${2:?--manifest needs a path}"; shift 2 ;;
     --repo) REPO="${2:?--repo needs a directory}"; shift 2 ;;
     --name-only) NAME_ONLY=1; shift ;;
-    -h|--help) sed -n '2,56p' "$0"; exit 0 ;;
+    # Print the header comment block only. Hardcoded line numbers went stale
+    # every time the header grew — `2,56p` was already overshooting into the
+    # argument defaults below — so the range now ends at the first code line.
+    -h|--help) sed -n '2,/^set -euo/p' "$0" | sed '$d'; exit 0 ;;
     *) echo "ERROR: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -88,10 +105,21 @@ git rev-parse --git-dir >/dev/null 2>&1 || {
 MANIFEST="${MANIFEST:-$REPO_ROOT/scripts/ci/deletion-scope-manifest.txt}"
 
 # --- The guarded surface. Deleting any of these needs a manifest entry. ---
+#
+# app/components/ is in this list because it is where customer-facing chrome
+# lives — header nav, footer, cart, product card — and #207 proved that
+# removing that surface through a large chrome PR reaches production with CI
+# green. It is guarded on the same terms as the rest: the whole file going away,
+# under a rename too, because --no-renames already reports R as D(old).
+#
+# It is deliberately NOT guarded against in-place shrinkage. See the COVERAGE
+# BOUNDARY (STI-682) note in the header — that gap is real, it is named here
+# rather than papered over, and closing it needs a different check.
 SCOPE_PREFIXES=(
   "app/pages/"
   "app/utils/"
   "app/composables/"
+  "app/components/"
   "src/catalog/"
 )
 
@@ -557,6 +585,17 @@ scripts/ci/deletion-scope-manifest.txt:
 A deleted test additionally needs a '# replacement:' line naming a test that
 survives at HEAD. Deleting a test with no replacement is always a failure and
 is never a silent default.
+
+A rename out of app/components/ counts as a deletion, because it removes a
+shipped component from the chrome exactly as `git rm` does.
+
+KNOWN BOUNDARY (STI-682): this gate sees app/components/ only through deleted
+paths. Stripping markup out of a component that still exists — removing one
+nav link from Header.vue, say — emits no deletion and is not reported here.
+Deleting the whole file is caught; emptying it in place is not. The check that
+would catch that is a rendered-HTML assertion against DESIGN.md, and DESIGN.md
+records the nav as an open operator decision (STI-633), so it is not written
+against a contested spec.
 
 Gutting a test is the same failure wearing a different hat: the path still
 exists, so no deletion check sees anything, but the coverage is gone. The gate

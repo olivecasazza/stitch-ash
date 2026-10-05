@@ -342,11 +342,19 @@ jobs:
   # `git diff --diff-filter=D --name-only` against the merge base and never
   # parses the PR title or body, so a description that does not match the diff
   # cannot authorise anything. A deletion under app/pages/, app/utils/,
-  # app/composables/ or src/catalog/ must be declared in
+  # app/composables/, app/components/ or src/catalog/ must be declared in
   # scripts/ci/deletion-scope-manifest.txt with an issue id and a named
   # sign-off; a deleted test must additionally name a replacement test that
   # survives at HEAD. The committed manifest declares nothing, so the default is
   # closed rather than open.
+  #
+  # app/components/ joined that list in STI-682. It is guarded on deleted
+  # PATHS only, and that is the whole of the guarantee: a diff that strips
+  # markup out of a component which still exists emits no deletion, so this job
+  # does not see it and is not claimed to. The script's COVERAGE BOUNDARY note
+  # says so in the same place an author reads how to declare a deletion, and
+  # the self-test asserts that note is still there — so the boundary cannot be
+  # quietly dropped by someone who only meant to tidy a comment.
   #
   # fetch-depth: 0 is required, not cosmetic: the gate diffs against the merge
   # base with origin/main, and actions/checkout's default shallow clone of depth
