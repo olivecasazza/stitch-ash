@@ -12,8 +12,23 @@
 # DESIGN.md transcribing it. scripts/ci/returns-claim-gate.sh is the interim
 # protection; this file is the structural fix.
 #
-# The operator's decision (STI-681): FAULTY-ONLY. There is no change-of-mind
-# returns window. A faulty or wrong item is replaced.
+# PROVENANCE — READ BEFORE CITING THIS FILE AS A DECISION.
+#
+# This file previously asserted: "The operator's decision (STI-681):
+# FAULTY-ONLY." That attribution was false. As of 2026-10-05 the operator had
+# answered nothing: the `ask_user_questions` card on STI-681 (interaction
+# 3b14fb8e) was still `pending`, and no user comment existed on the thread.
+# Every STI-681 comment was authored by the agent that filed it.
+#
+# So the direction below is an UNCONFIRMED DEFAULT chosen by merch-lead to make
+# the store self-consistent, not an approved commercial policy. It is labelled
+# as such everywhere it is restated. It is defensible on its own terms - it is
+# the direction 2 of the 3 SKUs already published, and it is the honest reading
+# of made-to-order embroidered goods - but it is NOT a decision the operator has
+# ratified, and it must not be cited as one in the KPI report or to a supplier.
+#
+# When the operator answers STI-681, change `direction` and `lines` here in the
+# same commit that records the answer.
 #
 # `lines` is the exact customer-facing copy. `src/catalog/returns.ts` validates
 # it, `catalog:validate` loads it, and `src/catalog/product-copy.test.ts` pins
@@ -21,15 +36,20 @@
 # one product cannot re-create the split.
 
 id: stitch-ash.returns.default
-policyName: STITCH AND ASH faulty-only returns
+policyName: STITCH AND ASH faulty-only returns (UNCONFIRMED - pending STI-681)
 
 # Which of the two coherent directions this policy takes. `final_sale` is the
 # direction every SKU's returns line must classify as under
 # scripts/ci/returns-claim-gate.sh: a customer may not send the item back on a
 # change of mind.
+#
+# UNCONFIRMED DEFAULT - see the PROVENANCE block above. Not operator-ratified.
 direction: final_sale
 
 # Rendered verbatim on every product, in the Shipping & Returns section.
+#
+# UNCONFIRMED DEFAULT - see the PROVENANCE block above. If the operator picks
+# option 2 or 3 on STI-681 this line changes, and all three SKUs change with it.
 #
 # One line, not two, because DESIGN.md caps a section at 4 lines and sku-001
 # already spends three on shipping facts ("Made to order.",

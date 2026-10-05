@@ -629,10 +629,20 @@ and the exact customer-facing lines; `src/catalog/returns.ts` validates and
 loads it, `catalog:validate` reads it, and every SKU's Shipping & Returns
 section must render those lines verbatim.
 
-The operator's decision (STI-681): **faulty-only**. No change-of-mind returns
-window; a faulty or wrong item is replaced. So the policy is one line, not a
-14-day promise — the line it declares is stated once and applied to all three
-SKUs.
+**The returns direction is NOT an operator decision yet.** It is an unconfirmed
+default: **faulty-only**. No change-of-mind returns window; a faulty or wrong
+item is replaced. So the policy is one line, not a 14-day promise — the line it
+declares is stated once and applied to all three SKUs.
+
+This spec previously said "The operator's decision (STI-681): faulty-only."
+That was false and was corrected on 2026-10-05. As of that date the operator
+had answered nothing — the `ask_user_questions` card on STI-681 was still
+`pending` and the thread held no user comment. The direction is a defensible
+default (it is the direction 2 of 3 SKUs already published, and it fits
+made-to-order embroidered goods), but do not cite it to a customer, a supplier,
+or the KPI report as a ratified policy. If the operator later picks a real
+returns window, it goes here and in the policy file in the same commit that
+records the answer.
 
 The policy is DECLARATION-ONLY, like `catalog/shipping/default.yaml`: nothing
 in it is written to Shopify by `catalog:apply`. Do not restate the line in this
