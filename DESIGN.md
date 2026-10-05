@@ -661,12 +661,15 @@ pointed at. That ban is **not** re-affirmed here; it is recorded as an
 unresolved spec question, because the storefront currently has **no route into
 its own catalogue**:
 
-- At `main` @ `4662958` the only anchors in the chrome are the wordmark (`/`)
-  and `#main-content`. `Shop`, `Story` and `Account` are gone from the row.
+- At `main` @ `4662958` the only anchors in the chrome are the wordmark (`/`),
+  the cart link (`/cart`, STI-653) and the layout's `#main-content` skip link.
+  `Shop`, `Story` and `Account` are gone from the row.
 - `app/pages/products.vue` (the canonical full-capsule listing, STI-241) is
   reachable from no nav link. It survives only as a direct URL and as the
-  "keep browsing" link on `/account`. `/collections`, `/contact` and `/blog`
-  are likewise unlinked from the chrome.
+  "keep browsing" link on `/account`. `/collections`, `/shop` and `/contact`
+  are likewise unlinked from the chrome. `/blog` has no index route at all —
+  only `blog/<handle>` and `blog/<handle>/<article>` — and `/blog` returns
+  404; it could not be linked to even if nav were restored.
 - So a first-time visitor on `/` sees the hero and a product grid (STI-579)
   whose cards link to PDPs, and **no way to reach the full capsule, a
   collection index, or contact without knowing a URL.** For a store whose
@@ -676,11 +679,25 @@ its own catalogue**:
   incidental — it was what #207 deleted, not a reviewed spec — so the choice
   is between *some* nav and *no* nav, not between two settled designs.
 
-**What is not open:** the visual treatment. A restored link reuses the
-existing `.nav-link` selector, sits between the wordmark and the cart button,
-inherits the underline active-route rule above, adds no new token, and does
-not reintroduce a footer. Compact monochrome minimalism is a typographic and
+**What is not open:** the visual treatment, and the cost of restoring it. A
+restored link sits between the wordmark and the cart button, takes the
+underline active-route rule above, adds no new token, and does not
+reintroduce a footer. Compact monochrome minimalism is a typographic and
 spatial discipline (DT-2); a single monochrome link does not violate it.
+
+**Correction (STI-633): the treatment is a restoration, not a reuse.** An
+earlier version of this section said a restored link "reuses the existing
+`.nav-link` selector". That was wrong. #207 deleted the `.nav-menu` and
+`.nav-link` scoped rules along with the markup — at `main` the string
+`nav-link` appears in exactly two files, this document and
+`docs/qa-checklist.md`, and in **no** stylesheet or component. Options (a) and
+(b) therefore re-introduce those five rule blocks rather than inherit them.
+The cost is bounded and token-clean: `.nav-menu` is one `inline-flex` line
+with a `clamp()` gap, and `.nav-link` is four rules (colour, hover/focus
+colour, the `::after` underline, its scale transition) that consume only
+`--grey-400`, `--bone`, `--text-sm` and `--font-body`. All four tokens still
+exist in `app/assets/css/tokens.css`, so restoring the nav adds no custom
+property and DT-1's top-down chain has nothing new to mirror.
 
 **Blocked on an operator call** between: (a) restore two links — `Shop` →
 `/products`, `Story` → `/#statement` — which is the smallest change that
