@@ -3,6 +3,14 @@
 # STI-669: fails a PR that deletes storefront surface (app/pages, app/utils,
 # app/composables, src/catalog) or removes/gutts a test without declaring it.
 #
+# Precise scope, because this file's own header was itself an overclaim
+# (F1, raised by qa-verifier on STI-669/QA STI-672):
+#   - DELETION is checked only for the four guarded prefixes above.
+#   - GUTTING is checked for EVERY test file the diff touches, repo-wide.
+# Deleting a test outside the guarded surface is not this gate's business.
+# Emptying one is, because the assertions are the coverage and no other check
+# in this repo notices when they go.
+#
 # Why this gate exists. PR #207 (f29e7d8, "fix(storefront): facts in the
 # expander, wordmark+cart header, no footer, cart on the token ramp") carried
 # three deletions that had nothing to do with its stated scope:
@@ -218,14 +226,17 @@ test_local_imports() { # test_local_imports <ref>:<test-path>
     | grep -vE '^(\.|/)' || true
 }
 
-# Every guarded-surface path the diff deletes. When a test's own subject is
+# Every path the diff deletes, guarded or not. When a test's own subject is
 # removed in the same diff, losing its assertions is the correct outcome and
 # not a gutting — that is what a real removal looks like.
-diff_deletes_in_scope() { # diff_deletes_in_scope
-  printf '%s' "$DELETED" | while IFS= read -r p; do
-    [ -n "$p" ] || continue
-    in_scope "$p" && printf '%s\n' "$p"
-  done
+#
+# Repo-wide rather than guarded-only: gutting is now checked repo-wide (F1), so
+# a test under scripts/ whose subject was deleted would otherwise be reported
+# as gutted for the honest consequence of someone else's removal. DELETED
+# already holds every deleted path, so this is the old filter with the
+# in_scope predicate dropped.
+diff_deletes_any() { # diff_deletes_any
+  printf '%s' "$DELETED"
 }
 
 # A '# baseline:' entry is only honoured when it carries a complete signature:
@@ -281,15 +292,31 @@ baseline_declared_but_unusable() { # -> 0 when an override was present
 }
 
 gutting_failures() {
-  local path base_count head_count spec deleted_in_scope="" subject_gone=0
+  local path base_count head_count spec deleted_any="" subject_gone=0
   local found=0
+  deleted_any="$(diff_deletes_any)"
   while IFS= read -r path; do
     [ -n "$path" ] || continue
     is_test_path "$path" || continue
-    # Same guarded surface as the deletion checks. A test elsewhere in the
-    # repo is not this gate's business, and silently failing one would make
-    # the gate cry wolf on commits that changed nothing it protects.
-    in_scope "$path" || continue
+    # Gutting is checked repo-wide, NOT restricted to the guarded surface.
+    #
+    # This line used to read `in_scope "$path" || continue`, which made the
+    # header comment above a false claim: it promised to fail a PR that
+    # "removes/gutts a test", while a test outside app/pages, app/utils,
+    # app/composables or src/catalog was waved straight through. Measured on
+    # main (fb801ec) with this line restored to its old form, emptying
+    # scripts/deterministic-asset-manifest.test.mjs from 44 assertions to 0
+    # produced ZERO deleted paths and exited 0 -- the exact shape of the
+    # coverage loss this issue exists to catch, with no deletion to notice.
+    #
+    # DELETION stays scoped; only gutting widens. That asymmetry is
+    # deliberate: a false negative here is silent coverage loss, while the
+    # cost of a false positive is one '# baseline:' override and a review.
+    #
+    # The out-of-scope suites this newly covers are real:
+    #   scripts/artifact-compare.test.mjs
+    #   scripts/artifact-normalise.test.mjs
+    #   scripts/deterministic-asset-manifest.test.mjs
     base_count="$(assertions_at "$BASE_SHA:$path")"
     head_count="$(assertions_at "$HEAD_REF:$path")"
     # An unreadable side is not evidence of a gutting; the deletion path above
@@ -320,15 +347,12 @@ gutting_failures() {
     # Did this diff delete the module the test exercised? If so the assertions
     # had nothing left to assert on. Skipped when the removal is already
     # declared, because that path has its own review trail.
-    if [ -z "$deleted_in_scope" ]; then
-      deleted_in_scope="$(diff_deletes_in_scope)"
-    fi
     subject_gone=0
-    if [ -n "$deleted_in_scope" ]; then
+    if [ -n "$deleted_any" ]; then
       spec="${BASE_SHA%:*}/$(dirname "$path")"
       while IFS= read -r imported; do
         [ -n "$imported" ] || continue
-        if printf '%s\n' "$deleted_in_scope" | grep -qxF "$spec/$imported"; then
+        if printf '%s\n' "$deleted_any" | grep -qxF "$spec/$imported"; then
           subject_gone=1
           break
         fi
@@ -432,7 +456,13 @@ if [ -z "$SCOPED" ]; then
   # No deletions is NOT automatically a pass: a test can also be emptied in
   # place, which produces no D entry at all. Run the gutting check either way.
   if ! gutting_failures; then
-    echo "Deletion-scope gate: passed (no deletions or gutted tests under ${SCOPE_PREFIXES[*]} vs $BASE_SHA)"
+    # Say what was actually checked. This message used to read only
+    # "... under ${SCOPE_PREFIXES[*]}", which after the F1 widening understated
+    # the gutting coverage: the deletion scope is the four prefixes, but the
+    # gutting check covers every test in the repo. A pass line that describes
+    # a narrower check than the one that ran is how a gate starts being
+    # trusted for something it never did.
+    echo "Deletion-scope gate: passed (no deletions under ${SCOPE_PREFIXES[*]}, no gutted tests anywhere in the repo, vs $BASE_SHA)"
     exit 0
   fi
   exit 1
