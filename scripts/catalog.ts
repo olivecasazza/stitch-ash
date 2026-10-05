@@ -167,13 +167,29 @@ async function main() {
   // It is owed to the operator rather than to a code change: writing stock, or
   // flipping inventoryPolicy to DENY at zero, is a spend/policy decision
   // (HARD RULE 5, and STI-532).
+  //
+  // STI-619 corrected a false claim that used to be printed right here. This
+  // block used to say catalog:apply "does NOT write inventory and does NOT change
+  // inventoryPolicy". The second half was never true: `buildVariantBulkInput`
+  // puts `inventoryPolicy` on every `productVariantsBulkUpdate` row
+  // (`src/catalog/shopify-admin.ts`), because `ProductVariantsBulkInput` really
+  // does accept that field. Only inventory QUANTITY is unwritable — stock lives
+  // on the inventory item, and `assertNoDeclaredInventoryQuantity` refuses a
+  // catalog that claims otherwise.
+  //
+  // That inaccuracy was load-bearing: it told the operator no tool in this repo
+  // could stop further overselling, when declaring `inventoryPolicy: DENY` in
+  // catalog/products/*.yaml and applying IS a supported remedy. It has been
+  // re-asserted to the operator more than once. Keep the two halves distinct.
   if (oversoldVariants.length > 0) {
     console.log("");
     console.log(
       `inventory: OVERSELL - ${oversoldVariants.length} variant(s) are at NEGATIVE stock, so the store has ` +
         `already accepted orders it cannot fill: ${oversoldVariants.join(", ")}. That is a customer-visible ` +
-        `harm, not a price drift. Reported for operator decision (HARD RULE 5); catalog:apply does NOT write ` +
-        `inventory and does NOT change inventoryPolicy.`,
+        `harm, not a price drift. Reported for operator decision (HARD RULE 5): catalog:apply does NOT write ` +
+        `inventory QUANTITY (stock lives on the inventory item), but it DOES write inventoryPolicy. ` +
+        `Declaring inventoryPolicy: DENY on the affected variant in catalog/products/*.yaml and applying is ` +
+        `a supported remedy that stops the store taking further orders it cannot fill.`,
     );
   }
 
