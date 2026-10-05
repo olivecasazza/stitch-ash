@@ -266,6 +266,36 @@ jobs:
           ./scripts/ci/public-runtime-config-gate.sh
           ./scripts/ci/storefront-mock-gate.sh
 
+      # STI-660: can a buyer actually reach checkout on the apex?
+      #
+      # This is the one commerce gate that is NOT static and offline, because it
+      # is the only one that measures the property that matters: whether a
+      # purchase can complete. Every gate above reads source and catalog files
+      # and would stay green while the store takes zero orders — which is exactly
+      # what happened. storefront-mock-gate.sh proves the data path is wired to
+      # the live Storefront API; it says nothing about whether a checkout can be
+      # finished. The apex is password-gated today, so every checkoutUrl,
+      # including the ones this app mints at POST /api/checkout, dead-ends at
+      # Shopify's /password page. A green pipeline republished the site
+      # repeatedly without ever asking that question.
+      #
+      # It reads no credential: no SHOPIFY_* value, no Admin token, no Storefront
+      # token. It probes a URL, which is what makes it safe on every deploy.
+      #
+      # It fails OPEN on network/DNS/TLS failure and on 404/5xx, never closed —
+      # a flaky network must not block every deploy, and a 5xx or a 404 is a
+      # DIFFERENT defect whose remedy is not "clear the password". Only an
+      # unambiguous Shopify password page fails the deploy.
+      #
+      # It will be RED until an operator clears the storefront password in
+      # Shopify admin (Settings -> Online Store -> Preferences -> Storefront
+      # password). That red is the correct outcome: the alternative is publishing
+      # a store that cannot take an order. It is placed after the static gates
+      # and before the publish step so the defect is reported with full context
+      # rather than aborting the run early.
+      - name: Storefront checkout reachability gate
+        run: ./scripts/ci/storefront-checkout-gate.sh
+
       # STI-241: cloudflare/pages-action was deleted upstream (repo now 404),
       # breaking deploys with "Unable to resolve action `cloudflare/pages-action`".
       # Publish via wrangler-action + `wrangler pages deploy` instead — same

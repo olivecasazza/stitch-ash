@@ -92,6 +92,27 @@ jobs:
       - name: Self-test the deploy dispatch dedup gate
         run: ./scripts/ci/deploy-dispatch-dedup.test.sh
 
+      # STI-660: the storefront apex is password-gated, so every buyer's
+      # checkoutUrl dead-ends at /password and no purchase can complete. It
+      # survived for weeks because NOTHING in CI could see it: every other
+      # commerce gate here is static and offline, and storefront-mock-gate.sh
+      # proves only that the data path is wired to the live API — it explicitly
+      # does not claim a buyer can check out. So deploys republished the
+      # storefront repeatedly while CI stayed green.
+      #
+      # The self-test runs here, not the gate, for the same reason the freshness
+      # gate's self-test runs but the gate does not: the gate's question ("can a
+      # buyer reach checkout on the live apex?") is a live-environment question
+      # that is currently answered NO, so running it on pull_request would fail
+      # every PR by design and hide a real signal behind a known-red check. The
+      # deploy path runs the gate itself — see deploy.yml.
+      #
+      # Offline (stubbed curl), no credentials, no network. It is red against a
+      # gate whose detection is removed — 5 of 19 assertions fail — which is the
+      # only evidence it tests the right thing.
+      - name: Self-test the storefront checkout gate
+        run: ./scripts/ci/storefront-checkout-gate.test.sh
+
   # STI-538: product status is declared twice — catalog/products/*.yaml says
   # ACTIVE, nixlab nix/tofu/shopify/terranix.nix says "draft". The live store is
   # ACTIVE on all three SKUs, and the terranix resources use update_method=PUT,
