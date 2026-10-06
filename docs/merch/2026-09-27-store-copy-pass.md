@@ -97,6 +97,22 @@ design change.
 > `2–3 weeks` itself has no supplier quote behind it** — see the note at the end
 > of this section. Do not read the fix as validation of the number.
 
+> **STATUS 2026-10-05 (STI-681): the quoted `Shipping & Returns` body is STALE.**
+> The `Returns accepted within 14 days of delivery if unworn and unaltered.`
+> string below is no longer on any PDP, and it was never sourced from anyone:
+> commit `79ad80e` (#204) authored it while stripping unverified prose out of
+> the PDP, and before that commit no SKU mentioned returns at all. The same
+> commit gave the lanyard and sticker `Final sale.`, so the store briefly
+> published two mutually exclusive returns policies. All three PDPs now render
+> one uniform line, `No returns. Faulty or wrong items replaced.`, declared once
+> in `catalog/returns/default.yaml` and enforced by
+> `scripts/ci/returns-claim-gate.sh` (PASSES on `origin/main`, measured
+> 2026-10-05). **That direction is an explicitly UNCONFIRMED default, not an
+> operator decision** — the `ask_user_questions` card on
+> [STI-681](/STI/issues/STI-681) is still `pending`. Do not cite it as ratified
+> policy. The line above is kept as a dated record; the lead-time finding it
+> supports is unaffected and still stands.
+
 The hoodie PDP renders **"Allow 2–3 weeks for production"** (from Shopify,
 system of record per
 [ADR 2026-07-21](2026-07-21-shopify-as-system-of-record.md)), but the repo

@@ -25,6 +25,10 @@ filled report existed.
 > art direction, not photography. Owner attribution only — no number changed.
 >
 > **Fourth correction, 2026-09-29 (re-verification pass, no metric changed).**
+> ⚠️ **Partly superseded by the fifth and sixth corrections below — read those
+> first.** The returns half of the quoted PDP body was never sourced and is no
+> longer on the page; the quoted lead-time reason was false. The lead-time
+> *conclusion* (no longer self-contradictory) still stands.
 > The Section 6 `og:image` row still listed the lead-time item as open on
 > [STI-439](/STI/issues/STI-439). Re-fetched live this run, that item is
 > **resolved**: the hoodie PDP `Shipping & Returns` body now reads
@@ -47,6 +51,33 @@ filled report existed.
 > with evidence: `docs/merch/2026-10-01-september-period-close.md` § Correction 1,
 > and [STI-609](/STI/issues/STI-609). **No revenue figure changed** — the $0.00
 > is a gate fact, independent of copy.
+
+> **Sixth correction, 2026-10-05 (returns-promise provenance, no metric changed).**
+> The fourth amendment above quotes the returns half of the hoodie PDP body —
+> `Returns accepted within 14 days of delivery if unworn and unaltered.` — and
+> treats it as a settled page fact. **That string was never sourced from anyone,
+> and it is no longer on the page.** It was authored by commit `79ad80e` (#204,
+> "product descriptions are spec lines, not brand prose") while that change was
+> stripping unverified selling language out of the PDP; before `79ad80e` no SKU
+> mentioned returns at all. The same commit gave the lanyard and sticker
+> `Final sale.`, so the store published two mutually exclusive returns policies
+> at once and this report cited one of them as evidence that a *different*
+> defect was fixed. That is the STI-226 shape inside this report's own
+> provenance chain. Full evidence and the operator question:
+> [STI-681](/STI/issues/STI-681).
+>
+> Re-fetched live **2026-10-05**, all three PDPs HTTP 200, each now renders one
+> uniform line: `No returns. Faulty or wrong items replaced.`
+> (`preview.stitch-ash.com/product/sku-001|002|003`; `Returns within 14 days`
+> ×0, `Final sale.` ×0). The direction is declared once in
+> `catalog/returns/default.yaml` and validated by
+> `scripts/ci/returns-claim-gate.sh`, which now **PASSES** on `origin/main`
+> (measured this run) instead of failing on the split. **The direction is an
+> explicitly UNCONFIRMED default, not an operator decision** — the
+> `ask_user_questions` card on [STI-681](/STI/issues/STI-681) is still `pending`
+> and no user has answered. Do not cite the returns line in any future report,
+> to a supplier, or to a customer as a ratified policy. No revenue figure
+> changed — the $0.00 is still a gate fact.
 
 Structure and the binding provenance rules are defined in
 `docs/merch/2026-09-27-kpi-report-template.md` and are not restated here.
