@@ -649,11 +649,27 @@ in it is written to Shopify by `catalog:apply`. Do not restate the line in this
 document, in a SKU, or in `app/data/products.ts` as freehand copy — restate it
 from the policy file, or the drift returns.
 
-Enforcement, both layers: `src/catalog/product-copy.test.ts` fails CI unless
-every SKU's returns lines equal the policy file's `lines` (and the static
-fallback in `app/data/products.ts` equals the catalog `bodyHtml`), and
+Enforcement, three layers, because the first two only ever compared the repo
+to itself: `src/catalog/product-copy.test.ts` fails CI unless every SKU's
+returns lines equal the policy file's `lines` (and the static fallback in
+`app/data/products.ts` equals the catalog `bodyHtml`),
 `scripts/ci/returns-claim-gate.sh` fails when the classified directions
-diverge.
+diverge, and `scripts/ci/shop-policy-gate.sh` asks the **live store** whether
+it publishes a refund policy at all and whether that policy contradicts this
+file's `direction:`.
+
+The third layer exists because the first two were the whole story until
+2026-10-05, and the store published **no** refund policy while every PDP
+promised one — `shop { refundPolicy { url } }` returned `null`, so checkout had
+a privacy policy to link and no returns policy to link. `returns-claim-gate.sh`
+names its own limit in that respect: it does not call the Shopify API, so a
+policy that exists only in Shopify is invisible to it. `shop-policy-gate.sh`
+reads `direction:` from the policy file rather than hardcoding a position, so it
+follows an operator decision instead of second-guessing it, and it fails OPEN
+on a missing token or an unreachable store so that a fork pull request is not
+blocked by a secret it cannot have — which is why its self-test pins the
+negative controls, since "I could not ask" must never be reported as "the
+policy is missing".
 
 ### Navigation
 - Sticky, transparent over hero, ink-black on scroll.

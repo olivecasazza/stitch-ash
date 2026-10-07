@@ -318,6 +318,67 @@ jobs:
       - name: Run returns-claim gate
         run: ./scripts/ci/returns-claim-gate.sh
 
+  # STI-688: every policy gate above is offline, and the repo says so itself.
+  # returns-claim-gate.sh's own scope note: "It does not call the Shopify API
+  # and reads no secret. If Shopify holds a description that overrides both, that
+  # is not covered here." That limit was not theoretical — it WAS this defect.
+  # The store publishes no refund policy at all (`shop { refundPolicy { url } }`
+  # -> null, re-measured against the live store 2026-10-05), while three PDPs
+  # promise "No returns. Faulty or wrong items replaced." So CI proved the SKUs
+  # agreed with each other and never once asked the store what it publishes.
+  #
+  # This job is the only one that asks. Two assertions, and the second is the
+  # one that earns the job: not merely that a policy EXISTS, but that it does not
+  # contradict `direction:` in catalog/returns/default.yaml. A policy that
+  # exists and says the opposite is worse than no policy, because it looks
+  # authoritative and it is what checkout will link.
+  #
+  # It fails OPEN on a missing token, a non-200, or a GraphQL `errors` array, so
+  # a fork pull request — which has no storefront token — is not blocked by a
+  # secret it cannot have. That makes this job capable of being green while
+  # measuring nothing, which is why the self-test runs first and pins the
+  # negative controls: an absent token and a dead socket must both be reported
+  # INCONCLUSIVE and must never be reported as a missing policy. "I could not
+  # ask" is not "the policy is missing", and conflating them is the exact false
+  # green this job exists to end.
+  #
+  # EXPECTED RED on every pull request until an operator publishes the policy
+  # (STI-688) and the direction it publishes is the one STI-681 settles. That
+  # red is correct: a merged PR cannot fix it, and the alternative is a store
+  # with no first-party home for the promise every PDP makes.
+  #
+  # PR-CHECKS ONLY, and deliberately not on the deploy path, unlike
+  # storefront-checkout-gate. deploy.yml is already red at 6a3ef7c on that gate
+  # (STI-660: the apex is password-gated), and a failing step aborts the steps
+  # after it, so a second red step added after it would never execute — it would
+  # sit dead until the operator clears the password and then surprise them with a
+  # red they had not agreed to. STI-415's rule ("a gate that only exists on a
+  # pull_request cannot protect the artifact a deploy publishes") does not apply
+  # here: this gate asserts a property of the LIVE STORE, not of the artifact
+  # the deploy publishes. A deploy cannot regress the store's policy, so nothing
+  # is left unprotected. If the operator would rather have it reported on deploy
+  # too, that is a one-step addition and their call, not a default.
+  shop-policy-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run shop-policy-gate self-test
+        run: ./scripts/ci/shop-policy-gate.test.sh
+
+      - name: Ask the live store what policy it publishes
+        env:
+          # The Storefront API answers this store's unauthenticated `shop`
+          # query with HTTP 400 "Online Store channel is locked." (STI-660), so
+          # presence cannot be asserted anonymously. Already mapped into this
+          # workflow for the build and typecheck steps — no new secret.
+          SHOPIFY_STOREFRONT_TOKEN: ${{ secrets.SHOPIFY_STOREFRONT_ACCESS_TOKEN }}
+          SHOPIFY_STOREFRONT_DOMAIN: stitch-and-ash.myshopify.com
+        run: ./scripts/ci/shop-policy-gate.sh
+
   # STI-609: the hoodie "2-3 weeks" lead-time defect survived an audit pass
   # because the audit's own search command could not see the string it was
   # auditing. Under the runner locale (LC_CTYPE=ANSI_X3.4-1968) grep's `.` is
