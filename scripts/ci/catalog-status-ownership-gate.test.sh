@@ -21,7 +21,7 @@
 #
 # A gate that only fails on disagreement is a gate that passes on the cheapest
 # possible edit. These tests pin the two-field invariant, and pin that a
-# not-reachable nixlab tree is reported as SKIPPED rather than as a pass.
+# comparison which cannot be performed never reports a pass.
 #
 # ── STI-569: the conflicting nixlab is a file in this repo ─────────────────
 #
@@ -208,12 +208,32 @@ make_terranix "$WORK/t4/nixlab/nix/tofu/shopify/terranix.nix" draft continue
 out="$(NIXLAB_DIR="$WORK/t4/nixlab" bash "$GATE" "$WORK/t4/catalog" 2>&1)" && code=0 || code=$?
 bad "status draft vs ACTIVE still conflicts" "CONFLICT" "$out" "$code"
 
-# ── 5. A missing nixlab tree is SKIPPED, never reported as a pass ─────────
+# ── 5. A missing nixlab tree still cannot read as a pass (STI-667) ──────────
+#
+# This assertion used to require exit 0 with `SKIPPED (not a pass)` in the
+# output. STI-667 reversed the exit code while keeping the intent: the gate
+# must never report a cross-repo pass it did not perform.
+#
+# What changed is WHERE the comparison comes from, not whether it happens. The
+# committed fixture (STI-569) is now the default second declaration, so an
+# absent NIXLAB_DIR means the gate compares the fixture and can genuinely
+# disagree with the catalog — instead of skipping. So the absent-tree case is
+# now a real FAIL on the conflict shape, not a skip.
+#
+# The un-skippable cases are covered separately in tests 8 and 9: with the
+# fixture removed too, the gate exits 2 rather than 0.
 out="$(NIXLAB_DIR="$WORK/does-not-exist" bash "$GATE" "$WORK/t3/catalog" 2>&1)" && code=0 || code=$?
-if [ "$code" -eq 0 ] && printf '%s' "$out" | grep -q 'SKIPPED (not a pass)'; then
-  ok "absent nixlab tree reports SKIPPED (not a pass)"
+if printf '%s' "$out" | grep -q 'origin: COMMITTED FIXTURE'; then
+  ok "absent nixlab tree falls back to the committed fixture and says so"
 else
-  printf '  FAIL absent nixlab tree: exit %s, output did not say SKIPPED (not a pass)\n' "$code"
+  printf '  FAIL absent nixlab tree did not report the fixture origin\n'
+  printf '%s\n' "$out" | sed 's/^/         /'
+  fail=$((fail + 1))
+fi
+if [ "$code" -ne 0 ]; then
+  ok "the fixture comparison actually ran (conflict shape fails the gate)"
+else
+  printf '  FAIL fixture fallback exited 0 — that is the STI-561 false green again\n'
   printf '%s\n' "$out" | sed 's/^/         /'
   fail=$((fail + 1))
 fi
@@ -242,6 +262,80 @@ else
   printf '  FAIL unparseable terranix did not report "nothing to compare"\n'
   printf '%s\n' "$out" | sed 's/^/         /'
   fail=$((fail + 1))
+fi
+
+# ── 8. With no second declaration at all, the gate exits 2, not 0 ──────────
+#
+# STI-667. This is the exact shape STI-561 reported: no real nixlab checkout,
+# and here no committed fixture either, so there is nothing to compare against.
+# The old gate printed `SKIPPED (not a pass)` and exited 0, and CI went green on
+# a comparison that never happened.
+#
+# It is built in a scratch repo root rather than by deleting the real fixture, so
+# this suite cannot destroy the file it depends on to run at all.
+SCRATCH_REPO="$WORK/t8/repo"
+mkdir -p "$SCRATCH_REPO/scripts/ci"
+cp "$GATE" "$SCRATCH_REPO/scripts/ci/catalog-status-ownership-gate.sh"
+make_catalog "$SCRATCH_REPO/catalog" ACTIVE CONTINUE
+out="$(NIXLAB_DIR="$WORK/does-not-exist" bash "$SCRATCH_REPO/scripts/ci/catalog-status-ownership-gate.sh" \
+         "$SCRATCH_REPO/catalog" 2>&1)" && code=0 || code=$?
+if [ "$code" -eq 2 ]; then
+  ok "no second declaration at all exits 2, distinct from a conflict"
+else
+  printf '  FAIL no second declaration: exit %s, expected 2 (0 is the STI-561 false green)\n' "$code"
+  printf '%s\n' "$out" | sed 's/^/         /'
+  fail=$((fail + 1))
+fi
+if printf '%s' "$out" | grep -q 'Refusing to pass'; then
+  ok "the un-comparable case refuses to pass in words as well as exit code"
+else
+  printf '  FAIL un-comparable case did not say it refuses to pass\n'
+  printf '%s\n' "$out" | sed 's/^/         /'
+  fail=$((fail + 1))
+fi
+
+# ── 9. A real nixlab tree takes precedence over the fixture ───────────────
+#
+# The fixture is the fallback, not the default. If a real tree is supplied, the
+# gate must compare THAT and must not quietly fall back to the frozen copy,
+# because the whole value of a real checkout is that it is the current truth.
+make_catalog "$WORK/t9/catalog" ACTIVE CONTINUE
+make_terranix "$WORK/t9/nixlab/nix/tofu/shopify/terranix.nix" active continue
+out="$(NIXLAB_DIR="$WORK/t9/nixlab" bash "$GATE" "$WORK/t9/catalog" 2>&1)" && code=0 || code=$?
+if printf '%s' "$out" | grep -q 'origin: real nixlab checkout'; then
+  ok "a real nixlab tree is compared in preference to the fixture"
+else
+  printf '  FAIL real nixlab tree was not preferred over the fixture\n'
+  printf '%s\n' "$out" | sed 's/^/         /'
+  fail=$((fail + 1))
+fi
+if [ "$code" -eq 0 ]; then
+  ok "agreeing declarations still pass with a real tree (exit 0)"
+else
+  printf '  FAIL agreeing declarations exited %s with a real nixlab tree\n' "$code"
+  printf '%s\n' "$out" | sed 's/^/         /'
+  fail=$((fail + 1))
+fi
+
+# ── 10. The CI shape itself must not be a silent pass ──────────────────────
+#
+# This is the invocation CI runs: no NIXLAB_DIR, this repo's real catalog. It
+# must reach a comparison and report which origin it used. Whatever it decides
+# about draft-vs-ACTIVE, it must never report a cross-repo pass it did not
+# perform, and it must never claim to have read nixlab.
+out="$(env -u NIXLAB_DIR bash "$GATE" 2>&1)" && code=0 || code=$?
+if printf '%s' "$out" | grep -qE 'origin: (COMMITTED FIXTURE|real nixlab checkout)'; then
+  ok "the CI invocation names which declaration it compared against"
+else
+  printf '  FAIL CI invocation did not report a comparison origin\n'
+  printf '%s\n' "$out" | sed 's/^/         /'
+  fail=$((fail + 1))
+fi
+if printf '%s' "$out" | grep -q 'NOT REACHABLE'; then
+  printf '  FAIL CI invocation still skips the comparison\n'
+  fail=$((fail + 1))
+else
+  ok "the CI invocation performs the comparison instead of skipping it"
 fi
 
 echo ""
