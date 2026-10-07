@@ -138,8 +138,13 @@ const isIdentStart = c => c !== undefined && /[A-Z_$]/i.test(c)
 const isIdentPart = c => c !== undefined && /[\w$]/.test(c)
 
 /**
- * Replace every mangled local binding with a stable placeholder derived from
- * FIRST-USE ORDER, leaving every other byte exactly as it was.
+ * Replace every mangled local binding with a stable placeholder, leaving every
+ * other byte exactly as it was.
+ *
+ * The placeholder is derived from FIRST-USE ORDER for an ordinary binding, and
+ * from the PUBLIC export name for a binding that is re-exported — see the STI-689
+ * note inside this function for why the second rule exists and why the public name
+ * is the only invariant available.
  *
  * WHY THIS EXISTS (STI-573). Nitro embeds the public asset manifest — 52 entries
  * carrying a per-file `mtime` and a content `etag` — inside the same bundle it
@@ -181,6 +186,11 @@ const isIdentPart = c => c !== undefined && /[\w$]/.test(c)
  *   - First-use order is stable under a rename: a rename is a bijection over
  *     names, so the token at position N keeps its position. That is what makes
  *     the placeholder sequence identical for both builds.
+ *   - A RE-EXPORTED binding is keyed on its public name instead (STI-689), because
+ *     first use for such a binding is its position in the `export{...}` list, and
+ *     that position is what the minifier's tie-break shuffles. The public name is
+ *     a byte both builds agree on. This rule was measured to close all three of
+ *     the export shapes; see scripts/artifact-normalise.test.mjs.
  *   - Across chunks, the coupling is covered too: a chunk that imports
  *     `import{Gl as e}` reads the name at the same position as one that imports
  *     `import{Jl as e}`, so both canonicalise to the same token.
@@ -256,6 +266,67 @@ const canonicaliseMangledNames = (text) => {
     // private name must not be canonicalised by global first use.
     const stack = [{ kind: 'code', depth: 0, priv: null, next: 0, pending: null }]
     const top = () => stack[stack.length - 1]
+
+    // --- STI-689: the export surface is keyed on the PUBLIC name, not first use ---
+    //
+    // A re-exported binding is named in TWO places: in the `export{X as p}` list,
+    // where `p` is a PUBLIC name the minifier never renames, and at the binding's
+    // own occurrences, where `X` is a mangled local whose name it DOES shuffle.
+    // Keying the placeholder on textual first use therefore keys it on whichever
+    // of the two the minifier reached first, and for a binding that appears only
+    // in the export list that is its position IN THE LIST. Two builds of one
+    // program then disagree on whether the placeholder before `as mask` is the
+    // one for `Gl` or the one for `Jl`, and the whole file fails to collapse.
+    //
+    // WHAT IS INVARIANT, and why. `p` is content — both builds spell it the same
+    // way, always — so it is the one input to the assignment that the minifier
+    // cannot move. Keying a re-exported binding on its public name is therefore
+    // invariant under BOTH perturbations at once: any permutation of the local
+    // names, and any reorder of the export list itself.
+    //
+    // WHY NOT DECLARATION SLOT, the treatment the private names above got. A
+    // private slot is class-local: slot N is the Nth private member of THAT class,
+    // and the transposition esbuild performs is between ADJACENT members, so both
+    // builds hand the swapped members the same slots and the placeholders agree.
+    // A top-level counter spans the whole file, so a binding's slot is a function
+    // of every binding declared before it — and if two declarators are also
+    // reordered, the slot assignment is not merely unstable but *is* the reorder.
+    // No slot rule can be invariant under that. The public name is.
+    //
+    // WHY NOT EXPORT-LIST POSITION. The list order is itself a function of the
+    // module graph and is exactly the thing observed to move, so keying on
+    // position would reinstate the coupling this removes.
+    //
+    // WHY THIS IS SAFE, and why it can only ever produce false reds. The public
+    // name is used as a placeholder SUFFIX, so no placeholder can collide with a
+    // byte the rule was told was content:
+    //   - `exportRoles` only reads a name out of an `export{...}` LIST, and
+    //     `escapeRole` maps every identifier character to `_<hex>`, so the
+    //     placeholder cannot contain a `,` or a `}` and cannot extend into the
+    //     next export entry.
+    //   - a public name the minifier would ITSELF have mangled is refused rather
+    //     than trusted, because such a name is not stable; the binding then keeps
+    //     its first-use key, which is the behaviour that shipped before STI-689.
+    //   - the substitution pass below can only match markers this function
+    //     emitted, and the NUL guard at the top guarantees no source byte can be
+    //     mistaken for one.
+    const roles = exportRoles(text)
+
+    /**
+     * Reject a role-keyed placeholder that would key two DIFFERENT bindings to one
+     * placeholder. That case is not a rename: `export{a as p,b as p}` is a syntax
+     * error, but `export{a as p}` in one build against `export{b as p}` in another
+     * would collapse two genuinely different artifacts onto one digest. The map is
+     * therefore checked for a conflict before it is used, and a conflicted public
+     * name falls back to the first-use key for BOTH bindings — the conservative
+     * branch, which can report drift but cannot hide content.
+     *
+     * Measured on the real dump from run 36630363851: 0 public names were bound to
+     * more than one local, so this rejects nothing in practice; it is there so the
+     * rule stays one-sided if the shape ever appears.
+     */
+    const unique = new Set(roles.values()).size === roles.size
+    const roleOf = word => (unique ? roles.get(word) : undefined)
 
     // A private METHOD can be READ before it is DECLARED. In minified output the
     // class body puts `static unsafeExposeInternals(e){...e.#P(1)...}` ahead of
@@ -512,7 +583,15 @@ const canonicaliseMangledNames = (text) => {
             const isKey = text[k] === ':' && (lastChar() === '{' || lastChar() === ',')
 
             if (MANGLED_NAME.test(word) && !NEVER_MANGLED.has(word) && !isMember && !isKey) {
-                if (!names.has(word)) names.set(word, `\u0000${names.size}\u0000`)
+                if (!names.has(word)) {
+                    // A re-exported binding is keyed on its PUBLIC name, which both
+                    // builds agree on, instead of on where its name happened to
+                    // appear first. See the STI-689 note above `exportRoles`.
+                    const role = roleOf(word)
+                    names.set(word, role === undefined
+                        ? `\u0000${names.size}\u0000`
+                        : `\u0000x${escapeRole(role)}\u0000`)
+                }
                 emit(names.get(word))
             }
             else {
@@ -534,6 +613,94 @@ const canonicaliseMangledNames = (text) => {
     // keeps its source form.
     return deferredId === 0 ? out : out.replace(/\u0000d(\d+)\u0000/g, (m, id) => resolved.get(id) ?? m)
 }
+
+/**
+ * Every `export{X as publicName}` pair in the file, as mangled-local → public name.
+ *
+ * Read in ONE pass ahead of the tokeniser rather than tested at each identifier.
+ * Testing at each identifier would mean asking whether the text still sits inside
+ * an open export list, and that test costs a backwards scan of the file for every
+ * identifier — quadratic on the 458KB nitro chunk, the same trap the two-character
+ * history above `emit` exists to avoid.
+ *
+ * `import{X as Y}` is deliberately NOT read: `Y` is an importer's LOCAL name and
+ * the minifier is free to rename it, so it carries no stability. `export{X}` with
+ * no `as` is a default export and has no public name of its own. Both are
+ * excluded by requiring the `export` keyword to open the run immediately before
+ * `X` inside a still-open list.
+ *
+ * @param {string} text whole file
+ * @returns {Map<string, string>} mangled local → public name, first entry wins
+ */
+const exportRoles = (text) => {
+    const roles = new Map()
+
+    // The whole list is matched and its ENTRIES split, rather than matching one
+    // entry with a regex. That is what makes `export{Gl as mask,Jl as limit}` key
+    // BOTH bindings: an entry pattern anchored on `export{` matches only the first
+    // entry and leaves the rest on the first-use key — the original defect,
+    // reduced to the second entry.
+    //
+    // `[^{}]*` is a safety property, not a simplification. A minified chunk is one
+    // flat scope whose braces nest arbitrarily, so a `{` between `export{` and the
+    // closing `}` means this is not the list that pattern describes. Bailing leaves
+    // those bindings on the first-use key — pre-STI-689 behaviour, which can report
+    // drift but cannot hide content.
+    const LIST = /export\s*\{([^{}]*)\}/g
+
+    for (const list of text.matchAll(LIST)) {
+        for (const entry of list[1].split(',')) {
+            // `X as p` is the shape, and BOTH names are present, but which side is
+            // the local and which is the public alias is not decidable from the
+            // entry alone — the re-exporting form `p as X` is spelled identically.
+            //
+            // It IS decidable from the rule's own definition, which is what this
+            // uses: `MANGLED_NAME` is a name of at most THREE characters, because
+            // that is the whole of esbuild's alphabet at this file size, and the
+            // minifier never shortens a name it did not generate. So in a pair where
+            // exactly one side is mangled-looking, that side is the LOCAL and the
+            // other is the stable public name — whichever side of the `as` it
+            // happens to sit on.
+            //
+            // When BOTH sides are mangled-looking neither is stable, and the entry
+            // is skipped: esbuild is free to have generated both names, so neither
+            // survives a rebuild. That keeps the binding on its first-use key.
+            const m = /^\s*([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)\s*$/.exec(entry)
+            if (!m) continue
+
+            const [a, b] = [m[1], m[2]]
+            const aShort = MANGLED_NAME.test(a)
+            const bShort = MANGLED_NAME.test(b)
+            if (aShort === bShort) continue
+            if (aShort && roles.has(b)) continue
+
+            const local = aShort ? a : b
+            const role = aShort ? b : a
+            if (role === 'default') continue
+            if (!roles.has(local)) roles.set(local, role)
+        }
+    }
+    return roles
+}
+
+/**
+ * Make a public name safe to embed in a NUL-delimited marker.
+ *
+ * The name goes into the placeholder itself, so it must be a token that cannot
+ * end the marker early or spill into the next export entry. `IDENT_CHAR` is
+ * exactly what a source identifier can consist of, so every one of them is
+ * escaped and the escape is unambiguous.
+ *
+ * @param {string} role the public export name
+ * @returns {string} the escaped suffix, empty for an empty name
+ */
+const IDENT_CHAR = /[A-Za-z0-9_$]/
+
+/** @param {string} role @returns {string} */
+export const escapeRole = role =>
+    [...role]
+        .map(ch => (IDENT_CHAR.test(ch) ? `_${ch.charCodeAt(0).toString(16)}` : `_x${ch.charCodeAt(0).toString(16)}_`))
+        .join('')
 
 /** Positions after which a `/` opens a regex literal rather than a division. */
 const REGEX_CAN_PRECEDE = /[({[,;:=!&|?+\-*%~^<>]/
