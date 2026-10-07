@@ -226,14 +226,7 @@ useSeoMeta({
         >
           Add to cart
         </button>
-        <button
-          v-else
-          class="pdp__atc-btn pdp__atc-btn--disabled"
-          disabled
-          aria-disabled="true"
-        >
-          Notify me when available
-        </button>
+        <NotifyMeBtn v-else :handle="handle" />
 
         <!-- The page had a single H1 and no subheads, so the accordion read as
              orphaned content to a screen reader. A visually-hidden H2 gives the
