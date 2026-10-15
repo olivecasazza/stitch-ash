@@ -607,7 +607,7 @@ Fit — Oversized. / Dropped shoulder.
 Construction — Double-stitched seams.
 Embroidery — Black thread on black. / Design on chest. / Mark on left sleeve.
 Care — Cold wash, inside out. / Tumble dry low or hang. / Do not dry-clean.
-Shipping & Returns — Made to order. / Ships in 2–3 weeks. / Tracked
+Shipping & Returns — Made to order in small batches. / Tracked
 shipping. / [returns lines — see below]
 ```
 

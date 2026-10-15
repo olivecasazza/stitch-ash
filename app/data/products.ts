@@ -77,8 +77,7 @@ const PRODUCTS_DATA: StaticProduct[] = [
       {
         label: "Shipping & Returns",
         lines: [
-          "Made to order.",
-          "Ships in 2–3 weeks.",
+          "Made to order in small batches.",
           "Tracked shipping.",
           "No returns. Faulty or wrong items replaced.",
         ],
