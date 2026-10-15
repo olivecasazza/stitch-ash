@@ -111,6 +111,12 @@ invites the comparison we do not want.
   renders (`<meta name="description">`, the description paragraph, the Nuxt
   payload). Do not treat "consistent" as "verified" — see §3b of
   `docs/merch/2026-09-27-store-copy-pass.md`.
+- **Update 2026-10-15 (STI-830, GM decision):** the unverified `2–3 weeks`
+  has been removed. `Made to order` is retained but now reads
+  `Made to order in small batches.` — a qualitative process claim with no
+  dated commitment. The supplier quote remains an open follow-up: if the
+  operator supplies a *confirmed* production lead time it can be restored
+  as a spec line. Until then, no number is stated.
 - Social content must show process, not mood. A mood shot is unprovable; a
   thread-level close-up of a sleeve mark is the whole brand in one frame.
 
