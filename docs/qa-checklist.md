@@ -409,6 +409,15 @@ reopened as STI-YYY`.
   duplicate. Pass closed `done`. Dead `.rounded-*` utilities in the
   shipped CSS bundle remain an open footgun, still unapplied.
 
+- STI-846 — 2026-10-16T11:23Z — daily standing pass against live `https://preview.stitch-ash.com` — **all non-visual gates green; drift already tracked**.
+  HTTP 200: `/` (28777 B), `/shop` (collection page, 3 product cards sku-001..003), `/product/sku-001`; `/products/sku-001` → `308` → `/product/sku-001`.
+  Both Pages Functions alive and validating: `GET /api/bug-report` → `400 {"error":true,...,"message":"Invalid JSON payload"}`; `POST` valid-shape → `400 "Please describe the bug in at least 10 characters."`; `GET /api/checkout` → `400`; `POST` → `400 "Provide either { items: [...] } for checkout or { intent: \"waitlist\", email } for waitlist."`.
+  404 probe (browser `Accept`) on `/nope-sti846` → `404`, `text/html`, body contains `error-page` + `Back to home`.
+  No internal/ops copy on `/`, `/shop`, `/product/sku-001` (only legit care copy "Do not dry-clean"; `ci` grep hits are CSS hash/`color` substrings).
+  Deploy provenance: live `/__build.json` = `517a6c62eb8cd6acccc284b6b1a431354045169d` = headSha of deploy run [37338901698](https://github.com/olivecasazza/stitch-ash/actions/runs/37338901698) (2026-10-05T16:11:32Z), whose `deploy` job itself concluded `success` — not a fresh-check green no-op (STI-601 check). `origin/main` HEAD `0284cf60` (2026-10-15T06:37:15Z); `git merge-base --is-ancestor` proves `517a6c62` is an ancestor of main → lag, not a broken deploy; all 4 commits in `517a6c6..0284cf6` were authored after the run finished — normal steady-state lag per the runbook.
+  **Drift >24h persists**: last 10 `deploy.yml` runs (through 2026-10-16T09:10Z) all `failure`. NOT re-filed — already tracked as [STI-733](/STI/issues/STI-733), blocked on [STI-694](/STI/issues/STI-694) (P0: deploys red by design until the Shopify storefront password is cleared, [STI-519](/STI/issues/STI-519) board action).
+  Contrast: the computed-token check from the 2026-10-02 pass still covers the live state (`5884ae8` is an ancestor of live `517a6c62`). Rendered 3-viewport graded visual gate remains **unverified**, owned by [STI-523](/STI/issues/STI-523) / [STI-478](/STI/issues/STI-478) (blocked). Closed `done`.
+
 ### Method notes worth keeping (learned the hard way this cycle)
 
 **HTTP 200 with an empty body is not a result — check the payload.**
