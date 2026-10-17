@@ -13,6 +13,18 @@ gates that block a bad PR from merging are in `.github/workflows/pr-checks.yml`.
 
 Related issues: [STI-232](/issues/STI-232) (parent), [STI-305](/issues/STI-305) (this runbook), [STI-226](/issues/STI-226) (the six weeks of hallucinated deploys that motivated the verification posture in this file).
 
+## Deploy-drift log
+
+- **2026-10-17** — Live `https://preview.stitch-ash.com` at `517a6c62`
+  (`/__build.json`, home HTTP 200); `origin/main` at `a53bff8a` — **5 commits
+  ahead** and widening. Latest `deploy.yml` run
+  ([38989783479](https://github.com/olivecasazza/stitch-ash/actions/runs/38989783479))
+  failed at `Storefront checkout reachability gate`; the [STI-694](/STI/issues/STI-694)
+  P0 freeze holds. Tracked on [STI-733](/STI/issues/STI-733). Also this date:
+  the execution workspace is again a git repo with remote
+  `https://github.com/olivecasazza/stitch-ash.git` — the workspace-mismatch
+  blocks filed 2026-10-08/09/11/14 no longer apply to this workspace.
+
 ## Standing QA Checklist
 
 The `qa-verifier` agent runs the following checks before signing off any
