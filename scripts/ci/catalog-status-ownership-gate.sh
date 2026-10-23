@@ -33,9 +33,49 @@
 #   - It compares DECLARED text. It does not call the Shopify Admin API, and it
 #     does not read any secret. Live store state is verified by `catalog:plan`
 #     under operator-supplied credentials, not here.
-#   - When the nixlab tree is not reachable (CI, a fresh clone), the gate
-#     verifies the single-repo invariant and reports SKIPPED for the cross-repo
-#     comparison. It never reports a cross-repo PASS it did not perform.
+#
+# ── STI-667: a skipped comparison is no longer allowed to exit 0 ─────────────
+#
+# STI-561 is right that this gate was structurally blind in CI and wrong about
+# the consequence. The blind part was real: no workflow checks out the private
+# nixlab repo, so the cross-repo comparison never ran on a runner, and the gate
+# printed SKIPPED and then exited 0. A green build on a check that never
+# happened is the same failure this repo already shipped twice.
+#
+# The previous response to that — "exit 0 but say SKIPPED (not a pass)" — fixed
+# the message and left the defect. The message is now accurate and CI is still
+# green on it, because the exit code is what CI reads.
+#
+# So there are now three outcomes instead of two:
+#
+#   1. A real nixlab tree is reachable  -> compare it. Unchanged.
+#   2. Only the committed fixture      -> compare THAT, and name it. This is
+#      the new default: scripts/ci/fixtures/catalog-status-ownership/nixlab/
+#      holds the conflict shape as a file in THIS repo, so a fresh clone and a
+#      GitHub runner can both perform the comparison instead of skipping it.
+#   3. Neither is reachable            -> exit 2. Not 0.
+#
+# Why the fixture is safe to compare against, and why it is still not the real
+# file. The fixture is a hand-frozen reduction that has already drifted from the
+# blob it stands in for, so comparing against it is not the same claim as
+# comparing against nixlab. It is a DIFFERENT claim: that this repo's catalog
+# and its committed record of the adjacent declaration agree. That is worth
+# having automatically, and it is what CI can actually obtain.
+#
+# What keeps the fixture honest is terranix-projection-pin.sh, which pins the
+# exact (handle, status, inventory_policy) projection of the real terranix and
+# is verified by whoever can read the private repo. If someone edits the fixture
+# to turn this gate green, that pin mismatches. The two files together mean
+# "the comparison ran" and "the thing compared is still what nixlab says" are
+# separate, individually checkable statements rather than one hopeful one.
+#
+# The honest limit, stated: CI cannot prove the fixture still matches nixlab.
+# Anyone reading a green run knows the comparison happened and knows it ran
+# against a frozen projection; they do NOT get a fresh reading of nixlab. The
+# pin comparison is the separate step that establishes that, and it requires
+# private-repo access. Do not let a green gate imply more than that.
+
+# ── STI-557: the invariant is TWO fields, not one ──────────────────────────
 #
 # ── STI-557: the invariant is TWO fields, not one ──────────────────────────
 #
@@ -67,7 +107,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CATALOG_DIR="${1:-$REPO_ROOT/catalog/products}"
 
-# Adjacent nixlab, per flake.nix's own NIXLAB_DIR convention.
+# The nixlab tree to compare against, if a real one is supplied.
 NIXLAB_DIR="${NIXLAB_DIR:-$REPO_ROOT/../nixlab}"
 TERRANIX="${2:-}"
 if [ -z "$TERRANIX" ]; then
@@ -76,6 +116,22 @@ if [ -z "$TERRANIX" ]; then
     "$REPO_ROOT/nix/tofu/shopify/terranix.nix"; do
     if [ -f "$candidate" ]; then TERRANIX="$candidate"; break; fi
   done
+fi
+
+# STI-667: what a given terranix file actually IS, decided once, so the gate can
+# be honest about which claim it is making instead of implying they are the same.
+#   real     — a real nixlab checkout was supplied
+#   fixture  — the committed reduction in this repo, a fresh reading of a frozen
+#              projection rather than of nixlab
+TERRANIX_ORIGIN="real"
+FIXTURE_TERRANIX="$REPO_ROOT/scripts/ci/fixtures/catalog-status-ownership/nixlab/nix/tofu/shopify/terranix.nix"
+if [ -z "$TERRANIX" ] || [ ! -f "$TERRANIX" ]; then
+  if [ -f "$FIXTURE_TERRANIX" ]; then
+    TERRANIX="$FIXTURE_TERRANIX"
+    TERRANIX_ORIGIN="fixture"
+  else
+    TERRANIX=""
+  fi
 fi
 
 fail() {
@@ -171,16 +227,42 @@ if [ "$missing_policy" -gt 0 ]; then
 fi
 
 # ── Step 2: the second declaration ────────────────────────────────────────
-if [ -z "$TERRANIX" ] || [ ! -f "$TERRANIX" ]; then
-  echo "  nixlab terranix: NOT REACHABLE — cross-repo comparison SKIPPED (not a pass)"
+if [ -z "$TERRANIX" ]; then
+  # STI-667: this is the case that used to exit 0. It is now reachable only when
+  # BOTH a real nixlab tree and this repo's committed fixture are absent, which
+  # means someone deleted the fixture or is running a partial checkout. Neither
+  # is a state this gate can pass in, because there is nothing to compare
+  # against and a gate with nothing to compare must not report success.
+  #
+  # Exit 2, distinct from 1: exit 1 means "the two declarations actively
+  # disagree", which is a finding about the catalog. Exit 2 means "the check
+  # could not be performed", which is a finding about the checkout. Collapsing
+  # them would hide a broken runner behind a catalog finding.
+  echo "  nixlab terranix: NOT REACHABLE, and no committed fixture at"
+  echo "    $FIXTURE_TERRANIX"
   echo ""
-  echo "Single-repo invariant held: every catalog product declares a status."
-  echo "The cross-repo check runs when the nixlab tree is present:"
+  echo "Refusing to pass: the cross-repo comparison could not be performed at all."
+  echo "There is no second declaration to compare against, so there is no evidence"
+  echo "that this repo's catalog and the adjacent declaration agree."
+  echo ""
+  echo "To perform the comparison, supply a real nixlab tree:"
   echo "  NIXLAB_DIR=/path/to/nixlab ./scripts/ci/catalog-status-ownership-gate.sh"
-  exit 0
+  echo "or restore the committed fixture:"
+  echo "  scripts/ci/fixtures/catalog-status-ownership/nixlab/"
+  exit 2
 fi
 
-echo "  nixlab terranix: $TERRANIX"
+if [ "$TERRANIX_ORIGIN" = "fixture" ]; then
+  echo "  nixlab terranix: $TERRANIX"
+  echo "  origin: COMMITTED FIXTURE — a frozen projection of nixlab, not a fresh"
+  echo "          reading of it. This comparison DID run. Whether that projection"
+  echo "          still matches casazza-info/nixlab is a separate question, answered"
+  echo "          by ./scripts/ci/terranix-projection-pin.sh --compare <terranix.nix>"
+  echo "          from a context that can read the private repo."
+else
+  echo "  nixlab terranix: $TERRANIX"
+  echo "  origin: real nixlab checkout (NIXLAB_DIR)"
+fi
 
 # Extract each restapi_object product block's handle + status + policy from the
 # Nix. Blocks look like:
