@@ -110,6 +110,73 @@ export function unreachableDestinations(results: readonly CheckoutReachability[]
 }
 
 /**
+ * STI-618: the machine-readable shape of `catalog:plan`'s exit code.
+ *
+ * `catalog:plan` measured 24 unsellable destinations on the live store and
+ * still exited 0. That is not a harmless reporting quirk — it is the reason a
+ * live customer-visible outage can sit unfixed for days while every automated
+ * signal stays green:
+ *
+ *   - the operator approval gate is "approve the exact plan diff". A plan that
+ *     exits 0 and prints a `CHECKOUT-BLOCKING` paragraph at the bottom reads,
+ *     to a human skimming for a diff, as a clean plan.
+ *   - anything that shells `catalog:plan` and checks `$?` — CI, a script, a
+ *     wrapper — sees success. The prose was the only carrier of the signal, so
+ *     the outage had no exit code, no assertion and no monitor to attach to.
+ *
+ * So the verdict is promoted out of the prose and into the exit code, WITHOUT
+ * changing `catalog:apply`'s capability. The blocking condition is a *measured
+ * fact about the live store* (a declared destination quoting zero delivery
+ * options), not a request to change it: `catalog:apply` writes neither delivery
+ * profiles nor inventory, so it cannot fix this even if someone wanted it to.
+ * Exiting non-zero says "do not treat this plan as clean", which is exactly
+ * true, and it is what makes the condition attachable to a monitor.
+ *
+ * What deliberately does NOT set the flag, because each would be a false
+ * alarm on the live store today and a gate that cries wolf gets disabled:
+ *
+ *   - `inconclusive` (`addressAccepted=false`) — the probe proved nothing about
+ *     shipping; failing on it would manufacture an outage out of a bad address.
+ *   - `carrier-calculated` / `unverified` rates — the Admin API cannot read the
+ *     amount, which is an observability limit, not evidence a buyer is blocked.
+ *     The live store's declared international rule is exactly this case, so
+ *     failing on it would fail every plan forever.
+ *   - an absent storefront client or an unresolvable variant — already
+ *     reported as `SKIPPED (not a pass)` by the caller, which is the honest
+ *     outcome for a probe that could not run.
+ *
+ * The status codes are distinct rather than a single 1 so a caller can tell
+ * "the store is measurably broken" from "the probe could not run", and so a
+ * future monitor can alert on one without being silenced by the other.
+ */
+export const CHECKOUT_BLOCKED_EXIT_CODE = 2;
+/** Distinct from CHECKOUT_BLOCKED: the measurement itself could not be made. */
+export const CHECKOUT_PROBE_INCONCLUSIVE_EXIT_CODE = 3;
+
+export type CatalogPlanExit =
+  | { code: 0; reason: "clean" }
+  | { code: typeof CHECKOUT_BLOCKED_EXIT_CODE; reason: "checkout_blocked"; blocked: readonly CheckoutReachability[] }
+  | { code: typeof CHECKOUT_PROBE_INCONCLUSIVE_EXIT_CODE; reason: "probe_inconclusive"; inconclusive: readonly CheckoutReachability[] };
+
+/**
+ * Decide `catalog:plan`'s exit code from the probe results.
+ *
+ * `no_options` wins over `inconclusive`: a measured outage is the stronger
+ * finding, and reporting the weaker one would hide it behind an unproven probe.
+ */
+export function planExitFor(results: readonly CheckoutReachability[]): CatalogPlanExit {
+  const blocked = unreachableDestinations(results);
+  if (blocked.length > 0) {
+    return { code: CHECKOUT_BLOCKED_EXIT_CODE, reason: "checkout_blocked", blocked };
+  }
+  const inconclusive = results.filter(r => verdictFor(r) === "inconclusive");
+  if (inconclusive.length > 0) {
+    return { code: CHECKOUT_PROBE_INCONCLUSIVE_EXIT_CODE, reason: "probe_inconclusive", inconclusive };
+  }
+  return { code: 0, reason: "clean" };
+}
+
+/**
  * Parse the `cart { deliveryGroups { nodes { deliveryOptions } } }` payload.
  *
  * Split out from the transport so the shipping-verdict logic is testable without

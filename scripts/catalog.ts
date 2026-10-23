@@ -14,7 +14,13 @@ import {
   getDeliveryProfiles,
   getProductByHandle,
 } from "../src/catalog/shopify-admin.ts";
-import { describeReachability, PROBE_POSTAL_CODES, verdictFor } from "../src/catalog/checkout-rates.ts";
+import {
+  describeReachability,
+  planExitFor,
+  PROBE_POSTAL_CODES,
+  verdictFor,
+} from "../src/catalog/checkout-rates.ts";
+import type { CheckoutReachability } from "../src/catalog/checkout-rates.ts";
 import { probeCheckoutRates, storefrontClientFromEnv } from "../src/catalog/storefront-rates.ts";
 
 /**
@@ -247,6 +253,7 @@ async function main() {
   // `catalog:apply` does not write delivery profiles and a shipping rate change
   // is operator authority regardless (HARD RULE 5).
   const blockedDestinations: string[] = [];
+  const reachabilityResults: CheckoutReachability[] = [];
   const storefront = storefrontClientFromEnv();
   if (command === "plan" && storefront && shippingPolicies.length > 0 && products.length > 0) {
     // Probe one real sellable variant: shipping reachability is a property of
@@ -289,6 +296,7 @@ async function main() {
         for (const countryCode of countries) {
           try {
             const result = await probeCheckoutRates(storefront, variantGid, countryCode, PROBE_POSTAL_CODES[countryCode] ?? "");
+            reachabilityResults.push(result);
             console.log(`shipping: ${describeReachability(result)}`);
             if (verdictFor(result) === "no_options") blockedDestinations.push(`${countryCode} ${result.postalCode}`);
           } catch (error) {
@@ -324,6 +332,31 @@ async function main() {
           (oversoldVariants.length > 0 ? `, ${oversoldVariants.length} at NEGATIVE stock (oversold)` : "")
         : "";
     console.log(`catalog: plan complete; ${changeCount} pending product actions${shippingNote}${inventoryNote}`);
+
+    // STI-618: the prose above is not a signal anything can act on. Exit with
+    // the measured verdict so the outage is visible to `$?`, to CI and to any
+    // wrapper that shells this command — the operator's approval gate reads
+    // "the plan diff", and a plan that exits 0 while 24 destinations cannot
+    // complete checkout must not read as a clean plan.
+    //
+    // This does NOT change what `catalog:apply` can do (it writes neither
+    // delivery profiles nor inventory), it only stops the measurement from
+    // being silently swallowed. See planExitFor for why an inconclusive probe
+    // and a carrier-calculated rate deliberately do not trigger this.
+    const exit = planExitFor(reachabilityResults);
+    if (exit.code !== 0) {
+      console.log("");
+      console.log(
+        exit.reason === "checkout_blocked"
+          ? `catalog: EXIT ${exit.code} (CHECKOUT-BLOCKED) - this plan is NOT clean and must not be treated as an ` +
+              `approval-ready diff while ${exit.blocked.length} destination(s) cannot complete checkout. ` +
+              `catalog:apply cannot fix it: the fix is shipping-profile configuration, which is operator authority.`
+          : `catalog: EXIT ${exit.code} (PROBE-INCONCLUSIVE) - ${exit.inconclusive.length} destination(s) could not be ` +
+              `measured because the Storefront API rejected the address, so shipping reachability is UNKNOWN for them. ` +
+              `That is not a pass and not a defect.`,
+      );
+    }
+    process.exitCode = exit.code;
     return;
   }
 

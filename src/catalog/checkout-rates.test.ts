@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  CHECKOUT_BLOCKED_EXIT_CODE,
+  CHECKOUT_PROBE_INCONCLUSIVE_EXIT_CODE,
   describeReachability,
   parseDeliveryGroups,
+  planExitFor,
   PROBE_POSTAL_CODES,
   unreachableDestinations,
   verdictFor,
@@ -146,6 +149,104 @@ describe("describeReachability", () => {
     });
     assert.match(line, /reachable/);
     assert.match(line, /"Standard"=0\.0 USD/);
+  });
+});
+
+describe("planExitFor (STI-618)", () => {
+  const blocked = (countryCode: string): CheckoutReachability => ({
+    countryCode,
+    postalCode: PROBE_POSTAL_CODES[countryCode] ?? "00000",
+    addressAccepted: true,
+    probes: [],
+  });
+  const reachable = (countryCode = "US"): CheckoutReachability => ({
+    countryCode,
+    postalCode: PROBE_POSTAL_CODES[countryCode] ?? "10001",
+    addressAccepted: true,
+    probes: [pricedProbe("Standard", "0.0")],
+  });
+  const rejected = (countryCode: string): CheckoutReachability => ({
+    countryCode,
+    postalCode: PROBE_POSTAL_CODES[countryCode] ?? "00000",
+    addressAccepted: false,
+    probes: [],
+  });
+
+  it("exits 0 when every probed destination is sellable", () => {
+    assert.equal(planExitFor([reachable("US")]).code, 0);
+  });
+
+  // The assertion this whole change exists for: STI-618 measured 24 blocked
+  // destinations on the live store and `catalog:plan` still exited 0, which is
+  // why an active customer-visible outage read as a clean plan.
+  it("exits non-zero when a declared destination is quoted no shipping at all", () => {
+    const exit = planExitFor([reachable("US"), blocked("DE")]);
+    assert.equal(exit.code, CHECKOUT_BLOCKED_EXIT_CODE);
+    assert.equal(exit.reason, "checkout_blocked");
+  });
+
+  it("counts every blocked destination, not just the first", () => {
+    const exit = planExitFor([blocked("CA"), blocked("GB"), blocked("AU"), blocked("JP")]);
+    assert.equal(exit.code, CHECKOUT_BLOCKED_EXIT_CODE);
+    assert.equal(exit.reason === "checkout_blocked" ? exit.blocked.length : -1, 4);
+  });
+
+  it("does not let a single unproven probe fail the plan", () => {
+    // A rejected address proves nothing about shipping. Failing on it would
+    // manufacture an outage out of a malformed postal code, which is the exact
+    // error class this module was written to avoid.
+    const exit = planExitFor([reachable("US"), rejected("FR")]);
+    assert.notEqual(exit.code, CHECKOUT_BLOCKED_EXIT_CODE);
+  });
+
+  it("reports an unmeasurable destination distinctly rather than as clean", () => {
+    const exit = planExitFor([reachable("US"), rejected("ZZ")]);
+    assert.equal(exit.code, CHECKOUT_PROBE_INCONCLUSIVE_EXIT_CODE);
+    assert.equal(exit.reason, "probe_inconclusive");
+  });
+
+  it("never fails the plan for a carrier-calculated rate", () => {
+    // The live store's declared international rule is carrier-calculated, so a
+    // gate that failed here would fail every plan, forever, for a condition
+    // that is an Admin-API observability limit rather than a blocked sale.
+    const exit = planExitFor([
+      reachable("US"),
+      {
+        countryCode: "DE",
+        postalCode: "10115",
+        addressAccepted: true,
+        probes: [{ kind: "unverified", title: "dhl_express", methodType: "DeliveryParticipant" }],
+      },
+    ]);
+    assert.equal(exit.code, 0);
+  });
+
+  it("does not report a readable free rate as blocked", () => {
+    // A real 0.00 rate is one option whose amount is 0.0 — the US control. If
+    // this were confused with "no options" the store would look broken while
+    // it is working.
+    const exit = planExitFor([
+      {
+        countryCode: "US",
+        postalCode: "10001",
+        addressAccepted: true,
+        probes: [pricedProbe("Standard", "0.0")],
+      },
+    ]);
+    assert.equal(exit.code, 0);
+  });
+
+  it("prefers the measured outage over an unproven probe", () => {
+    // Reporting the weaker inconclusive finding would hide a real outage behind
+    // a probe that never ran.
+    const exit = planExitFor([blocked("CA"), rejected("ZZ")]);
+    assert.equal(exit.code, CHECKOUT_BLOCKED_EXIT_CODE);
+  });
+
+  it("uses distinct codes so a monitor can tell broken from unmeasured", () => {
+    assert.notEqual(CHECKOUT_BLOCKED_EXIT_CODE, CHECKOUT_PROBE_INCONCLUSIVE_EXIT_CODE);
+    assert.notEqual(CHECKOUT_BLOCKED_EXIT_CODE, 0);
+    assert.notEqual(CHECKOUT_PROBE_INCONCLUSIVE_EXIT_CODE, 0);
   });
 });
 
