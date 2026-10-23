@@ -21,7 +21,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { exclusionReason, normalise } from './artifact-normalise.mjs'
+import { escapeRole, exclusionReason, normalise } from './artifact-normalise.mjs'
 
 /** @param {string} s @returns {Buffer} */
 const buf = s => Buffer.from(s, 'utf8')
@@ -629,4 +629,99 @@ test('a chunk carrying NUL bytes is left entirely alone (STI-589)', () => {
     // unambiguously is reported as-is rather than half-rewritten.
     const source = minified(`const s="${SENTINEL}";class u{#a;f(e){return this.#a+e}}`)
     assert.equal(norm(CHUNK, source), source)
+})
+
+// ------------------------------------------------- re-exported names (STI-689)
+
+/**
+ * The export-surface half of STI-689. The private-member rules above key a
+ * placeholder on a class-local DECLARATION SLOT; a top-level binding cannot use
+ * that, because the top-level counter spans the whole file, so a binding's slot
+ * is a function of every binding declared before it and a reorder of the
+ * declarators IS the reorder. A re-exported binding is instead keyed on its
+ * PUBLIC name - the one input the minifier cannot move.
+ *
+ * Each fixture below is ONE program: `a` and `b` are two locals whose names the
+ * minifier shuffles, while the public names (`mask`, `limit`) and the values are
+ * identical in both builds. Distinct VALUES are used so that a value migrating
+ * between the two names still moves the digest (see the negatives below).
+ */
+const bothBodyBound = (a, b) =>
+    minified(`var ${a}=2047,${b}=2049;f(${a});f(${b});export{${a} as mask,${b} as limit};`)
+
+const bothExportOnly = (a, b) =>
+    minified(`var ${a}=2047,${b}=2049;export{${a} as mask,${b} as limit};`)
+
+const oneBodyOneExport = (a, b) =>
+    minified(`var ${a}=2047,${b}=2049;f(${a});export{${a} as mask,${b} as limit};`)
+
+test('two swapped re-exported bindings, both body-bound, normalise away (STI-689)', () => {
+    assert.ok(chunkCollapses(bothBodyBound('Gl', 'Jl'), bothBodyBound('Jl', 'Gl')))
+})
+
+test('two swapped re-exported bindings that appear only in the export list normalise away (STI-689)', () => {
+    // The shape that is pure first-use-list-position: neither local occurs in the
+    // body, so before the fix the placeholder came from the position in the list.
+    assert.ok(chunkCollapses(bothExportOnly('Gl', 'Jl'), bothExportOnly('Jl', 'Gl')))
+})
+
+test('one body-bound and one export-only re-exported binding normalise away (STI-689)', () => {
+    // `Jl` occurs exactly once, in the export list, while `Gl` is referenced by
+    // `f(Gl)`. Keying on first use mixed a declaration position with a list
+    // position for one pair of names.
+    assert.ok(chunkCollapses(oneBodyOneExport('Gl', 'Jl'), oneBodyOneExport('Jl', 'Gl')))
+})
+
+test('a changed exported VALUE still moves the digest (STI-689)', () => {
+    const a = oneBodyOneExport('Gl', 'Jl')
+    assert.ok(!chunkCollapses(a, a.replace('2047', '2048')))
+})
+
+test('a changed PUBLIC NAME still moves the digest (STI-689)', () => {
+    // The public name is now half of the placeholder, so this is the assertion
+    // that it is keyed on as CONTENT rather than merely ignored.
+    const a = oneBodyOneExport('Gl', 'Jl')
+    assert.ok(!chunkCollapses(a, a.replace('mask', 'cap')))
+})
+
+test('an alias REMOVED from the export list still moves the digest (STI-689)', () => {
+    const a = oneBodyOneExport('Gl', 'Jl')
+    assert.ok(!chunkCollapses(a, oneBodyOneExport('Gl', 'Jl').replace(',Jl as limit', '')))
+})
+
+test('a value moving to the OTHER alias still moves the digest (STI-689)', () => {
+    // Guards against the public-name key being too strong: keying two bindings on
+    // their public names must not make it invisible that 2047 and 2049 swapped
+    // which local holds them.
+    assert.ok(
+        !chunkCollapses(
+            oneBodyOneExport('Gl', 'Jl'),
+            minified('var Gl=2049,Jl=2047;f(Gl);export{Gl as mask,Jl as limit};'),
+        ),
+    )
+})
+
+test('a public name the minifier would itself have mangled is not trusted (STI-689)', () => {
+    // Both sides of `as` are mangled-looking, so neither is stable and the entry
+    // is skipped: the binding keeps its first-use key. Both builds still agree,
+    // because the rule falls back rather than inventing a key.
+    const bothShort = (a, b) => minified(`var ${a}=1,${b}=2;export{${a} as ${b}};`)
+    assert.ok(chunkCollapses(bothShort('Gl', 'Jl'), bothShort('Jl', 'Gl')))
+})
+
+test('escapeRole emits no bare identifier character, so a marker cannot be broken open', () => {
+    // The public name is embedded in a NUL-delimited marker, so every identifier
+    // character is escaped. The property asserted is the one that keeps a marker
+    // from running on into the next export entry or being matched as source: the
+    // escaped form carries no letter and no `,` or `}`.
+    for (const role of ['mask', 'a', '_', '$', '0', 'Gl', 'limit', 'a-b']) {
+        const escaped = escapeRole(role)
+        // Strip every escape the function emits (`_<hex>` or `_x<hex>_`); what is
+        // left must be empty, so no source byte survives outside an escape.
+        assert.equal(escaped.replace(/_x[0-9a-f]+_|_[0-9a-f]+/gu, ''), '', `"${role}" -> ${escaped}`)
+        assert.equal(escaped.length > 0, role.length > 0)
+    }
+    assert.equal(escapeRole(''), '')
+    // Two different names must not escape to the same marker.
+    assert.notEqual(escapeRole('mask'), escapeRole('caps'))
 })
