@@ -59,6 +59,15 @@ Architecture and business decisions live in [docs/decisions/README.md](docs/deci
 
 All changes go through pull requests with conventional commit titles. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full flow: semver labels, auto-merge rules, preview URL format, and branch protection setup.
 
+## Nix CI
+
+The flake exposes `checks.x86_64-linux.catalog-validate`, which runs the
+source-backed catalog validator after a frozen dependency install. Buildbot
+consumes this existing check through the `nixlab-ci` topic. The flake has no
+package or Hydra projection, so it intentionally does not import the shared
+projection helper.
+
 ## License
 
 MIT
+
