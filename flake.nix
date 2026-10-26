@@ -16,6 +16,13 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        pnpmDeps = pkgs.fetchPnpmDeps {
+          pname = "stitch-ash";
+          version = "0.1.0";
+          src = ./.;
+          fetcherVersion = 3;
+          hash = "sha256-AEL7U5/96qdALB4fwRTkXS7V2n2K6L/QheMrgVbh3m8=";
+        };
         nodePackages = with pkgs; [
           nodejs_22
           pnpm
@@ -219,14 +226,21 @@
         formatter = pkgs.nixfmt-rfc-style;
 
         checks = {
-          catalog-validate = pkgs.runCommand "catalog-validate" { nativeBuildInputs = [ pkgs.nodejs_22 ]; } ''
-            cp -r ${self} repo
-            chmod -R +w repo
-            cd repo
-            ${pkgs.pnpm}/bin/pnpm install --frozen-lockfile --ignore-scripts
-            ${pkgs.pnpm}/bin/pnpm catalog:validate
-            touch $out
-          '';
+          catalog-validate = pkgs.stdenvNoCC.mkDerivation {
+            pname = "catalog-validate";
+            version = "0.1.0";
+            src = ./.;
+            nativeBuildInputs = [
+              pkgs.nodejs_22
+              pkgs.pnpm
+              pkgs.pnpmConfigHook
+            ];
+            inherit pnpmDeps;
+            installPhase = ''
+              pnpm catalog:validate
+              touch "$out"
+            '';
+          };
         };
       }
     );
